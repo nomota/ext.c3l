@@ -49,8 +49,8 @@ struct DnsCacheEntry @private {
 //  cache table 
 
 struct DnsCache {
-    DnsCacheEntry[DNS_CACHE_CAP] entries @private;
-    usz  count    @private;   // number of valid entries
+    DnsCacheEntry[DNS_CACHE_CAP] entries;
+    usz  count;   // number of valid entries
     bool enabled;             // false = always miss (bypass cache)
     ulong ttl_us;             // default TTL in microseconds
 }
@@ -128,7 +128,7 @@ fn usz dns_free_slot(DnsCache* c, ulong now_us) @private
 // Initialise a DnsCache.
 fn void dns_cache_init(DnsCache* c, bool enabled, ulong ttl_us)
 {
-    c.count   = 0;
+    c.count = 0;
     c.enabled = enabled;
     c.ttl_us  = ttl_us;
     for (usz i = 0; i < DNS_CACHE_CAP; i++) c.entries[i].valid = false;
@@ -154,7 +154,7 @@ fn bool dns_cache_get(DnsCache* c, String host, char* out_ip, usz* out_ip_len)
             continue;
         }
 
-        if (dns_host_eq(e.host[0..], e.host_len, host.ptr, host.len)) {
+        if (dns_host_eq(&e.host[0], e.host_len, host.ptr, host.len)) {
             // hit — copy IP out
             for (usz j = 0; j < e.ip_len; j++) out_ip[j] = e.ip[j];
             out_ip[e.ip_len] = 0;
@@ -172,7 +172,7 @@ fn void dns_cache_put(DnsCache* c, String host, String ip, ulong ttl_us = 0)
 {
     if (!c.enabled) return;
 
-    ulong now    = asyncio::clock_now();
+    ulong now = asyncio::clock_now();
     ulong actual_ttl = ttl_us > 0 ? ttl_us : c.ttl_us;
     ulong expires = now + actual_ttl;
 
@@ -180,7 +180,7 @@ fn void dns_cache_put(DnsCache* c, String host, String ip, ulong ttl_us = 0)
     for (usz i = 0; i < DNS_CACHE_CAP; i++) {
         DnsCacheEntry* e = &c.entries[i];
         if (!e.valid) continue;
-        if (dns_host_eq(e.host[0..], e.host_len, host.ptr, host.len)) {
+        if (dns_host_eq(&e.host[0], e.host_len, host.ptr, host.len)) {
             dns_store_ip(e, ip);
             e.expires_us = expires;
             return;
@@ -210,7 +210,7 @@ fn void dns_cache_invalidate(DnsCache* c, String host)
     for (usz i = 0; i < DNS_CACHE_CAP; i++) {
         DnsCacheEntry* e = &c.entries[i];
         if (!e.valid) continue;
-        if (dns_host_eq(e.host[0..], e.host_len, host.ptr, host.len)) {
+        if (dns_host_eq(&e.host[0], e.host_len, host.ptr, host.len)) {
             e.valid = false;
             c.count--;
             return;
@@ -222,7 +222,7 @@ fn void dns_cache_invalidate(DnsCache* c, String host)
 // Call periodically from the event loop (e.g. every 30 seconds).
 fn usz dns_cache_reap(DnsCache* c)
 {
-    ulong now     = asyncio::clock_now();
+    ulong now = asyncio::clock_now();
     usz   evicted = 0;
     for (usz i = 0; i < DNS_CACHE_CAP; i++) {
         DnsCacheEntry* e = &c.entries[i];

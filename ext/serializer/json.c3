@@ -62,17 +62,17 @@ fn void JsonDecoder.free(&self)
     localmem.free(self);
 }
 
-fn bool JsonDecoder.has_more(&self) @inline @private
+fn bool JsonDecoder.has_more(&self) @inline
 {
     return self.begin+self.pos < self.end;
 }
 
-fn char JsonDecoder.peek(&self) @inline @private
+fn char JsonDecoder.peek(&self) @inline
 {
     return *(self.begin+self.pos);
 }
 
-fn void JsonDecoder.skip_space(&self) @private    
+fn void JsonDecoder.skip_space(&self)
 {
     while (self.begin+self.pos < self.end) {
         char c = self.peek();
@@ -809,7 +809,7 @@ fn String unescape_str(String str) @private
 const char[16] HEX_DIGITS @private = "0123456789abcdef";
 
 // Append the JSON encoding of `self` into `buf`.
-fn void JsonValue.encode_into(&self, DString* buf) @private
+fn void JsonValue.encode_into(&self, DString* buf)
 {
     switch (self.type) {
         case JsonNull:

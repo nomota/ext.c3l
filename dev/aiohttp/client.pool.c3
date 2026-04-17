@@ -3,6 +3,7 @@
 module ext::aiohttp;
 
 import ext::asyncio;
+import ext::mem;
 
 // HTTP/1.1 connection pool — used internally by TcpConnector.
 //
@@ -58,14 +59,14 @@ struct ConnPool @private {
     bool closed;
 }
 
-fn usz ConnPool.idle_cap(&self) @inline @private
+fn usz ConnPool.idle_cap(&self) @inline
 {
     return POOL_MAX_IDLE_PER_HOST;
 }
 
 // Push an idle connection onto the free-list.
 // Returns false if the list is full.
-fn bool ConnPool.push_idle(&self, Stream* s, ulong now_us) @private
+fn bool ConnPool.push_idle(&self, Stream* s, ulong now_us)
 {
     if (self.idle_count >= self.idle_cap()) return false;
     self.idle[self.idle_tail & (POOL_MAX_IDLE_PER_HOST - 1)] = (IdleConn){
@@ -79,7 +80,7 @@ fn bool ConnPool.push_idle(&self, Stream* s, ulong now_us) @private
 
 // Pop the most-recently-used idle connection (LIFO — better for keepalive).
 // Returns null if the list is empty.
-fn Stream* ConnPool.pop_idle(&self) @private
+fn Stream* ConnPool.pop_idle(&self)
 {
     if (self.idle_count == 0) return null;
     self.idle_tail--;
@@ -90,7 +91,7 @@ fn Stream* ConnPool.pop_idle(&self) @private
 
 // Close and remove idle connections older than max_age_us.
 // Returns the number of connections closed.
-fn usz ConnPool.reap_idle(&self, ulong now_us, ulong max_age_us) @private
+fn usz ConnPool.reap_idle(&self, ulong now_us, ulong max_age_us)
 {
     usz closed_count = 0;
     // scan from head (oldest) forward
@@ -107,7 +108,7 @@ fn usz ConnPool.reap_idle(&self, ulong now_us, ulong max_age_us) @private
 }
 
 // Close all idle connections (drain on shutdown).
-fn void ConnPool.drain_idle(&self) @private
+fn void ConnPool.drain_idle(&self)
 {
     while (self.idle_count > 0) {
         IdleConn* e = &self.idle[self.idle_head & (POOL_MAX_IDLE_PER_HOST - 1)];
@@ -164,18 +165,20 @@ fn bool key_eq(char* a, usz alen, char* b, usz blen) @private @inline
 }
 
 // Find or create a ConnPool for (host, port).
-fn ConnPool*? PoolTable.get_or_create(&self, String host, ushort port, Allocator mem) @private
+fn ConnPool*? PoolTable.get_or_create(&self, String host, ushort port, Allocator alloc)
 {
+    localmem = alloc;
+    
     char[POOL_HOST_KEY_MAX] key;
-    usz klen = pool_make_key(key[0..], host, port);
+    usz klen = pool_make_key(&key[0], host, port);
 
     // linear search (POOL_TABLE_CAP is small)
     for (usz i = 0; i < self.pool_count; i++) {
         ConnPool* cp = &self.pools[i];
-        if (key_eq(cp.key[0..], cp.key_len, key[0..], klen)) return cp;
+        if (key_eq(&cp.key[0], cp.key_len, &key[0], klen)) return cp;
     }
 
-    if (self.pool_count >= POOL_TABLE_CAP) return HttpClientError.CONNECTION_FAILED?;
+    if (self.pool_count >= POOL_TABLE_CAP) return CONNECTION_FAILED ~;
 
     ConnPool* cp = &self.pools[self.pool_count++];
     for (usz i = 0; i < klen; i++) cp.key[i] = key[i];
@@ -188,6 +191,7 @@ fn ConnPool*? PoolTable.get_or_create(&self, String host, ushort port, Allocator
     cp.closed    = false;
 
     if (self.limit_per_host > 0) {
+        mem::set_allocator(alloc);
         cp.sem = asyncio::semaphore_new(self.limit_per_host);
     } else {
         cp.sem = null;
@@ -209,7 +213,7 @@ fn void? pool_init(
     Allocator   alloc,
 )
 {
-    allocx = alloc;
+    localmem = alloc;
     
     pt.pool_count           = 0;
     pt.limit                = limit;
@@ -219,6 +223,7 @@ fn void? pool_init(
     pt.closed               = false;
 
     if (limit > 0) {
+        mem::set_allocator(alloc);
         pt.global_sem = asyncio::semaphore_new(limit);
     } else {
         pt.global_sem = null;
@@ -237,9 +242,9 @@ fn Stream*? pool_acquire(
     Allocator   alloc,
 )
 {
-    allocx = alloc;
+    localmem = alloc;
     
-    if (pt.closed) return HttpClientError.CONNECTION_FAILED?;
+    if (pt.closed) return CONNECTION_FAILED ~;
 
     // global limit
     if (pt.global_sem != null) pt.global_sem.acquire();
@@ -263,12 +268,13 @@ fn Stream*? pool_acquire(
     }
 
     // open a new TCP connection
+    mem::set_allocator(alloc);
     Stream*? ns = asyncio::open_connection(host, port);
     if (catch err = ns) {
         // release semaphores on failure
         if (cp.sem        != null) cp.sem.release();
         if (pt.global_sem != null) pt.global_sem.release();
-        return HttpClientError.CONNECTION_FAILED?;
+        return CONNECTION_FAILED ~;
     }
 
     cp.total++;
@@ -294,7 +300,7 @@ fn void pool_release(
 
         for (usz i = 0; i < pt.pool_count; i++) {
             ConnPool* cp = &pt.pools[i];
-            if (key_eq(cp.key[0..], cp.key_len, key[0..], klen)) {
+            if (key_eq(&cp.key[0], cp.key_len, &key[0], klen)) {
                 ulong now = asyncio::clock_now();
                 if (cp.push_idle(s, now)) {
                     did_return = true;
@@ -310,10 +316,10 @@ fn void pool_release(
         // close and release both semaphores
         // find pool to decrement total
         char[POOL_HOST_KEY_MAX] key;
-        usz klen = pool_make_key(key[0..], host, port);
+        usz klen = pool_make_key(&key[0], host, port);
         for (usz i = 0; i < pt.pool_count; i++) {
             ConnPool* cp = &pt.pools[i];
-            if (key_eq(cp.key[0..], cp.key_len, key[0..], klen)) {
+            if (key_eq(&cp.key[0], cp.key_len, &key[0], klen)) {
                 cp.total--;
                 if (cp.sem != null) cp.sem.release();
                 break;
@@ -381,7 +387,7 @@ fn usz pool_idle_count(PoolTable* pt, String host, ushort port)
     usz klen = pool_make_key(key[0..], host, port);
     for (usz i = 0; i < pt.pool_count; i++) {
         ConnPool* cp = &pt.pools[i];
-        if (key_eq(cp.key[0..], cp.key_len, key[0..], klen)) return cp.idle_count;
+        if (key_eq(&cp.key[0], cp.key_len, &key[0], klen)) return cp.idle_count;
     }
     return 0;
 }

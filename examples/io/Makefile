@@ -17,7 +17,7 @@ EXT = ../../ext
 LIBC = $(EXT)/c/*.c3
 IO = $(EXT)/io/*.c3 
 MEM = $(EXT)/mem/*.c3 $(EXT)/debug/*.c3
-LIBS = $(LIBC) $(IO) $(LIBC) $(MEM)
+LIBS = $(LIBC) $(IO) $(MEM)
 
 TARGET ?= linux
 ifeq ($(TARGET),win)

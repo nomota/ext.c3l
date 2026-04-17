@@ -9,6 +9,7 @@ import c::stdlib;
 import c::sys::stat;
 import std::io;
 import ext::io::stat;
+import ext::mem;
 
 macro void warn(String fmt, args...)
 {
@@ -142,7 +143,7 @@ fn char[]? load(Allocator allocx, String file)
 {
     long n = size(file)!;
 
-    char[] buf = allocator::alloc_array(allocx, char, n);
+    char[] buf = ((LocalAllocator)allocx).alloc_array(char, n);
     defer (catch err) { free(buf); }
     
     File fp = open(file, "r")!;

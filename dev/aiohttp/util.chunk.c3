@@ -27,12 +27,12 @@ module ext::aiohttp;
 
 //  faults 
 
-fault ChunkError {
+faultdef
     INVALID_SIZE_LINE,   // chunk-size line is malformed
     CHUNK_TOO_LARGE,     // parsed size exceeds platform usz max
     INCOMPLETE,          // need more data (not an error — caller should feed more)
-    OVERFLOW,            // internal ring buffer is full
-}
+    OVERFLOW;            // internal ring buffer is full
+
 
 //  private helpers 
 
@@ -82,7 +82,7 @@ fn usz chunk_encode(char* out, char* data, usz data_len)
 
     // chunk-size in hex
     char[16] hex;
-    usz hex_len = fmt_hex(hex[0..], data_len);
+    usz hex_len = fmt_hex(&hex[0], data_len);
     for (usz i = 0; i < hex_len; i++) out[j++] = hex[i];
 
     // CRLF after size line
@@ -111,12 +111,14 @@ fn usz chunk_encode_final(char* out)
 // Allocator-based convenience wrappers.
 
 // Encode one data buffer as a chunk. Returns the allocated frame. Caller must free.
-fn String aiohttp::chunk_encode_alloc(Allocator mem, char* data, usz data_len)
+fn String chunk_encode_alloc(Allocator alloc, char* data, usz data_len)
 {
+    localmem = alloc;
+    
     usz out_size = chunk_encoded_size(data_len);
-    char* buf = (char*)mem.alloc(out_size)!!;
+    char* buf = localmem.malloc(out_size);
     usz written = chunk_encode(buf, data, data_len);
-    return (String){ buf, written };
+    return (String) buf[0:written];
 }
 
 //  decoding state machine 
@@ -135,7 +137,7 @@ fn String aiohttp::chunk_encode_alloc(Allocator mem, char* data, usz data_len)
 // ChunkFrame.data is a pointer into the internal ring buffer — copy it before
 // the next feed() call if you need to keep it alive longer.
 
-const usz CHUNK_RING_SIZE @private = 65536; // must be power of two
+const usz CHUNK_RING_SIZE @private = 32_000; // must be power of two
 const usz CHUNK_RING_MASK @private = CHUNK_RING_SIZE - 1;
 
 enum ChunkState : char @private {
@@ -154,13 +156,13 @@ struct ChunkFrame {
 
 struct ChunkDecoder {
     // ring buffer holding raw fed bytes
-    char[CHUNK_RING_SIZE] ring @private;
-    usz r_head  @private;   // read position
-    usz r_tail  @private;   // write position (r_tail - r_head = bytes available)
+    char[CHUNK_RING_SIZE] ring;
+    usz r_head;   // read position
+    usz r_tail;   // write position (r_tail - r_head = bytes available)
 
     // parser state
-    ChunkState state   @private;
-    usz chunk_remaining @private;  // bytes left in current DATA phase
+    ChunkState state;
+    usz chunk_remaining;  // bytes left in current DATA phase
 }
 
 fn void ChunkDecoder.init(&self)
@@ -172,13 +174,13 @@ fn void ChunkDecoder.init(&self)
 }
 
 // Number of bytes currently buffered.
-fn usz ChunkDecoder.buffered(&self) @inline @private
+fn usz ChunkDecoder.buffered(&self) @inline
 {
     return self.r_tail - self.r_head;
 }
 
 // Read one byte from the ring without advancing. Returns false if empty.
-fn bool ChunkDecoder.peek(&self, usz offset, char* out) @inline @private
+fn bool ChunkDecoder.peek(&self, usz offset, char* out) @inline
 {
     if (offset >= self.buffered()) return false;
     *out = self.ring[(self.r_head + offset) & CHUNK_RING_MASK];
@@ -186,17 +188,17 @@ fn bool ChunkDecoder.peek(&self, usz offset, char* out) @inline @private
 }
 
 // Consume n bytes from the ring (advance read head).
-fn void ChunkDecoder.consume(&self, usz n) @inline @private
+fn void ChunkDecoder.consume(&self, usz n) @inline
 {
     self.r_head += n;
 }
 
 // Push raw bytes into the decoder's ring buffer.
-// Returns ChunkError.OVERFLOW if there is not enough space.
+// Returns OVERFLOW if there is not enough space.
 fn void? ChunkDecoder.feed(&self, char* data, usz len)
 {
     usz avail = CHUNK_RING_SIZE - self.buffered();
-    if (len > avail) return ChunkError.OVERFLOW?;
+    if (len > avail) return OVERFLOW~;
     for (usz i = 0; i < len; i++) {
         self.ring[self.r_tail & CHUNK_RING_MASK] = data[i];
         self.r_tail++;
@@ -206,7 +208,7 @@ fn void? ChunkDecoder.feed(&self, char* data, usz len)
 // Pull the next decoded chunk frame.
 // Returns true and fills *out when a complete frame is available.
 // Returns false when more data is needed (call feed() then next() again).
-// Returns ChunkError.INVALID_SIZE_LINE on a malformed size line.
+// Returns INVALID_SIZE_LINE on a malformed size line.
 fn bool ChunkDecoder.next(&self, ChunkFrame* out)
 {
     while (true) {

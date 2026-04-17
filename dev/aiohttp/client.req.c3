@@ -81,8 +81,10 @@ fn bool hdr_name_eq(String a, String b) @private
 {
     if (a.len != b.len) return false;
     for (usz i = 0; i < a.len; i++) {
-        char ca = a[i]; if (ca >= 'A' && ca <= 'Z') ca = (char)(ca | 0x20);
-        char cb = b[i]; if (cb >= 'A' && cb <= 'Z') cb = (char)(cb | 0x20);
+        char ca = a[i]; 
+        if (ca >= 'A' && ca <= 'Z') ca = (char)(ca | 0x20);
+        char cb = b[i]; 
+        if (cb >= 'A' && cb <= 'Z') cb = (char)(cb | 0x20);
         if (ca != cb) return false;
     }
     return true;
@@ -105,7 +107,7 @@ fn void make_boundary(char* out) @private
 // with per-request headers overriding defaults (case-insensitive key match).
 
 struct MergedHeaders @private {
-    Header entries[REQ_MAX_HEADERS];
+    Header[REQ_MAX_HEADERS] entries;
     usz    count;
 }
 
@@ -146,6 +148,18 @@ struct ReqCtx @private {
     char[REQ_SCRATCH_SIZE] scratch;
     usz                    scratch_len;
     char[REQ_BOUNDARY_LEN] boundary;
+}
+
+// non-optional stream.write() to optional
+faultdef STREAM_WRITE_FAIL;
+
+fn usz? s_write(Stream* s, char[] buf) @inline
+{
+    usz n = s.write(buf);
+    if (n == 0) {
+        return STREAM_WRITE_FAIL~;
+    }
+    return n;
 }
 
 //  multipart body builder 
@@ -207,9 +221,9 @@ fn void? write_multipart_part(Stream* s, FormDataField* f, char* boundary) @priv
     }
     buf.put("\r\n");
 
-    s.write(hdr[0:buf.cursor])!;
-    if (f.data_len > 0) s.write((char[]){ f.data, f.data_len })!;
-    s.write("\r\n")!;
+    s_write(s, buf.str())!;
+    if (f.data_len > 0) s_write(s, f.data[0:f.data_len])!;
+    s_write(s, "\r\n")!;
 }
 
 fn void? write_multipart_final(Stream* s, char* boundary) @private
@@ -221,7 +235,7 @@ fn void? write_multipart_final(Stream* s, char* boundary) @private
     tail[REQ_BOUNDARY_LEN + 3] = '-';
     tail[REQ_BOUNDARY_LEN + 4] = '\r';
     tail[REQ_BOUNDARY_LEN + 5] = '\n';
-    s.write(tail[0..REQ_BOUNDARY_LEN + 6])!;
+    s_write(s, tail[0:REQ_BOUNDARY_LEN + 6])!;
 }
 
 //  public API 
@@ -256,7 +270,7 @@ fn void? req_write(
     Allocator      alloc,
 )
 {
-    allocx = alloc;
+    localmem = alloc;
     
     ReqCtx ctx;
     ctx.scratch_len = 0;
@@ -269,12 +283,16 @@ fn void? req_write(
     bool has_data = !has_json && !has_form && data != null && data_len > 0;
 
     usz body_len = 0;
-    if (has_json)      body_len = json_str.len;
-    else if (has_form) body_len = multipart_body_len(form, ctx.boundary[0..]);
-    else if (has_data) body_len = data_len;
+    if (has_json) {
+        body_len = json_str.len;
+    } else if (has_form) {
+        body_len = multipart_body_len(form, &ctx.boundary[0]);
+    } else if (has_data) {
+        body_len = data_len;
+    }
 
     // generate boundary now (needed for Content-Type and body_len)
-    if (has_form) make_boundary(ctx.boundary[0..]);
+    if (has_form) make_boundary(&ctx.boundary[0]);
 
     //  merge headers 
     MergedHeaders merged;
@@ -340,7 +358,7 @@ fn void? req_write(
         if (url.port != 0 && url.port != scheme_default_port(url.scheme)) {
             buf.putc(':');
             char[6] pbuf;
-            usz plen = fmt_decimal(pbuf[0..], (usz)url.port);
+            usz plen = fmt_decimal(&pbuf[0], (usz)url.port);
             for (usz i = 0; i < plen; i++) buf.putc(pbuf[i]);
         }
         buf.put("\r\n");
@@ -355,12 +373,12 @@ fn void? req_write(
     if (auth != null && !merged_has(&merged, "authorization")) {
         // "username:password" → base64
         usz cred_len = auth.username.len + 1 + auth.password.len;
-        char* cred = (char*)allocx.malloc(cred_len)!!;
+        char* cred = localmem.malloc(cred_len);
         usz ci = 0;
         for (usz i = 0; i < auth.username.len; i++) cred[ci++] = auth.username[i];
         cred[ci++] = ':';
         for (usz i = 0; i < auth.password.len; i++) cred[ci++] = auth.password[i];
-        String encoded = base64::encode(alloc, cred[0..cred_len]);
+        String encoded = base64::encode(alloc, cred[0:cred_len]);
         buf.put("Authorization: Basic ");
         buf.put(encoded);
         buf.put("\r\n");
@@ -383,7 +401,7 @@ fn void? req_write(
     if (body_len > 0 && !merged_has(&merged, "content-length")) {
         buf.put("Content-Length: ");
         char[20] lbuf;
-        usz llen = fmt_decimal(lbuf[0..], body_len);
+        usz llen = fmt_decimal(&lbuf[0], body_len);
         for (usz i = 0; i < llen; i++) buf.putc(lbuf[i]);
         buf.put("\r\n");
     }
@@ -400,25 +418,25 @@ fn void? req_write(
     buf.put("\r\n");
 
     //  flush header block 
-    stream.write(buf.buf[0:buf.cursor])!;
+    s_write(stream, buf.str())!;
 
     //  body 
     if (has_json) {
-        stream.write((char[]){ json_str.ptr, json_str.len })!;
+        s_write(stream, json_str[0:json_str.len])!;
     } else if (has_form) {
         for (usz i = 0; i < form.count; i++) {
-            write_multipart_part(stream, &form.fields[i], ctx.boundary[0..])!;
+            write_multipart_part(stream, &form.fields[i], &ctx.boundary[0])!;
         }
-        write_multipart_final(stream, ctx.boundary[0..])!;
+        write_multipart_final(stream, &ctx.boundary[0])!;
     } else if (has_data) {
-        stream.write((char[]){ data, data_len })!;
+        s_write(stream, data[0: data_len])!;
     }
 }
 
 // Convenience: build and write a URL-encoded form body.
 // Sets Content-Type: application/x-www-form-urlencoded.
 // fields is a Headers* treated as key=value pairs.
-fn void? aiohttp::req_write_urlencoded(
+fn void? req_write_urlencoded(
     Stream*    stream,
     HttpMethod method,
     Url*       url,
@@ -429,7 +447,7 @@ fn void? aiohttp::req_write_urlencoded(
     Allocator  alloc,
 )
 {
-    allocx = alloc;
+    localmem = alloc;
     
     // build body first to know its length
     char[REQ_SCRATCH_SIZE] body_buf;
@@ -472,7 +490,7 @@ fn void? aiohttp::req_write_urlencoded(
         default_headers,
         &ct_wrap,       // content-type first so req_headers can override
         auth,
-        body_buf[0..],  // data
+        &body_buf[0],  // data
         body_len,
         "",             // no json
         null,           // no multipart

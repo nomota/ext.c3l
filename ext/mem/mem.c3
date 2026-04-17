@@ -112,9 +112,9 @@ macro temp_free(x) @builtin
 
 alias LocalAllocator = Allocator;
 
-fn char* LocalAllocator.malloc(&self, usz size) @inline
+fn void* LocalAllocator.malloc(&self, usz size) @inline
 {
-    char*? a = self.acquire(size, ZERO, 0);
+    void*? a = self.acquire(size, ZERO, 0);
     if (catch a) return null;
     return a;
 }

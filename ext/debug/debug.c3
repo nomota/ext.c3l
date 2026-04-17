@@ -13,7 +13,7 @@ macro void warn(String fmt, args...) @builtin
 
 macro @assert(expr, String msg) @builtin
 {
-    if (debug) return;
+    if (! debug) return;
     
     if (!(expr)) { warn("%s", msg); stdlib::exit(1); }
 }

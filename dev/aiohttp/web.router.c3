@@ -1,6 +1,7 @@
 // web.router.c3
 
-module ext::aiohttp;
+module ext::aiohttp::web;
+
 
 // HTTP request router — used internally by Application.
 //
@@ -40,6 +41,14 @@ const usz ROUTER_MAX_ROUTES   @private = 256;
 const usz ROUTER_MAX_SEGMENTS @private = 32;   // max segments per pattern
 const usz ROUTER_MAX_PARAMS   @private = 16;   // max {params} per pattern
 const usz ROUTER_REGEX_MAX    @private = 64;   // max regex string length
+
+//  type aliases 
+
+alias RequestHandler = fn Response*?(Request*);
+alias NextHandler    = fn Response*?(Request*);
+alias MiddlewareFn   = fn Response*?(Request*, NextHandler next);
+alias AppHook        = fn void?(Application*);
+alias WsHandler      = fn void?(Request*, WebSocketResponse*);
 
 //  segment kinds 
 
@@ -117,7 +126,6 @@ fn bool re_match_class(char c, char cls) @private @inline
 
 // Try to match re[ri..] against s[si..si+slen).
 // Returns matched length in s, or usz.max on failure.
-fn usz re_match(char* re, usz re_len, char* s, usz si, usz slen) @private;
 
 fn usz re_match_one(char* re, usz ri, usz re_len, char sc, bool allow_slash) @private @inline
 {
@@ -164,9 +172,9 @@ fn usz re_match(char* re, usz re_len, char* s, usz si, usz slen)
             ri += atom_re_len + 1;
             si += m;
         } else {
-            if (si >= slen) return (usz)-1;
+            if (si >= slen) return usz.max;
             usz m = re_match_one(re, ri, re_len, s[si], false);
-            if (m == 0) return (usz)-1;
+            if (m == 0) return usz.max;
             ri += atom_re_len;
             si++;
         }
@@ -187,7 +195,7 @@ fn usz split_path(String path, String* out_segs, usz cap) @private
         usz start = i;
         while (i < path.len && path[i] != '/') i++;
         if (i > start || (i == start && i < path.len)) {
-            out_segs[count++] = (String){ path.ptr + start, i - start };
+            out_segs[count++] = path[start: i - start];
         }
         if (i < path.len) i++; // skip '/'
     }
@@ -203,8 +211,8 @@ fn void compile_pattern(CompiledRoute* r, String pattern) @private
     r.trailing_slash = pattern.len > 1 && pattern[pattern.len - 1] == '/';
 
     // split on '/'
-    String path_segs[ROUTER_MAX_SEGMENTS];
-    usz nseg = split_path(pattern, path_segs[0..], ROUTER_MAX_SEGMENTS);
+    String[ROUTER_MAX_SEGMENTS] path_segs;
+    usz nseg = split_path(pattern, &path_segs[0], ROUTER_MAX_SEGMENTS);
 
     for (usz si = 0; si < nseg && r.seg_count < ROUTER_MAX_SEGMENTS; si++) {
         String seg = path_segs[si];
@@ -212,7 +220,7 @@ fn void compile_pattern(CompiledRoute* r, String pattern) @private
 
         if (seg.len >= 2 && seg[0] == '{' && seg[seg.len - 1] == '}') {
             // named param or regex param
-            String inner = (String){ seg.ptr + 1, seg.len - 2 }; // strip { }
+            String inner = seg[1:seg.len - 2]; // strip { }
 
             // find ':' separator
             usz colon = inner.len;
@@ -220,7 +228,7 @@ fn void compile_pattern(CompiledRoute* r, String pattern) @private
                 if (inner[k] == ':') { colon = k; break; }
             }
 
-            String pname = (String){ inner.ptr, colon };
+            String pname = inner[0:colon];
             if (r.param_count < ROUTER_MAX_PARAMS) {
                 r.param_names[r.param_count++] = pname;
             }
@@ -228,7 +236,7 @@ fn void compile_pattern(CompiledRoute* r, String pattern) @private
 
             if (colon < inner.len) {
                 // regex variant
-                String re_str = (String){ inner.ptr + colon + 1, inner.len - colon - 1 };
+                String re_str = inner[colon + 1: inner.len - colon - 1];
                 usz rlen = re_str.len < ROUTER_REGEX_MAX ? re_str.len : ROUTER_REGEX_MAX;
                 for (usz k = 0; k < rlen; k++) s.re[k] = re_str[k];
                 s.re_len = rlen;
@@ -265,8 +273,8 @@ fn bool match_route(
     if (!want_ws && r.method != method) return false;
 
     // split request path into segments
-    String req_segs[ROUTER_MAX_SEGMENTS];
-    usz nreq = split_path(path, req_segs[0..], ROUTER_MAX_SEGMENTS);
+    String[ROUTER_MAX_SEGMENTS] req_segs;
+    usz nreq = split_path(path, &req_segs[0], ROUTER_MAX_SEGMENTS);
 
     // allow trailing-slash flexibility:
     // pattern "/foo" matches "/foo" and "/foo/"
@@ -286,7 +294,7 @@ fn bool match_route(
 
     for (usz si = 0; si < npat; si++) {
         Segment* ps = &r.segs[si];
-        String   rs = (si < nreq) ? req_segs[si] : (String){ "", 0 };
+        String   rs = (si < nreq) ? req_segs[si] : "";
 
         switch (ps.kind) {
             case SegKind.STATIC:
@@ -304,7 +312,7 @@ fn bool match_route(
 
             case SegKind.REGEX:
                 if (rs.len == 0) return false;
-                usz end = re_match(ps.re[0..], ps.re_len, rs.ptr, 0, rs.len);
+                usz end = re_match(&ps.re[0], ps.re_len, rs.ptr, 0, rs.len);
                 if (end != rs.len) return false; // must consume whole segment
                 if (cap_idx < ROUTER_MAX_PARAMS) {
                     out.param_values[cap_idx] = rs;
@@ -315,7 +323,7 @@ fn bool match_route(
                 // consume rest of path (join remaining segments)
                 // find start of this segment in the original path
                 usz path_off = (usz)(rs.ptr - path.ptr);
-                String tail = (String){ path.ptr + path_off, path.len - path_off };
+                String tail = path[path_off: path.len - path_off];
                 if (cap_idx < ROUTER_MAX_PARAMS) {
                     out.param_values[cap_idx] = tail;
                     cap_idx++;
@@ -353,7 +361,7 @@ fn void? router_add(
     String         name = "",
 )
 {
-    if (ri.route_count >= ROUTER_MAX_ROUTES) return HttpClientError.CONNECTION_FAILED?;
+    if (ri.route_count >= ROUTER_MAX_ROUTES) return aiohttp::CONNECTION_FAILED~;
     CompiledRoute* r = &ri.routes[ri.route_count++];
     compile_pattern(r, pattern);
     r.method   = method;
@@ -371,7 +379,7 @@ fn void? router_add_ws(
     String       name = "",
 )
 {
-    if (ri.route_count >= ROUTER_MAX_ROUTES) return HttpClientError.CONNECTION_FAILED?;
+    if (ri.route_count >= ROUTER_MAX_ROUTES) return aiohttp::CONNECTION_FAILED~;
     CompiledRoute* r = &ri.routes[ri.route_count++];
     compile_pattern(r, pattern);
     r.method     = HttpMethod.GET; // WS always starts with GET
@@ -415,9 +423,9 @@ fn bool router_match_ws(
 // The returned Headers* must be freed by the caller.
 fn Headers*? router_match_info(RouteMatch* m, Allocator alloc)
 {
-    allocx = alloc;
+    localmem = alloc;
     
-    Headers* h = (Headers*)allocx.malloc($sizeof(Headers))!;
+    Headers* h = localmem.alloc(Headers);
     h.count    = 0;
     h.capacity = m.param_count;
 
@@ -426,7 +434,7 @@ fn Headers*? router_match_info(RouteMatch* m, Allocator alloc)
         return h;
     }
 
-    h.entries = (Header*)allocx.malloc(m.param_count * $sizeof(Header))!;
+    h.entries = localmem.malloc(m.param_count * Header.sizeof);
     for (usz i = 0; i < m.param_count; i++) {
         h.entries[i] = (Header){ m.param_names[i], m.param_values[i] };
         h.count++;
@@ -443,7 +451,7 @@ fn String router_url_for(
     Allocator    alloc,
 )
 {
-    allocx = alloc;
+    localmem = alloc;
     
     // find named route
     CompiledRoute* found = null;
@@ -457,19 +465,17 @@ fn String router_url_for(
 
     // build path by walking segments
     char[1024] buf;
-    usz j = 0;
+    OBuf b = { &buf[0], 1024, 0 };
+    
     usz pi = 0; // param index
 
-    macro void putch(c) { if (j < 1023) buf[j++] = c; }
-    macro void puts(s)  { for (usz _i = 0; _i < s.len && j < 1023; _i++) buf[j++] = s[_i]; }
-
-    putch('/');
+    b.putc('/');
     for (usz si = 0; si < found.seg_count; si++) {
-        if (si > 0) putch('/');
+        if (si > 0) b.putc('/');
         Segment* seg = &found.segs[si];
         switch (seg.kind) {
             case SegKind.STATIC:
-                puts(seg.text);
+                b.put(seg.text);
             case SegKind.PARAM:
             case SegKind.REGEX:
             case SegKind.WILDCARD:
@@ -483,16 +489,13 @@ fn String router_url_for(
                         }
                     }
                 }
-                puts(val);
+                b.put(val);
                 pi++;
         }
     }
 
-    if (found.trailing_slash && (j == 0 || buf[j - 1] != '/')) putch('/');
-    buf[j] = 0;
-
-    // copy into allocator-owned memory
-    char* out = (char*)mem.alloc(j + 1)!!;
-    for (usz i = 0; i <= j; i++) out[i] = buf[i];
-    return (String){ out, j };
+    usz j = b.cursor;
+    if (found.trailing_slash && (j == 0 || buf[j - 1] != '/')) b.putc('/');
+    
+    return b.str().copy(localmem);
 }
