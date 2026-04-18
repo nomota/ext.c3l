@@ -15,7 +15,7 @@ import std::encoding::base64;
 
 //  faults 
 
-faultdef 
+faultdef NONE,
     CONNECTION_FAILED,    // TCP connect failed
     TIMEOUT,              // request or socket timed out
     SSL_ERROR,            // TLS handshake or certificate error

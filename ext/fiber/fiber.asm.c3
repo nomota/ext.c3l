@@ -52,6 +52,13 @@ fn void init(Allocator allocx = mem, bool debug = true) @private
     running = &primary;
 }
 
+fn void deinit()
+{
+    if (running == null) return;
+    primary = {};
+    running = null;
+}
+
 // ========================================
 // crash — safety net if a coroutine entrypoint ever returns
 // ========================================
@@ -183,7 +190,7 @@ fn void delete(Fiber* fiber)
     mem_free(fiber);
 }
 
-fn void switch_to(Fiber* fiber)
+fn void switch_to(Fiber* fiber) @nosanitize("address")
 {
     if (fiber == null || fiber.done) return;
     if (running != &primary) check_canary(running);
@@ -197,14 +204,14 @@ fn void switch_to(Fiber* fiber)
     asm_swap(fiber.handle, prev.handle);
 }
 
-fn void yield()
+fn void yield() @nosanitize("address")
 {
     if (running == &primary) return;
     check_canary(running);
     switch_to(&primary);
 }
 
-fn void done()
+fn void done() @nosanitize("address")
 {
     running.done = true;
     check_canary(running);

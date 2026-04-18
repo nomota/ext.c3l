@@ -18,15 +18,14 @@ fn String bcat(char[] buf, String... args) @inline
     return (String)buf[0..n-1];
 }
 
-fn int strncasecmp(char* a, char* b, usz n)
+fn int strncasecmp(char* a, char* b, usz n) @if(env::WIN32)
 {
-    $if $defined(env::WIN32):
-        return string::_strnicmp(a, b, n);
-    $endif
-    
-    $if !$defined(env::WIN32):
-        return string::strncasecmp(a, b, n);
-    $endif
+    return string::_strnicmp(a, b, n);
+}
+
+fn int strncasecmp(char* a, char* b, usz n) @if(env::POSIX)
+{
+    return string::strncasecmp(a, b, n);
 }
 
 fn void server_coro()

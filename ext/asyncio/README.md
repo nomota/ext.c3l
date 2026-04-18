@@ -268,13 +268,13 @@ void asyncio::close_file(int fd);
 
 long pos = asyncio::io_seek(int fd, long pos, int whence);
 
-ulong pos = asyncio::io_tell(int fd);
+long pos = asyncio::io_tell(int fd);
 
 int r = asyncio::io_truncate(int fd, long pos); // return 0 on success, -1 on failure
 
 void asyncio::io_flush(int fd);
 
-ulong size = asyncio::io_size(int fd);
+long size = asyncio::io_size(int fd);
 
 int in = asyncio::stdin();
 int out = asyncio::stdout();
@@ -314,17 +314,17 @@ import asyncio;
 
 bool b = stream.at_eof() @inline;
 
-usz n = stream.read(char[] buf); 
+usz? n = stream.read(char[] buf); 
 
-usz n = stream.read_any(char[] buf);
+usz? n = stream.read_any(char[] buf);
 
-usz n = stream.read_until(char delim, char[] buf);
+usz? n = stream.read_until(char delim, char[] buf);
 
-usz n = stream.readline(char[] buf);
+usz? n = stream.readline(char[] buf);
 
-usz n = stream.write(char[] buf);
+usz? n = stream.write(char[] buf);
 
-usz n = stream.writef(String fmt, args...); 
+usz? n = stream.writef(String fmt, args...); 
 Stream*? stream = asyncio::open_file_stream(String path, String mode);
 
 void stream.close();
@@ -379,7 +379,7 @@ Transport* trans = loop.create_datagram_endpoint(DatagramProtocol proto, String 
 
 void trans.free(); // prevent leak
 
-void trans.write(char[] data); // tcp
+usz? n = trans.write(char[] data); // tcp
 
 void trans.sendto(char[] data, char[] ip, short port); // udp
 

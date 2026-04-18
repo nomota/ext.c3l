@@ -56,23 +56,28 @@ fn void _open_stream()
     trans.stream = stream;
 
     proto.connection_made(trans);
+
+    fault error = stream.error;
     
     while (! stream.at_eof()) {
         if (trans.closed) break;
         
         char[4096] buf;
-        usz n = stream.read_any(&buf);
+        usz? n = stream.read_any(&buf);
+        if (catch err = n) {
+            error = err;
+            break;
+        }
         if (n == 0) break;
         proto.data_received(buf[0:n]);
     }
     
-    fault err = stream.error;
     
     if (!trans.closed) {
         trans.close(); // stream closed here
     }
 
-    proto.connection_lost(err);
+    proto.connection_lost(error);
 }
 
 fn Transport* EventLoop.create_connection(&self, Protocol proto, String host, ushort port)
@@ -102,16 +107,20 @@ fn void _client_handler(Stream *stream)
     
     proto.connection_made(trans);
 
+    fault error = stream.error;
+
     while (! stream.at_eof()) {
         if (trans.closed) break;
         
         char[4096] buf;
-        usz n = stream.read_any(&buf);
+        usz? n = stream.read_any(&buf);
+        if (catch err = n) {
+            error = err;
+            break;
+        }
         if (n == 0) break;
         proto.data_received(buf[0:n]);
     }
-    
-    fault error = stream.error;
     
     if (! trans.closed) {
         trans.close(); // stream close here
@@ -251,14 +260,14 @@ fn void Transport.free(&self)
     mem_free(self);
 }
 
-fn void Transport.write(&self, char[] data)
+faultdef NO_WRITE_ON_UDP;
+
+fn usz? Transport.write(&self, char[] data)
 {
     if (self.type == 't') {
-        self.stream.write(data);
+        return self.stream.write(data)!;
     }
-    if (self.type == 'u') {
-        @assert(false, "UDP does not have write(). Use sendto() instead");
-    }
+    return NO_WRITE_ON_UDP~;
 }
 
 fn void Transport.sendto(&self, char[] data, char[] ip, short port)

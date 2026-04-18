@@ -10,7 +10,7 @@ import std::hash::sha1;
 //  constants 
 
 const int    MAX_REDIRECTS      @private = 10;
-const usz    RESP_READ_BUFSIZE  @private = 65536;
+const usz    RESP_READ_BUFSIZE  @private = 32_000;
 const usz    WS_KEY_B64_LEN     @private = 24;
 const usz    WS_HANDSHAKE_BUFSZ @private = 512;
 
@@ -26,8 +26,8 @@ struct TcpConnector {
     ulong      keepalive_timeout_us;
     bool       force_close;
     bool       closed;
-    PoolTable  pool @private;
-    DnsCache   dns  @private;
+    PoolTable  pool;
+    DnsCache   dns;
 }
 
 fn TcpConnector* connector_new(
@@ -41,7 +41,7 @@ fn TcpConnector* connector_new(
     bool       force_close          = false,
 )
 {
-    TcpConnector* c = (TcpConnector*)mem::alloc($sizeof(TcpConnector));
+    TcpConnector* c = localmem.alloc(TcpConnector);
     c.limit                = limit;
     c.limit_per_host       = limit_per_host;
     c.tls                  = tls;
@@ -51,8 +51,8 @@ fn TcpConnector* connector_new(
     c.keepalive_timeout_us = keepalive_timeout_us;
     c.force_close          = force_close;
     c.closed               = false;
-    pool_init(&c.pool, limit, limit_per_host,
-              keepalive_timeout_us, force_close, mem::heap())!!;
+    (void) pool_init(&c.pool, limit, limit_per_host,
+              keepalive_timeout_us, force_close, localmem); // ???
     dns_cache_init(&c.dns, use_dns_cache, ttl_dns_cache_us);
     return c;
 }
@@ -61,7 +61,7 @@ fn void TcpConnector.close(&self) {
     if (self.closed) return;
     self.closed = true;
     pool_close(&self.pool);
-    mem::free(self);
+    localmem.free(self);
 }
 
 fn int TcpConnector.total_conns(&self) { return pool_total_conns(&self.pool); }
@@ -76,11 +76,11 @@ struct ClientSession {
     CookieJar*    cookie_jar;
     bool          raise_for_status;
     bool          closed;
-    bool owns_connector @private;
-    bool owns_jar       @private;
+    bool owns_connector;
+    bool owns_jar;
 }
 
-fn ClientSession* aiohttp::session_new(
+fn ClientSession* session_new(
     TcpConnector* connector        = null,
     ClientTimeout timeout          = { .total_us = 30_000_000 },
     Headers*      default_headers  = null,
@@ -89,7 +89,7 @@ fn ClientSession* aiohttp::session_new(
     bool          raise_for_status = false,
 )
 {
-    ClientSession* s = (ClientSession*)mem::alloc($sizeof(ClientSession));
+    ClientSession* s = localmem.alloc(ClientSession);
     if (connector == null) {
         s.connector      = connector_new();
         s.owns_connector = true;
@@ -112,13 +112,14 @@ fn ClientSession* aiohttp::session_new(
     return s;
 }
 
-fn void ClientSession.close(&self) {
+fn void ClientSession.close(&self)
+{
     if (self.closed) return;
     self.closed = true;
     if (self.owns_connector) self.connector.close();
     if (self.owns_jar)       self.cookie_jar.free();
     if (self.default_headers != null) self.default_headers.free();
-    mem::free(self);
+    localmem.free(self);
 }
 
 //  ClientResponse 
@@ -131,13 +132,13 @@ struct ClientResponse {
     CookieJar* cookies;
     bool       released;
     // private
-    Stream*       stream      @private;
-    TcpConnector* connector   @private;
-    char*         body_buf    @private;
-    usz           body_len    @private;
-    bool          is_chunked  @private;
-    usz           content_length @private;
-    ChunkDecoder  chunk_dec   @private;
+    Stream*       stream;
+    TcpConnector* connector;
+    char*         body_buf;
+    usz           body_len;
+    bool          is_chunked;
+    usz           content_length;
+    ChunkDecoder  chunk_dec;
 }
 
 //  response parsing helpers 
@@ -149,30 +150,32 @@ fn char*? resp_read_headers(
 {
     usz filled = 0;
     while (filled < scratch_size) {
-        usz n = stream.read((char[]){ scratch + filled, scratch_size - filled });
-        if (n == 0) return HttpClientError.RESPONSE_ERROR?;
+        usz n = stream.read(scratch[filled: scratch_size - filled]);
+        if (n == 0) return RESPONSE_ERROR~;
         filled += n;
         for (usz i = 0; i + 3 < filled; i++) {
             if (scratch[i]=='\r' && scratch[i+1]=='\n' &&
                 scratch[i+2]=='\r' && scratch[i+3]=='\n') {
                 char*? bp = http::parse_response(scratch, scratch + filled, out_resp);
-                if (catch = bp) return HttpClientError.RESPONSE_ERROR?;
+                if (catch err = bp) return RESPONSE_ERROR~;
                 *out_filled = filled;
                 return bp;
             }
         }
     }
-    return HttpClientError.RESPONSE_ERROR?;
+    return RESPONSE_ERROR~;
 }
 
 fn ClientResponse*? build_response(
     http::Response* p, Url* req_url,
     Stream* stream, TcpConnector* connector,
     CookieJar* jar, char* body_start, usz filled,
-    Allocator mem,
+    Allocator alloc,
 ) @private
 {
-    ClientResponse* r = (ClientResponse*)mem.alloc($sizeof(ClientResponse))!;
+    localmem = alloc;
+    
+    ClientResponse* r = localmem.alloc(ClientResponse);
     // parse status code
     r.status = 0;
     foreach (c : p.status) {
@@ -205,7 +208,7 @@ fn ClientResponse*? build_response(
             .http_only = sc.http_only, .same_site = sc.same_site,
         };
     }
-    if (nc > 0) jar.update(raw_cookies[0..], nc, req_url);
+    if (nc > 0) jar.update(&raw_cookies[0], nc, req_url);
     r.cookies = jar;
 
     r.is_chunked     = p.chunked;
@@ -219,26 +222,26 @@ fn ClientResponse*? build_response(
 fn char*? ClientResponse.read(&self, usz* out_len)
 {
     if (self.body_buf != null) { *out_len = self.body_len; return self.body_buf; }
-    if (self.stream == null)   return HttpClientError.RESPONSE_ERROR?;
+    if (self.stream == null)   return RESPONSE_ERROR~;
 
     char[RESP_READ_BUFSIZE] raw;
 
     if (self.is_chunked) {
         usz cap = 16384;
-        char* buf = (char*)mem::alloc(cap);
+        char* buf = localmem.malloc(cap);
         usz   len = 0;
         ChunkFrame frame;
         while (!self.chunk_dec.done()) {
-            usz n = self.stream.read(raw[:]);
+            usz n = self.stream.read(&raw);
             if (n == 0) break;
-            self.chunk_dec.feed(raw[0..n])!!;
+            self.chunk_dec.feed(&raw[0], n)!;
             while (self.chunk_dec.next(&frame)) {
                 if (frame.is_final) break;
                 if (len + frame.data_len > cap) {
                     usz nc2 = (cap + frame.data_len) * 2;
-                    char* nb = (char*)mem::alloc(nc2);
+                    char* nb = localmem.malloc(nc2);
                     for (usz i = 0; i < len; i++) nb[i] = buf[i];
-                    mem::free(buf); buf = nb; cap = nc2;
+                    localmem.free(buf); buf = nb; cap = nc2;
                 }
                 for (usz i = 0; i < frame.data_len; i++) buf[len++] = frame.data[i];
             }
@@ -247,19 +250,19 @@ fn char*? ClientResponse.read(&self, usz* out_len)
     } else {
         usz total = self.content_length;
         usz cap2  = total > 0 ? total : RESP_READ_BUFSIZE;
-        char* buf = (char*)mem::alloc(cap2);
+        char* buf = localmem.malloc(cap2);
         usz   len = 0;
         while (total == 0 || len < total) {
             usz want = RESP_READ_BUFSIZE;
             if (total > 0 && total - len < want) want = total - len;
-            usz n = self.stream.read((char[]){ buf + len, want });
+            usz n = self.stream.read(buf[len:want]);
             if (n == 0) break;
             len += n;
             if (total == 0 && len + RESP_READ_BUFSIZE > cap2) {
                 cap2 *= 2;
-                char* nb = (char*)mem::alloc(cap2);
+                char* nb = localmem.malloc(cap2);
                 for (usz i = 0; i < len; i++) nb[i] = buf[i];
-                mem::free(buf); buf = nb;
+                localmem.free(buf); buf = nb;
             }
         }
         self.body_buf = buf; self.body_len = len;
@@ -272,8 +275,8 @@ fn String? ClientResponse.text(&self, String encoding = "utf-8")
 {
     usz len;
     char*? raw = self.read(&len);
-    if (catch err = raw) return err?;
-    return (String){ raw, len };
+    if (catch err = raw) return err~;
+    return (String) raw[0:len];
 }
 
 fn String? ClientResponse.json_text(&self) { return self.text(); }
@@ -296,9 +299,9 @@ fn void ClientResponse.release(&self)
                      self.url.host, self.url.effective_port());
         self.stream = null;
     }
-    if (self.body_buf  != null) { mem::free(self.body_buf);  self.body_buf  = null; }
+    if (self.body_buf  != null) { localmem.free(self.body_buf);  self.body_buf  = null; }
     if (self.headers   != null) { self.headers.free();        self.headers   = null; }
-    mem::free(self);
+    localmem.free(self);
 }
 
 //  core request dispatcher 
@@ -315,16 +318,15 @@ fn ClientResponse*? session_do_request(
     TlsConfig* tls,
 ) @private
 {
-    if (s.closed) return HttpClientError.CONNECTION_FAILED?;
+    if (s.closed) return CONNECTION_FAILED~;
     Url url = url_parse(url_str)!;
     int redirects = 0;
 
     while (true) {
         ushort port = url.effective_port();
 
-        Stream*? stream = pool_acquire(&s.connector.pool, url.host, port,
-                                       s.timeout.connect_us, mem::heap());
-        if (catch = stream) return HttpClientError.CONNECTION_FAILED?;
+        Stream*? stream = pool_acquire(&s.connector.pool, url.host, port, s.timeout.connect_us, localmem);
+        if (catch err = stream) return CONNECTION_FAILED~;
 
         // inject cookies
         usz nc_jar;
@@ -338,8 +340,8 @@ fn ClientResponse*? session_do_request(
                 ck[ck_j++] = '=';
                 foreach (c : jar_cookies[i].value) ck[ck_j++] = c;
             }
-            ch.add("Cookie", (String){ ck[0..], ck_j });
-            mem::free(jar_cookies);
+            ch.add("Cookie", (String) ck[0:ck_j]);
+            localmem.free(jar_cookies);
 
             Headers* merged = headers_new();
             if (req_headers != null) {
@@ -348,34 +350,29 @@ fn ClientResponse*? session_do_request(
                 }
             }
             String? cookie_val = ch.get("Cookie");
-            if (!catch cookie_val) merged.add("Cookie", cookie_val);
+            if (try cookie_val) merged.add("Cookie", cookie_val);
             ch.free();
             req_headers = merged;
         }
 
-        void*? wr = req_write(stream, method, &url, params,
-                               s.default_headers, req_headers, s.auth,
-                               data, data_len, json_str, form, mem::heap());
-        if (catch = wr) {
+        if (catch req_write(stream, method, &url, params, s.default_headers, req_headers, s.auth, data, data_len, json_str, form, localmem)) {
             pool_release(&s.connector.pool, stream, url.host, port);
-            return HttpClientError.CONNECTION_FAILED?;
+            return CONNECTION_FAILED~;
         }
 
         char[RESP_READ_BUFSIZE * 2] hdr_scratch;
         http::Response parsed;
         usz filled = 0;
-        char*? body_ptr = resp_read_headers(stream, &parsed,
-                                             hdr_scratch[0..], $sizeof(hdr_scratch), &filled);
-        if (catch = body_ptr) {
+        char*? body_ptr = resp_read_headers(stream, &parsed, &hdr_scratch[0], hdr_scratch.len, &filled);
+        if (catch err = body_ptr) {
             pool_release(&s.connector.pool, stream, url.host, port);
-            return HttpClientError.RESPONSE_ERROR?;
+            return RESPONSE_ERROR~;
         }
 
-        ClientResponse*? resp = build_response(&parsed, &url, stream, s.connector,
-                                                s.cookie_jar, body_ptr, filled, mem::heap());
-        if (catch = resp) {
+        ClientResponse*? resp = build_response(&parsed, &url, stream, s.connector, s.cookie_jar, body_ptr, filled, localmem);
+        if (catch err = resp) {
             pool_release(&s.connector.pool, stream, url.host, port);
-            return HttpClientError.RESPONSE_ERROR?;
+            return RESPONSE_ERROR~;
         }
 
         // redirects
@@ -383,32 +380,31 @@ fn ClientResponse*? session_do_request(
             redirects++;
             String? loc = resp.headers.get("location");
             resp.release();
-            if (catch = loc) return HttpClientError.RESPONSE_ERROR?;
+            if (catch err = loc) return RESPONSE_ERROR~;
             if (resp.status == 303) {
                 method = HttpMethod.GET;
                 data = null; data_len = 0; json_str = ""; form = null;
             }
             Url? new_url = url_parse(loc);
-            if (catch = new_url) {
+            if (catch err = new_url) {
                 // relative redirect
-                char[4096] abs_buf; usz ab_j = 0;
-                macro void abp(str) { for (usz _i=0;_i<str.len;_i++) abs_buf[ab_j++]=str[_i]; }
-                abp(url.scheme); abp("://"); abp(url.host);
+                char[4096] abs_buf;
+                OBuf b = { &abs_buf[0], 4096, 0 };
+                
+                b.put(url.scheme); b.put("://"); b.put(url.host);
                 if (url.port != 0 && url.port != scheme_default_port(url.scheme)) {
-                    abs_buf[ab_j++] = ':';
-                    char[6] pb; usz pl = 0; uint pv = (uint)url.port;
-                    do { pb[pl++] = (char)('0' + pv % 10); pv /= 10; } while (pv > 0);
-                    for (usz i = pl; i > 0; i--) abs_buf[ab_j++] = pb[i-1];
+                    b.putc(':');
+                    b.putn((int)url.port);
                 }
-                abp(loc); abs_buf[ab_j] = 0;
-                url = url_parse((String){ abs_buf[0..], ab_j })!;
+                b.put(loc);
+                url = url_parse(b.str())!;
             } else {
                 url = new_url;
             }
             continue;
         }
-        if (redirects >= MAX_REDIRECTS) { resp.release(); return HttpClientError.TOO_MANY_REDIRECTS?; }
-        if (s.raise_for_status && resp.status >= 400) { resp.release(); return HttpClientError.RESPONSE_ERROR?; }
+        if (redirects >= MAX_REDIRECTS) { resp.release(); return TOO_MANY_REDIRECTS~; }
+        if (s.raise_for_status && resp.status >= 400) { resp.release(); return RESPONSE_ERROR~; }
         return resp;
     }
 }
@@ -420,8 +416,7 @@ fn ClientResponse*? ClientSession.request(&self, HttpMethod method, String url,
     char* data = null, usz data_len = 0, String json_str = "",
     FormData* form = null, TlsConfig* tls = null) @maydiscard
 {
-    return session_do_request(self, method, url, params, headers,
-                              data, data_len, json_str, form, tls);
+    return session_do_request(self, method, url, params, headers, data, data_len, json_str, form, tls);
 }
 
 fn ClientResponse*? ClientSession.get(&self, String url,
@@ -434,45 +429,39 @@ fn ClientResponse*? ClientSession.post(&self, String url,
     char* data = null, usz data_len = 0, String json_str = "",
     FormData* form = null, Headers* headers = null, TlsConfig* tls = null) @maydiscard
 {
-    return session_do_request(self, HttpMethod.POST, url, null, headers,
-                              data, data_len, json_str, form, tls);
+    return session_do_request(self, HttpMethod.POST, url, null, headers, data, data_len, json_str, form, tls);
 }
 
 fn ClientResponse*? ClientSession.put(&self, String url,
     char* data = null, usz data_len = 0, String json_str = "",
     Headers* headers = null, TlsConfig* tls = null) @maydiscard
 {
-    return session_do_request(self, HttpMethod.PUT, url, null, headers,
-                              data, data_len, json_str, null, tls);
+    return session_do_request(self, HttpMethod.PUT, url, null, headers, data, data_len, json_str, null, tls);
 }
 
 fn ClientResponse*? ClientSession.patch(&self, String url,
     char* data = null, usz data_len = 0, String json_str = "",
     Headers* headers = null, TlsConfig* tls = null) @maydiscard
 {
-    return session_do_request(self, HttpMethod.PATCH, url, null, headers,
-                              data, data_len, json_str, null, tls);
+    return session_do_request(self, HttpMethod.PATCH, url, null, headers, data, data_len, json_str, null, tls);
 }
 
 fn ClientResponse*? ClientSession.delete(&self, String url,
     Headers* headers = null, TlsConfig* tls = null) @maydiscard
 {
-    return session_do_request(self, HttpMethod.DELETE, url, null, headers,
-                              null, 0, "", null, tls);
+    return session_do_request(self, HttpMethod.DELETE, url, null, headers, null, 0, "", null, tls);
 }
 
 fn ClientResponse*? ClientSession.head(&self, String url,
     Headers* headers = null, TlsConfig* tls = null) @maydiscard
 {
-    return session_do_request(self, HttpMethod.HEAD, url, null, headers,
-                              null, 0, "", null, tls);
+    return session_do_request(self, HttpMethod.HEAD, url, null, headers, null, 0, "", null, tls);
 }
 
 fn ClientResponse*? ClientSession.options(&self, String url,
     Headers* headers = null, TlsConfig* tls = null) @maydiscard
 {
-    return session_do_request(self, HttpMethod.OPTIONS, url, null, headers,
-                              null, 0, "", null, tls);
+    return session_do_request(self, HttpMethod.OPTIONS, url, null, headers, null, 0, "", null, tls);
 }
 
 //  ClientWs 
@@ -481,15 +470,15 @@ struct ClientWs {
     bool   closed;
     String protocol;
     int    compress;
-    Stream*       stream      @private;
-    TcpConnector* connector   @private;
-    Url           url         @private;
-    WsDecoder     decoder     @private;
-    ulong         heartbeat_us        @private;
-    ulong         receive_timeout_us  @private;
-    fault?        last_error          @private;
-    char[64]      peername_buf        @private;
-    usz           peername_len        @private;
+    Stream*       stream;
+    TcpConnector* connector;
+    Url           url;
+    WsDecoder     decoder;
+    ulong         heartbeat_us;
+    ulong         receive_timeout_us;
+    fault        last_error;
+    char[64]      peername_buf;
+    usz           peername_len;
 }
 
 fn void make_ws_key(char* out24) @private
@@ -500,7 +489,7 @@ fn void make_ws_key(char* out24) @private
         seed = seed * 6364136223846793005 + 1442695040888963407;
         raw[i] = (char)(seed >> 56);
     }
-    String b64 = base64::encode(mem::temp(), raw[:]);
+    String b64 = base64::encode(localmem, &raw);
     for (usz i = 0; i < 24 && i < b64.len; i++) out24[i] = b64[i];
 }
 
@@ -511,20 +500,19 @@ fn ClientWs*? ClientSession.ws_connect(
     TlsConfig* tls = null,
 ) @maydiscard
 {
-    if (self.closed) return HttpClientError.CONNECTION_FAILED?;
+    if (self.closed) return CONNECTION_FAILED~;
 
     Url parsed = url_parse(url)!;
     if (parsed.scheme == "ws")  parsed.scheme = "http";
     if (parsed.scheme == "wss") parsed.scheme = "https";
     ushort port = parsed.effective_port();
 
-    Stream*? stream = pool_acquire(&self.connector.pool, parsed.host, port,
-                                    self.timeout.connect_us, mem::heap());
-    if (catch = stream) return HttpClientError.CONNECTION_FAILED?;
+    Stream*? stream = pool_acquire(&self.connector.pool, parsed.host, port, self.timeout.connect_us, localmem);
+    if (catch err = stream) return CONNECTION_FAILED~;
 
     char[WS_KEY_B64_LEN + 1] ws_key;
-    make_ws_key(ws_key[0..]);
-    String ws_key_str = (String){ ws_key[0..], WS_KEY_B64_LEN };
+    make_ws_key(&ws_key[0]);
+    String ws_key_str = (String) ws_key[0: WS_KEY_B64_LEN];
 
     // build subprotocol list
     char[256] proto_buf; usz proto_len = 0;
@@ -535,34 +523,38 @@ fn ClientWs*? ClientSession.ws_connect(
 
     char[WS_HANDSHAKE_BUFSZ] hs_buf;
     usz hs_len = ws_client_handshake_request(
-        hs_buf[0..], WS_HANDSHAKE_BUFSZ,
+        &hs_buf[0], WS_HANDSHAKE_BUFSZ,
         parsed.host,
         parsed.path.len > 0 ? parsed.path : "/",
         ws_key_str,
-        (String){ proto_buf[0..], proto_len },
+        (String)proto_buf[0:proto_len],
     );
-    stream.write(hs_buf[0..hs_len])!!;
+    stream.write(hs_buf[0:hs_len]); // ???
 
     // read 101 response
     char[RESP_READ_BUFSIZE] resp_buf; usz resp_filled = 0;
-    while (resp_filled < RESP_READ_BUFSIZE) {
-        usz n = stream.read((char[]){ resp_buf + resp_filled, RESP_READ_BUFSIZE - resp_filled });
-        if (n == 0) { pool_release(&self.connector.pool, stream, parsed.host, port); return HttpClientError.WS_ERROR?; }
+    bool got_hs = false;
+    while (!got_hs && resp_filled < RESP_READ_BUFSIZE) {
+        usz n = stream.read(resp_buf[resp_filled: RESP_READ_BUFSIZE - resp_filled ]);
+        if (n == 0) { pool_release(&self.connector.pool, stream, parsed.host, port); return WS_ERROR~; }
         resp_filled += n;
         for (usz i = 0; i + 3 < resp_filled; i++) {
-            if (resp_buf[i]=='\r' && resp_buf[i+1]=='\n' &&
-                resp_buf[i+2]=='\r' && resp_buf[i+3]=='\n') goto got_hs;
+            if (resp_buf[i]=='\r' && resp_buf[i+1]=='\n' && resp_buf[i+2]=='\r' && resp_buf[i+3]=='\n') {
+                got_hs = true;
+                break;
+            }
         }
     }
-    pool_release(&self.connector.pool, stream, parsed.host, port);
-    return HttpClientError.WS_ERROR?;
+    if (!got_hs) {
+        pool_release(&self.connector.pool, stream, parsed.host, port);
+        return WS_ERROR~;
+    }
+    
+    String resp_str = (String) resp_buf[0: resp_filled];
+    bool? ok = ws_server_handshake_response(resp_str, ws_key_str, localmem);
+    if (catch err = ok) { pool_release(&self.connector.pool, stream, parsed.host, port); return WS_ERROR~; }
 
-    got_hs:
-    String resp_str = (String){ resp_buf[0..], resp_filled };
-    bool? ok = ws_server_handshake_response(resp_str, ws_key_str, mem::heap());
-    if (catch = ok) { pool_release(&self.connector.pool, stream, parsed.host, port); return HttpClientError.WS_ERROR?; }
-
-    ClientWs* ws = (ClientWs*)mem::alloc($sizeof(ClientWs));
+    ClientWs* ws = localmem.alloc(ClientWs);
     ws.closed            = false;
     ws.protocol          = "";
     ws.compress          = compress;
@@ -571,7 +563,7 @@ fn ClientWs*? ClientSession.ws_connect(
     ws.url               = parsed;
     ws.heartbeat_us      = heartbeat_us;
     ws.receive_timeout_us = receive_timeout_us;
-    ws.last_error        = null;
+    ws.last_error        = NONE;
     ws.decoder.init(false, 0); // server sends unmasked
 
     // build peername "host:port"
@@ -587,13 +579,14 @@ fn ClientWs*? ClientSession.ws_connect(
 
 fn void? ws_send(ClientWs* ws, WsMsgType type, char* data, usz len) @private
 {
-    if (ws.closed) return HttpClientError.WS_ERROR?;
+    if (ws.closed) return WS_ERROR~;
     ulong seed = asyncio::clock_now();
     char[4] mask = { (char)(seed>>24), (char)(seed>>16), (char)(seed>>8), (char)seed };
-    String? frame = ws_frame_encode_alloc(mem::heap(), type, data, len, true, mask);
-    if (catch = frame) return HttpClientError.WS_ERROR?;
-    ws.stream.write((char[]){ frame.ptr, frame.len })!;
-    mem::free((void*)frame.ptr);
+    String? frame = ws_frame_encode_alloc(localmem, type, data, len, true, mask);
+    if (catch err = frame) return WS_ERROR~;
+    defer frame.free(localmem);
+
+    ws.stream.write(frame[0:frame.len]); // ???
 }
 
 fn void? ClientWs.send_str(&self, String data) @maydiscard
@@ -609,17 +602,17 @@ fn void? ClientWs.pong(&self, char* message = null, usz msg_len = 0) @maydiscard
 
 fn WsMessage? ClientWs.receive(&self)
 {
-    if (self.closed) return HttpClientError.WS_ERROR?;
+    if (self.closed) return WS_ERROR~;
     char[RESP_READ_BUFSIZE] raw;
 
     while (true) {
         WsFrame frame;
         bool? got = self.decoder.next(&frame);
-        if (catch = got) return HttpClientError.WS_ERROR?;
+        if (catch err = got) return WS_ERROR~;
 
         if (got) {
             if (frame.type == WsMsgType.PING) {
-                ws_send(self, WsMsgType.PONG, frame.data, frame.data_len)!!;
+                ws_send(self, WsMsgType.PONG, frame.data, frame.data_len)!;
                 continue;
             }
             if (frame.type == WsMsgType.CLOSE) {
@@ -629,44 +622,45 @@ fn WsMessage? ClientWs.receive(&self)
                 return msg;
             }
             // copy + reassemble fragments
-            char* buf = (char*)mem::alloc(frame.data_len > 0 ? frame.data_len : 1);
+            char* buf = localmem.malloc(frame.data_len > 0 ? frame.data_len : 1);
             for (usz i = 0; i < frame.data_len; i++) buf[i] = frame.data[i];
             usz total = frame.data_len;
             while (!frame.fin) {
-                WsFrame cont; bool? gc = self.decoder.next(&cont);
-                if (catch = gc) break;
+                WsFrame cont;
+                bool? gc = self.decoder.next(&cont);
+                if (catch err = gc) break;
                 if (!gc) {
-                    usz n = self.stream.read(raw[:]);
+                    usz n = self.stream.read(&raw);
                     if (n == 0) break;
-                    self.decoder.feed(raw[0..n])!!;
+                    self.decoder.feed(&raw[0], n)!;
                     continue;
                 }
-                char* nb = (char*)mem::alloc(total + cont.data_len);
+                char* nb = localmem.malloc(total + cont.data_len);
                 for (usz i = 0; i < total; i++) nb[i] = buf[i];
                 for (usz i = 0; i < cont.data_len; i++) nb[total+i] = cont.data[i];
-                mem::free(buf); buf = nb; total += cont.data_len; frame.fin = cont.fin;
+                localmem.free(buf); buf = nb; total += cont.data_len; frame.fin = cont.fin;
             }
             WsMessage msg; msg.type = frame.type;
             msg.data = buf; msg.data_len = total; msg.extra = "";
             return msg;
         }
-        usz n = self.stream.read(raw[:]);
-        if (n == 0) { self.closed = true; return HttpClientError.WS_ERROR?; }
-        self.decoder.feed(raw[0..n])!!;
+        usz n = self.stream.read(&raw);
+        if (n == 0) { self.closed = true; return WS_ERROR~; }
+        self.decoder.feed(&raw[0], n)!;
     }
 }
 
 fn String? ClientWs.receive_str(&self)
 {
     WsMessage? msg = self.receive();
-    if (catch err = msg) return err?;
-    return (String){ msg.data, msg.data_len };
+    if (catch err = msg) return err~;
+    return (String)msg.data[0: msg.data_len ];
 }
 
 fn char*? ClientWs.receive_bytes(&self, usz* out_len)
 {
     WsMessage? msg = self.receive();
-    if (catch err = msg) return err?;
+    if (catch err = msg) return err~;
     *out_len = msg.data_len;
     return msg.data;
 }
@@ -682,20 +676,19 @@ fn void? ClientWs.close(&self,
     self.closed = true;
     ulong seed = asyncio::clock_now();
     char[4] mask = { (char)(seed>>24),(char)(seed>>16),(char)(seed>>8),(char)seed };
-    char[140] cb; usz clen = ws_close_frame(cb[0..], code,
-        message != null ? (String){ message, msg_len } : "", true, mask);
-    self.stream.write(cb[0..clen])!;
+    char[140] cb; usz clen = ws_close_frame(&cb[0], code,
+        message != null ? (String)message[0: msg_len] : "", true, mask);
+    self.stream.write(cb[0:clen]); // ???
 }
 
 fn void ClientWs.free(&self)
 {
-    if (!self.closed) self.close()!!;
-    pool_release(&self.connector.pool, self.stream,
-                 self.url.host, self.url.effective_port());
-    mem::free(self);
+    if (!self.closed) (void)self.close();
+    pool_release(&self.connector.pool, self.stream, self.url.host, self.url.effective_port());
+    localmem.free(self);
 }
 
 fn String ClientWs.get_peername(&self)
-    => (String){ self.peername_buf[0..], self.peername_len };
+    => (String) self.peername_buf[0: self.peername_len];
 
-fn fault? ClientWs.exception(&self) => self.last_error;
+fn fault ClientWs.exception(&self) => self.last_error;

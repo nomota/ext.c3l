@@ -730,11 +730,13 @@ fn void close_file(int fd)
     unistd::close(fd);
 }
 
+// off_t = long
+
 fn long io_seek(int fd, long pos, int whence)
 {
     return unistd::lseek(fd, pos, whence);
 }
-fn ulong io_tell(int fd)
+fn long io_tell(int fd)
 {
     return unistd::lseek(fd, 0, unistd::SEEK_CUR);
 }
@@ -746,11 +748,11 @@ fn void io_flush(int fd)
 {
     unistd::fsync(fd);
 }
-fn ulong io_size(int fd)
+fn long io_size(int fd)
 {
     stat::Stat_t st;
     stat::fstat(fd, &st);
-    return (ulong)st.st_size;
+    return (long)st.st_size;
 }
 
 fn int io_stdin()  { 

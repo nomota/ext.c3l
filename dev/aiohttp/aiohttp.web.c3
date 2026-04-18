@@ -1065,7 +1065,7 @@ fn void handle_connection(Stream* stream, Application* app) @private
 
     // Read until full request headers are available.
     bool got_req = false;
-    while (filled < buf.len) {
+    while (!got_req && filled < buf.len) {
         usz n = stream.read(buf[filled:buf.len - filled]);
         if (n == 0) return;
         filled += n;

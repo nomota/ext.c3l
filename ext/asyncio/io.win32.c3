@@ -755,7 +755,9 @@ fn void close_file(int fd)
     }
 }
 
-tlocal HashMap{int,ulong} curPos; // remembers current position after every file operation
+// off_t = long
+
+tlocal HashMap{int,long} curPos; // remembers current position after every file operation
 
 fn long io_seek(int fd, long pos, int whence)
 {
@@ -771,9 +773,9 @@ fn long io_seek(int fd, long pos, int whence)
     return (long)io_tell(fd);
 }
 
-fn ulong io_tell(int fd)
+fn long io_tell(int fd)
 {
-    ulong? pos = curPos[fd];
+    long? pos = curPos[fd];
     if (catch err = pos) {
         return 0;
     }
@@ -792,11 +794,11 @@ fn void io_flush(int fd)
     winbase::flushFileBuffers((winbase::Handle) (iptr)fd);
 }
 
-fn ulong io_size(int fd)
+fn long io_size(int fd)
 {
     long size;
     winbase::getFileSizeEx((winbase::Handle) (iptr)fd, &size);
-    return (ulong) size;
+    return (long) size;
 }
 
 fn int io_stdin() 

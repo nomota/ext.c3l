@@ -55,7 +55,9 @@ fn bool Stream.at_eof(&self) @inline
     return self.eof && self.rbuf_start == self.rbuf_end;
 }
 
-fn bool Stream.fill(&self) @inline
+faultdef EOF;
+
+fn bool? Stream.fill(&self) @inline
 {
     if (self.eof) return false;
     
@@ -72,7 +74,7 @@ fn bool Stream.fill(&self) @inline
     usz? n = async_read(self.fd, &self.rbuf[self.rbuf_end], READ_BUF_SIZE - self.rbuf_end);
     if (catch err = n) {
         self.error = err;
-        return false;
+        return err~;
     }
     
     if (n > 0)  { 
@@ -80,7 +82,7 @@ fn bool Stream.fill(&self) @inline
         return true; 
     }
     if (n == 0) { self.eof = true; }
-    return false;
+    return EOF~;
 }
 
 fn usz Stream.available(&self) @inline
@@ -88,14 +90,14 @@ fn usz Stream.available(&self) @inline
     return self.rbuf_end - self.rbuf_start;
 }
 
-fn usz Stream.read(&self, char[] buf) 
+fn usz? Stream.read(&self, char[] buf) 
 {
     usz got = 0;
     char* dst = buf.ptr;
     while (got < buf.len) {
         while (self.available() == 0) {
             if (self.eof) return got;
-            if (!self.fill()) return got;
+            if (!self.fill()!) return got;
         }
         usz take = buf.len - got;
         if (take > self.available()) take = self.available();
@@ -106,11 +108,11 @@ fn usz Stream.read(&self, char[] buf)
     return got;
 }
 
-fn usz Stream.read_any(&self, char[] buf) 
+fn usz? Stream.read_any(&self, char[] buf) 
 {
     if (self.available() == 0) {
         if (self.eof) return 0;
-        self.fill();
+        self.fill()!;
         if (self.available() == 0) return 0;
     }
     usz take = buf.len < self.available() ? buf.len : self.available();
@@ -119,14 +121,14 @@ fn usz Stream.read_any(&self, char[] buf)
     return take;
 }
 
-fn usz Stream.read_until(&self, char delim, char[] buf) 
+fn usz? Stream.read_until(&self, char delim, char[] buf) 
 {
     usz total = 0;
     char* dst = buf.ptr;
     while (total < buf.len) {
         while (self.available() == 0) {
             if (self.eof) return total;
-            if (!self.fill()) return total;
+            if (!self.fill()!) return total;
         }
         char c = self.rbuf[self.rbuf_start++];
         dst[total++] = c;
@@ -135,10 +137,10 @@ fn usz Stream.read_until(&self, char delim, char[] buf)
     return total;
 }
 
-fn usz Stream.readline(&self, char[] buf) 
+fn usz? Stream.readline(&self, char[] buf) 
 {
     if (buf.len == 0) return 0;
-    usz len = self.read_until('\n', buf[0:buf.len - 1]);
+    usz len = self.read_until('\n', buf[0:buf.len - 1])!;
     if (len == 0) return 0;
     if (len >= 2 && buf[len-2] == '\r') {
         buf[len-2] = '\0';
@@ -148,15 +150,15 @@ fn usz Stream.readline(&self, char[] buf)
     return len - 1;
 }
 
-fn bool Stream.read_u32be(&self, uint* out)
+fn bool? Stream.read_u32be(&self, uint* out)
 {
     char[4] buf;
-    if (self.read(&buf) < 4) return false;
+    if (self.read(&buf)! < 4) return false;
     *out = ((uint)buf[0] << 24) | ((uint)buf[1] << 16) | ((uint)buf[2] <<  8) | (uint)buf[3];
     return true;
 }
 
-fn usz Stream.write(&self, char[] buf) 
+fn usz? Stream.write(&self, char[] buf) 
 {
     usz? n = async_write(self.fd, buf.ptr, buf.len);
     if (catch err = n) {
@@ -167,13 +169,13 @@ fn usz Stream.write(&self, char[] buf)
 }
 
 
-fn usz Stream.write_u32be(&self, uint v) 
+fn usz? Stream.write_u32be(&self, uint v) 
 {
     char[4] buf = {
         (char)((v >> 24) & 0xFF), (char)((v >> 16) & 0xFF),
         (char)((v >>  8) & 0xFF), (char)( v        & 0xFF),
     };
-    return self.write(&buf);
+    return self.write(&buf)!;
 }
 
 macro Stream.writef(&self, String fmt, args...) 
@@ -182,7 +184,7 @@ macro Stream.writef(&self, String fmt, args...)
     defer str.free();
     str.appendf(fmt, ...args);
 
-    return self.write((char[])str.str_view());
+    return self.write((char[])str.str_view())!;
 }
 
 fn Stream* open_pipe(int pipe_fd) 

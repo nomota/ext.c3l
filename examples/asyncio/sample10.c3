@@ -18,15 +18,14 @@ fn String bcat(char[] buf, String... args) @inline
     return (String)buf[0..n-1];
 }
 
-fn int strncasecmp(char* a, char* b, usz n)
+fn int strncasecmp(char* a, char* b, usz n) @if(env::WIN32)
 {
-    $if $defined(env::WIN32):
-        return string::_strnicmp(a, b, n);
-    $endif
-    
-    $if !$defined(env::WIN32):
-        return string::strncasecmp(a, b, n);
-    $endif
+    return string::_strnicmp(a, b, n);
+}
+
+fn int strncasecmp(char* a, char* b, usz n) @if(env::POSIX)
+{
+    return string::strncasecmp(a, b, n);
 }
 
 fn void echo_handler(asyncio::Stream* stream)
@@ -34,7 +33,7 @@ fn void echo_handler(asyncio::Stream* stream)
     io::printfn("[server] client connected, send welcome");
 
     char[] welcome = "+OK server ready\n";
-    stream.write(welcome);
+    stream.write(welcome)!!;
 
     // Read lines and echo them back until the client closes the connection.
     int count = 0;
@@ -43,7 +42,7 @@ fn void echo_handler(asyncio::Stream* stream)
         io::printfn("[server] readline() %d", count++);
 
         char[256] cmd;
-        usz n = stream.readline(&cmd);
+        usz n = stream.readline(&cmd)!!;
         if (n == 0) {
             // asyncio::warn("server readline failed");
             break; // EOF or closed
@@ -52,13 +51,13 @@ fn void echo_handler(asyncio::Stream* stream)
 
         if (strncasecmp(&cmd[0], "QUIT", 4) == 0) {
             String resp = "+OK Server closing connection.\n";
-            stream.write(resp);
+            stream.write(resp)!!;
             break;
         }
         
         if (strncasecmp(&cmd[0], "STOP", 4) == 0) {
             String resp = "+OK Server stopping.\n";
-            stream.write(resp);
+            stream.write(resp)!!;
             
             g_server.stop();
             
@@ -67,7 +66,7 @@ fn void echo_handler(asyncio::Stream* stream)
 
         char[256] respbuf;
         String resp = bcat(&respbuf, "+OK ", (String)cmd[0:n], "\n");
-        stream.write(resp);
+        stream.write(resp)!!;
     }
 
     io::printfn("[server] connection closed");
@@ -120,32 +119,32 @@ fn void client_coro()
     // asyncio::warn("client%p readline welcome", stream);
    
     char[256] rbuf;
-    usz n = stream.readline(&rbuf);
+    usz n = stream.readline(&rbuf)!!;
     io::printfn("[client] welcome: %s", (String)rbuf[0:n]);
 
     // asyncio::warn("client%p write msg1", stream);
     char[] msg1 = "msg1: Hello, asyncio!\n";
-    stream.write(msg1);
+    stream.write(msg1)!!;
 
     // asyncio::warn("client%p readline msg1", stream);
-    n = stream.readline(&rbuf); // read exactly as many bytes back
+    n = stream.readline(&rbuf)!!; // read exactly as many bytes back
     io::printfn("[client] echo: %s", (String)rbuf[0:n]);
     
     // asyncio::warn("client%p write msg2", stream);
     char[] msg2 = "msg2: World!\n";
-    stream.write(msg2);
+    stream.write(msg2)!!;
 
     io::printfn("[client] readline..");
 
-    n = stream.readline(&rbuf);
+    n = stream.readline(&rbuf)!!;
     io::printfn("[client] echo: %s", (String)rbuf[0:n]);
 
     char[] msg3 = "QUIT\n";
-    stream.write(msg3);
+    stream.write(msg3)!!;
 
     io::printfn("[client] readline..");
 
-    n = stream.readline(&rbuf);
+    n = stream.readline(&rbuf)!!;
     io::printfn("[client] echo: %s", (String)rbuf[0:n]);
 
     stream.close();
@@ -163,8 +162,7 @@ fn void client_stop()
 
     // asyncio::warn("client open_connection()");
     Stream*? stream = asyncio::open_connection("127.0.0.1", 9100);
-    if (catch err = stream)
-    {
+    if (catch err = stream) {
         io::printfn("[client] connect failed: %s", err);
         return;
     }
@@ -174,32 +172,32 @@ fn void client_stop()
     // asyncio::warn("client%p readline welcome", stream);
    
     char[256] rbuf;
-    usz n = stream.readline(&rbuf);
+    usz n = stream.readline(&rbuf)!!;
     io::printfn("[client] welcome: %s", (String)rbuf[0:n]);
 
     // asyncio::warn("client%p write msg1", stream);
     char[] msg1 = "msg1: Hello, asyncio!\n";
-    stream.write(msg1);
+    stream.write(msg1)!!;
 
     // asyncio::warn("client%p readline msg1", stream);
-    n = stream.readline(&rbuf); // read exactly as many bytes back
+    n = stream.readline(&rbuf)!!; // read exactly as many bytes back
     io::printfn("[client] echo: %s", (String)rbuf[0:n]);
     
     // asyncio::warn("client%p write msg2", stream);
     char[] msg2 = "msg2: World!\n";
-    stream.write(msg2);
+    stream.write(msg2)!!;
 
     io::printfn("[client] readline..");
 
-    n = stream.readline(&rbuf);
+    n = stream.readline(&rbuf)!!;
     io::printfn("[client] echo: %s", (String)rbuf[0:n]);
 
     char[] msg3 = "STOP\n";
-    stream.write(msg3);
+    stream.write(msg3)!!;
 
     io::printfn("[client] readline..");
 
-    n = stream.readline(&rbuf);
+    n = stream.readline(&rbuf)!!;
     io::printfn("[client] echo: %s", (String)rbuf[0:n]);
 
     stream.close();

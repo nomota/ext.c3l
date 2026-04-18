@@ -691,6 +691,8 @@ fn void EventLoop.close(&self)
     self._flush_deferred_task_frees();
 
     io_destroy();
+    
+    fiber::deinit();
 }
 
 // Run the loop forever until stop() is called.
@@ -776,7 +778,10 @@ fn CallbackHandle* EventLoop.call_soon(&self, SoonCallback cb, void* arg = null)
     
     @assert(!self.closed, "asyncio: call_soon() on a closed loop");
 
-    @assert(self.soon_count < self.soon_cap, "asyncio: soon queue overflow. Set by calling\nasyncio::set_eventloop_config(queue_size=1024, timer=512, soon_queue=512)");
+    if (self.soon_count >= self.soon_cap) {
+        warn("asyncio: soon queue overflow. Set by calling\nasyncio::set_eventloop_config(queue_size=1024, timer=512, soon_queue=512)");
+        return null;
+    }
 
     CallbackHandle* h = callbackhandle_new(cb, arg);
     self.soon_queue[self.soon_tail] = h;
@@ -813,8 +818,10 @@ fn CallbackHandle* EventLoop.call_at_us(&self, ulong when_us, SoonCallback cb, v
 {
     if (self.closing) return null;
     @assert(!self.closed, "asyncio: call_at() on a closed loop");
-    @assert(self.cb_timer_count < self.timer_cap, "asyncio: cb_timer queue overflow");
-
+    if (self.cb_timer_count >= self.timer_cap) {
+        warn("asyncio: cb_timer queue overflow");
+        return null;
+    }
     CallbackHandle* h = callbackhandle_new(cb, arg);
     self._cb_timer_push(when_us, h);
     
@@ -839,13 +846,13 @@ fn CallbackHandle* EventLoop.call_soon_threadsafe(&self, SoonCallback cb, void* 
         return null;
     }
 
-    CallbackHandle* h = callbackhandle_new(cb, arg);
-    if (self.ts_count == self.soon_cap) {
+    if (self.ts_count >= self.soon_cap) {
         self.ts_mutex.unlock()!!;
-        @assert(false, "asyncio: threadsafe queue overflow");
+        warn("asyncio: threadsafe queue overflow");
         return null;
     }
-    
+
+    CallbackHandle* h = callbackhandle_new(cb, arg);
     self.ts_queue[self.ts_count++] = h;
     self.ts_mutex.unlock()!!;
     
@@ -880,12 +887,13 @@ fn void EventLoop._drain_threadsafe(&self)
         }
 
         if (self.soon_count < self.soon_cap) {
-            CallbackHandle* h1 = callbackhandle_new(h.cb, h.arg);
-      
-            self.soon_queue[self.soon_tail] = h1;
+            self.soon_queue[self.soon_tail] = h;
             self.soon_tail  = (self.soon_tail + 1) % self.soon_cap;
             self.soon_count++;
-        } 
+        } else {
+            warn("soon_queue overflow, discard a handle silently");
+            h.free();
+        }
     }
 }
 

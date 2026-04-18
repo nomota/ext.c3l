@@ -56,7 +56,7 @@ alias HLocal = void*;
 // Constants - Handle Values
 // ============================================================
 
-const Handle INVALID_HANDLE_VALUE       = (Handle)(iptr)iptr.max;
+const Handle INVALID_HANDLE_VALUE       = (Handle)(uptr)uptr.max;
 const Handle NULL_HANDLE                = (Handle)0;
 
 // ============================================================

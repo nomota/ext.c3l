@@ -29,6 +29,13 @@ fn void init(Allocator allocx = mem, bool debug = true) @private
     debug::set_debug(debug);
 }
 
+fn void deinit()
+{
+    if (running == null) return;
+    primary = {};
+    running = null;
+}
+
 fn Fiber* active() 
 {
     if (running == null) init();
@@ -36,7 +43,7 @@ fn Fiber* active()
 }
 
 const char[] CANARY = "CANARYCANARYCANARYCANARY"; // 24 bytes
-fn Fiber* create(uint stack_size, Coroutine coroutine) 
+fn Fiber* create(uint stack_size, Coroutine coroutine)
 {
     if (running == null) init();
  
@@ -112,7 +119,7 @@ fn usz stack_used(Fiber* fiber)
     return stack_size-untouched;
 }
     
-fn void switch_to(Fiber* fiber) 
+fn void switch_to(Fiber* fiber) @nosanitize("address")
 {
     if (fiber == null || fiber.done) return;
     if (running != &primary) check_canary(running);
@@ -124,14 +131,14 @@ fn void switch_to(Fiber* fiber)
     }
 }
 
-fn void yield()
+fn void yield() @nosanitize("address")
 {
     if (running == &primary) return;
     check_canary(running);
     switch_to(&primary);
 }
 
-fn void done() 
+fn void done() @nosanitize("address")
 {
     running.done = true;
     check_canary(running);

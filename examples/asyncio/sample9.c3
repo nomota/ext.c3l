@@ -37,13 +37,13 @@ fn void EchoServerP.connection_made(&self, Transport* transport) @dynamic
 {
     self.transport = transport;
     io::printfn("[server] client connected");
-    self.transport.write(self.msg);
+    self.transport.write(self.msg)!!;
 }
 
 fn void EchoServerP.data_received(&self, char[] data) @dynamic
 {
     io::printfn("[server] received: %s", (String)data);
-    self.transport.write(data); // echo back
+    self.transport.write(data)!!; // echo back
 }
 
 fn void EchoServerP.connection_lost(&self, fault exception) @dynamic
@@ -83,7 +83,7 @@ fn void EchoClientP.connection_made(&self, Transport* transport) @dynamic
 {
     self.transport = transport;
     io::printfn("[client] connected, sending: %s", (String)self.msg);
-    self.transport.write(self.msg);
+    self.transport.write(self.msg)!!;
 }
 
 fn void EchoClientP.data_received(&self, char[] data) @dynamic

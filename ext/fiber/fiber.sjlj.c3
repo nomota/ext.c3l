@@ -44,6 +44,13 @@ fn void init(Allocator allocx = mem, bool dbg = true) @private
     creating.set(null);
 }
 
+fn void deinit()
+{
+    if (running == null) return;
+    primary = {};
+    running = null;
+}
+
 // ========================================
 // Canary helpers
 // ========================================
@@ -228,7 +235,7 @@ fn void delete(Fiber* fiber)
     mem_free(fiber);
 }
 
-fn void switch_to(Fiber* fiber)
+fn void switch_to(Fiber* fiber) @nosanitize("address")
 {
     if (fiber == null || fiber.done) return;
     if (running != &primary) check_canary(running);
@@ -239,7 +246,7 @@ fn void switch_to(Fiber* fiber)
     }
 }
 
-fn void yield()
+fn void yield() @nosanitize("address")
 {
     if (running == &primary) return;
     check_canary(running);
@@ -249,7 +256,7 @@ fn void yield()
     }
 }
 
-fn void done()
+fn void done() @nosanitize("address")
 {
     if (running == &primary) return;
     running.done = true;

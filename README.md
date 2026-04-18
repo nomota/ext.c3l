@@ -206,7 +206,7 @@ Asynchronous, non-blocking file I/O on top of [ext::asyncio](ext/asyncio/README.
 
 | Module | Description |
 |--------|-------------|
-| `ext::debug` | Debugging macros: warn(), @assert() |
+| `ext::debug` | Debugging macros: warn(), @assert(), @debug_leak(), set_debug() |
 
 * [ext/debug](ext/debug)
 - More about [Debugging macros](ext/debug/README.md)

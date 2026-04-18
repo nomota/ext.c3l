@@ -4,6 +4,7 @@ module ext::thread::fiber @if(env::WIN32);
 
 import c::winbase;
 import ext::mem;
+import ext::debug;
 
 alias FiberProc = fn void(void* param);
 alias WinFiber = void*;
@@ -21,14 +22,22 @@ alias Coroutine = fn void();
 fn void thunk(void* coentry) @callconv("stdcall") @private
 {
     ((Coroutine)coentry)();
+    @assert(running != null && running.done, "fiber::thunk(): coroutine returned without calling fiber::done()");
 }
 
 fn void init(Allocator allocx=mem, bool debug=true) @private
 {
     if (running != null) return;
     primary.wfiber = winbase::convertThreadToFiber(null);
-    // active_ = winbase::getCurrentFiber();
+    @assert(primary.wfiber != null, "fiber::init(): ConvertThreadToFiber failed");
     running = &primary;
+}
+
+fn void deinit()
+{
+    if (running == null) return;
+    primary = {};
+    running = null;
 }
 
 fn Fiber* active() 
@@ -37,11 +46,12 @@ fn Fiber* active()
     return running;
 }
 
-fn Fiber* create(uint stack_size, Coroutine coroutine) 
+fn Fiber* create(uint stack_size, Coroutine coroutine)
 {
     if (running == null) init();
     Fiber* fiber = mem_alloc(Fiber);
     fiber.wfiber = winbase::createFiber(stack_size, &thunk, (void*)coroutine);
+    @assert(fiber.wfiber != null, "fiber::create(): CreateFiber failed");
     fiber.done = false;
     return fiber;
 }
@@ -53,20 +63,20 @@ fn void delete(Fiber* fiber)
     mem_free(fiber);
 }
 
-fn void switch_to(Fiber* fiber) 
+fn void switch_to(Fiber* fiber) @nosanitize("address")
 {
     if (fiber == null || fiber.done) return;
     running = fiber;
     winbase::switchToFiber(fiber.wfiber);
 }
 
-fn void yield()
+fn void yield() @nosanitize("address")
 {
     if (running == &primary) return;
     switch_to(&primary);
 }
 
-fn void done() 
+fn void done() @nosanitize("address")
 {
     running.done = true;
     yield();
