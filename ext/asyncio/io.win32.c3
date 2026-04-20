@@ -405,9 +405,9 @@ fn void io_poll(ulong timeout_us)
             continue;
         }
 
-        if (transferred == 0 && !op.is_write) {
+        if (!op.is_write) {
             fut.set_result(null); // EOF: caller gets read() == 0
-        } else if (transferred == 0) {
+        } else {
             fut.set_exception(IO_ERROR);
         }
         _op_free(op);
@@ -501,7 +501,7 @@ fn void _start_recvfrom(int fd, Future* future)
     op.handle = h;
     op.future = future;
     op.flags = 0;
-    op.from_len = $sizeof(winsock2::SockAddrStorage);
+    op.from_len = winsock2::SockAddrStorage.sizeof;
 
     op.wsabuf.buf = &op.buf[0];
     op.wsabuf.len = IOCP_BUF_SIZE;

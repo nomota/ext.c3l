@@ -82,7 +82,7 @@ fn bool? Stream.fill(&self) @inline
         return true; 
     }
     if (n == 0) { self.eof = true; }
-    return EOF~;
+    return false;
 }
 
 fn usz Stream.available(&self) @inline
