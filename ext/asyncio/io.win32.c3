@@ -29,6 +29,7 @@ struct IocpOp {
     bool active;
     bool is_write;
     bool is_socket; // true=socket(wsaRecv/Send), false=file (readFile/writeFile)
+    bool is_recvfrom;
     winbase::Handle handle;
     Future* future;
 
@@ -94,15 +95,21 @@ fn bool _is_socket(winbase::Handle h)
 }
 
 // connect handle to iocp
+tlocal HashMap{int, bool} _iocp_assoc;
 fn bool _iocp_associate(winbase::Handle h) 
 {
+    int key = (int)(iptr)h;
+    // already associated: skip re-registration
+    if (try _iocp_assoc[key]) return true;
+
     winbase::Handle result = winbase::createIoCompletionPort(
         h, _iocp,
         (uptr)h, // completion key = handle itself
         0);
-    return result != null;
-    // || winbase::getLastError() == winbase::ERROR_INVALID_PARAMETER;
-
+    if (result == null) return false;
+    
+    _iocp_assoc[key] = true;
+    return true;
 }
 
 tlocal bool initialized = false;
@@ -193,8 +200,10 @@ fn bool set_nonblocking(int fd)
 {
     winbase::Handle h = (winbase::Handle) (iptr)fd;
     if (_is_socket(h)) {
-        uint mode = 1;
-        return winsock2::ioctlsocket((winsock2::Socket)fd, winsock2::FIONBIO, &mode) == 0;
+        // Win32 IOCP/OVERLAPPED sockets should stay in blocking mode.
+
+        // uint mode = 1;
+        // return winsock2::ioctlsocket((winsock2::Socket)fd, winsock2::FIONBIO, &mode) == 0;
     }
     return true; // For files, OVERLAPPED is nonblocking
 }
@@ -339,6 +348,8 @@ fn void _start_write(int fd, void* data, usz len, Future* future, ulong offset)
 
 fn void unregister(int fd)
 {
+    _iocp_assoc.remove(fd);
+    
     winbase::Handle h = (winbase::Handle)(iptr)fd;
 
     winbase::cancelIoEx((winbase::Handle)(iptr)fd, null);
@@ -388,15 +399,17 @@ fn void io_poll(ulong timeout_us)
             _op_free(op);   // cancelIoEx abort packet: future is already cancelled
             continue;
         }
+        
+        if (transferred > 0) {
+            fut.set_result((void*)op); // Alert! non-heap value, don't free fut.await() result
+            continue;
+        }
+
         if (transferred == 0 && !op.is_write) {
             fut.set_result(null); // EOF: caller gets read() == 0
         } else if (transferred == 0) {
             fut.set_exception(IO_ERROR);
-        } else {
-            fut.set_result((void*)op);
-            continue;
         }
-
         _op_free(op);
     }
 }
@@ -411,7 +424,10 @@ fn usz? async_read(int fd, void* out_buf, usz max_len)
         register_read(fd, fut, offset);
         void*? raw  = fut.await();
         fault ferror = fut.error;
+        
+        fut.result = null; // non-allocated
         fut.free();
+        
         if (catch err = raw) {
             if (ferror == IO_ERROR) return IO_ERROR~;
             return err~;
@@ -445,7 +461,10 @@ fn usz? async_write(int fd, void* buf, usz len)
 
         void*? raw = fut.await();
         fault ferror = fut.error;
+        
+        fut.result = null; // non-allocated
         fut.free();
+        
         if (catch err = raw) {
             if (ferror == IO_ERROR) return IO_ERROR~;
             return err~;
@@ -519,13 +538,15 @@ fn usz? async_recvfrom(int fd, void* buf, usz len, char* ip_str, usz* ip_len, us
 
     void*? raw = fut.await();
     fault ferror = fut.error;
+
+    fut.result = null; // non-allocated
     fut.free();
 
     if (catch err = raw) {
         if (ferror == IO_ERROR) return IO_ERROR~;
         return err~;
     }
-    if (raw == null) return -1;
+    if (raw == null) return IO_ERROR~;
 
     IocpOp* op = (IocpOp*)raw;
     winbase::DWord n = op.transferred;
@@ -610,6 +631,8 @@ fn usz? async_sendto(int fd, void* buf, usz len, char* ip_str, ushort port)
 
         void*? raw = fut.await();
         fault ferror = fut.error;
+        
+        fut.result = null; // non-allocated
         fut.free();
 
         if (catch err = raw) {

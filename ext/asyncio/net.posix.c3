@@ -436,5 +436,5 @@ fn void Server.stop(&self)
         self.listen_fd = -1;
     }
     
-    // if (self.accept_task != null) self.accept_task.cancel();
+    if (self.accept_task != null) self.accept_task.cancel();
 }

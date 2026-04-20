@@ -567,4 +567,4 @@ const uint INADDR_NONE = 0xFFFFFFFF;
 
 // Maximum lengths
 const int INET_ADDRSTRLEN = 22;
-const int INET6_ADDRSTRLEN = 65;
+const int INET6_ADDRSTRLEN = 46;

@@ -23,6 +23,18 @@ fn char* str2cptr(String str, char[] buf) @inline
     return &buf[0];
 }
 
+// _resolve_and_bind_win, _resolve_and_datagram, socket()
+fn void _disable_conn_reset(winsock2::Socket sock)
+{
+    int off = 0;
+    winbase::DWord dummy;
+    winsock2::wsaIoctl(
+        sock, winsock2::SIO_UDP_CONNRESET,
+        &off, $sizeof(off),
+        null, 0, &dummy, null, null
+    );
+}
+
 fn int socket_new(int family, int type)
 {
     winsock2::Socket sock = winsock2::wsaSocketW(family, type, 0,
@@ -37,7 +49,7 @@ fn int socket_new(int family, int type)
         winsock2::closesocket(sock);
         return -1;
     }
-    
+    _disable_conn_reset(sock);
     return (int)sock;
 }
 
@@ -587,6 +599,6 @@ fn void Server.stop(&self)
         winsock2::closesocket((winsock2::Socket)fd);
     }
     
-    // if (self.accept_task != null) self.accept_task.cancel();
+    if (self.accept_task != null) self.accept_task.cancel();
 }
 

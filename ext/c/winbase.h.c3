@@ -519,13 +519,13 @@ struct SystemTime {
 }
 
 struct TimeZoneInformation {
-    int[32]  szStandardName;
+   int     bias;    
+    WChar[32] szStandardName;
     SystemTime stStandardDate;
-    int     bias;
     int     standardBias;
-    int     daylightBias;
-    int[32]  szDaylightName;
+    WChar[32] szDaylightName;
     SystemTime stDaylightDate;
+    int     daylightBias;
 }
 
 // ============================================================

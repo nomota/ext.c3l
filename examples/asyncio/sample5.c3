@@ -17,6 +17,8 @@ import std::io;
 import std::time;
 import std::thread;
 import ext::asyncio;
+import ext::debug;
+import c::stdio;
 
 // ---------------------------------------------
 //  Shared result (written by worker, read by loop)
@@ -49,16 +51,23 @@ struct WorkerArg {
 
 fn int worker_thread(void* raw_arg)
 {
+    stdio::printf("thread called\n");
+    stdio::printf("[worker ] called\n");
+    
     WorkerArg* arg = (WorkerArg*)raw_arg;
-
-    io::printfn("[worker ] started, computing %d + %d ...", arg.operand_a, arg.operand_b);
+    assert(arg != null, "error");
+    assert(arg.operand_a == 20, "error");
+    assert(arg.operand_b == 21, "error");
+    stdio::printf("arg.operand_a: %d\n", arg.operand_a);
+    
+    stdio::printf("[worker ] started, computing %d + %d ...\n", arg.operand_a, arg.operand_b);
 
     // Simulate blocking work: sleep 1.5s on the OS thread
-    io::printfn("[worker ] sleep 1.5s");
+    stdio::printf("[worker ] sleep 1.5s\n");
     thread::sleep((Duration)1_500_000);
 
     g_result = arg.operand_a + arg.operand_b;
-    io::printfn("[worker ] done, pushing result to event loop");
+    stdio::printf("[worker ] done, pushing result to event loop\n");
 
     // Push the completion callback to the loop thread — this is the only
     // safe way to touch loop state from another OS thread.
@@ -72,16 +81,18 @@ fn int worker_thread(void* raw_arg)
 //  Main coroutine — starts the worker thread and yields
 // ---------------------------------------------
 WorkerArg* g_arg;
-thread::Thread worker;
 
 fn void main_coro()
 {
     io::printfn("=== sample5: call_soon_threadsafe from worker thread ===");
 
     g_arg = mem::new(WorkerArg);
-    *g_arg = { .operand_a = 21, .operand_b = 21, .loop = asyncio::get_running_loop() };
-
-    worker.create(&worker_thread, g_arg)!!;
+    *g_arg = { .operand_a = 20, .operand_b = 21, .loop = asyncio::get_running_loop() };
+    
+    Thread thr;
+    thr.create(&worker_thread, g_arg)!!; // run in a separate thread
+    thr.detach()!!;
+    
     io::printfn("[main   ] worker thread launched, yielding to loop");
 
     // Yield control; the loop will keep running until the worker calls stop()
@@ -89,8 +100,6 @@ fn void main_coro()
     io::printfn("[main   ] sleep 5.0s");
     asyncio::sleep(5.0);
 
-    // Detach the thread — it will have already finished by the time we get here.
-    worker.detach()!!;
 
     io::printfn("[main   ] (should not reach here — loop was stopped by worker)");
 }

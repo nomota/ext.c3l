@@ -102,7 +102,7 @@ const int SO_USELOOPBACK = 0x0040;
 const int SO_LINGER = 0x0080;
 const int SO_OOBINLINE = 0x0100;
 const int SO_DONTLINGER = 0xFF7F;
-const int SO_EXCLUSIVEADDRUSE = int.max; // 0xFFFFFFFE;
+const int SO_EXCLUSIVEADDRUSE = (int)0xFFFFFFFB; // ~SO_REUSEADDR
 const int SO_SNDBUF = 0x1001;
 const int SO_RCVBUF = 0x1002;
 const int SO_SNDLOWAT = 0x1003;
@@ -233,7 +233,7 @@ const uint SIO_QUERY_TARGET_PNP_HANDLE       = 0x48000018; // _WSAIOR (IOC_WS2,2
 const uint SIO_NSP_NOTIFY_CHANGE             = 0x88000019; // _WSAIOW (IOC_WS2,25)
 const uint SIO_UDP_CONNRESET                 = 0x9800000C; // _WSAIOW (IOC_VENDOR,12) — UDP ConnReset
 const uint SIO_KEEPALIVE_VALS                = 0x98000004; // _WSAIOW (IOC_VENDOR,4)
-const uint SIO_LOOPBACK_FAST_PATH            = 0x9800000B; // _WSAIOW (IOC_VENDOR,16)
+const uint SIO_LOOPBACK_FAST_PATH = 0x98000010; // _WSAIOW(IOC_VENDOR,16)
 
 // WSA constants
 const int WSADESCRIPTION_LEN = 256;

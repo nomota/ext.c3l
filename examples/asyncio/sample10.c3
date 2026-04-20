@@ -5,6 +5,7 @@ module example;
 import std::io;
 import ext::asyncio;
 import c::string;
+import ext::debug; // warn
 
 asyncio::Server* g_server;
 
@@ -197,8 +198,12 @@ fn void client_stop()
 
     io::printfn("[client] readline..");
 
-    n = stream.readline(&rbuf)!!;
-    io::printfn("[client] echo: %s", (String)rbuf[0:n]);
+    usz? n2 = stream.readline(&rbuf);
+    if (catch err = n2) {
+        warn("err:%s but OK", err);
+    } else {
+        io::printfn("[client] echo: %s", (String)rbuf[0:n]);
+    }
 
     stream.close();
     io::printfn("[client] done");
