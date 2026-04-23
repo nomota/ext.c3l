@@ -6,9 +6,11 @@ module ext::io::cfile @if(env::WIN32);
 import c::windows;
 import c::winbase;
 import c::errno;
+import c::stdio;
 import ext::io::stat;
 import c::sys::stat;
 import ext::mem;
+import ext::debug;
 
 tlocal LocalAllocator localmem = {};
 
@@ -20,8 +22,8 @@ struct File
 fn Char16*? utf8to16(String path, Char16[] wpath) @private
 {
     if (path.len == 0) return errno::F_INVAL~;
-    Char16[] p2 = path.to_utf16(mem)!;
-    defer free(p2);
+    Char16[] p2 = path.to_utf16(tmem)!;
+    // defer free(p2);
     
     if (p2.len >= wpath.len-1) return errno::F_BAD_LENGTH~;
     
@@ -45,19 +47,19 @@ fn File? open(String fname, String mode)
     winbase::DWord disposition = 0;
     winbase::DWord attributes = winbase::FILE_ATTRIBUTE_NORMAL;
 
-    if (mode == "r") {
+    if (mode == "r" || mode == "rb") {
         access = winbase::GENERIC_READ;
         disposition = winbase::OPEN_EXISTING;
     } else if (mode == "r+") {
         access = winbase::GENERIC_READ | winbase::GENERIC_WRITE;
         disposition = winbase::OPEN_EXISTING;
-    } else if (mode == "w") {
+    } else if (mode == "w" || mode == "wb") {
         access = winbase::GENERIC_WRITE;
         disposition = winbase::CREATE_ALWAYS;
     } else if (mode == "w+") {
         access = winbase::GENERIC_READ | winbase::GENERIC_WRITE;
         disposition = winbase::CREATE_ALWAYS;
-    } else if (mode == "a") {
+    } else if (mode == "a" || mode == "ab") {
         access = winbase::FILE_APPEND_DATA; // or GENERIC_WRITE
         disposition = winbase::OPEN_ALWAYS;
     } else if (mode == "a+") {
@@ -147,8 +149,8 @@ fn void File.flush(&self)
 fn usz? File.printf(&self, String fmt, args...)
 {
     // Format to temporary buffer
-    DString str; str.init(mem);
-    defer str.free();
+    DString str; // str.init(mem);
+    // defer str.free();
     str.appendf(fmt, ...args);
     
     // Write formatted string
@@ -214,7 +216,7 @@ fn char[]? load(Allocator allocx, String file)
 
 fn void? save(String filename, char[] data)
 {
-	File file = open(filename, "wb")!;
+	File file = open(filename, "w")!;
 	defer (void)file.close();
 	while (data.len)
 	{
@@ -239,7 +241,7 @@ fn void? rename(String fname, String fname2) @maydiscard
 
     Char16[512] namebuf2;
     Char16* name2 = utf8to16(fname2, &namebuf2)!;
-    
+
     windows::Bool success = windows::moveFileW(name, name2);
     if (!success) return errno::get_fault()~;
 }
@@ -247,7 +249,7 @@ fn void? rename(String fname, String fname2) @maydiscard
 fn void? copy(String fname, String fname2) @maydiscard
 {
     char[] buf = load(tmem, fname)!;
-    defer free(buf);
+    // defer free(buf);
     
     File fp = open(fname2, "w")!;
     defer fp.close();

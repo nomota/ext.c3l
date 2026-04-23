@@ -482,11 +482,8 @@ fn void Task.step(&self)
     // -- post-fiber return handling --
 
     if (self.done()) {
-        // Coroutine finished: clean up the fiber
         // warn("Task.step: %s.done", self.name);
         if (self.autofree) self.defer_free();
-        // fiber::delete(self.fiber);
-        // self.fiber = null;
         return;
     }
 

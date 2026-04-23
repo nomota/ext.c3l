@@ -1,7 +1,6 @@
+// stat.posix.c3
 
-// std/io/os/stat.posix.c3
-//
-// This module provides following functions for Posix systems.
+// provides following functions for Posix systems.
 // exists() size() last_modified() 
 // is_dir() is_file() is_link() 
 // is_readable() is_writeable()
@@ -9,7 +8,9 @@
 // read_link()
 // umask(), change_mode()
 
-module ext::io::stat @if(!env::WIN32); // Posix
+// Nomota <hiongun@gmail.com>; MIT License
+
+module ext::io::stat @if(!env::WIN32); // POSIX
 
 import c::errno;
 import c::unistd;

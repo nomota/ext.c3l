@@ -165,6 +165,24 @@ fn void check_canary(Fiber* fiber) @inline @private
     }
 }
 
+fn void diag()
+{
+    Fiber* fiber = active();
+    if (fiber.block == null) return; // primary has no block
+    usz stack_size = fiber.stack_size;
+
+    if (string::strncmp(fiber.block + stack_size, CANARY.ptr, CANARY.len) != 0) {
+        warn("Postfix canary breached, fiber stack size is too small. current stack_size:%d", stack_size);
+    } else {
+        warn("fiber stack is safe");
+    }
+    
+    usz used = stack_used(fiber);
+    float usage = (float)used/(float)stack_size;
+    warn("stack_size:%d, used:%d, usage:%.1f%%", stack_size, used, usage*100);
+}
+
+
 fn usz stack_used(Fiber* fiber)
 {
     if (!debug::debug) return 0;

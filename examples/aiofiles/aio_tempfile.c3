@@ -8,7 +8,20 @@ import ext::debug;
 import ext::mem;
 import ext::asyncio;
 import ext::aiofiles;
+import ext::aiofiles::os::path;
 import ext::aiofiles::tempfile;
+
+// no boundary check, buf must be enough
+fn String bcat(char[] buf, String... args)
+{
+    usz n = 0;
+    foreach (arg: args) {
+        buf[n:arg.len] = arg[0:arg.len];
+        n += arg.len;
+    }
+    buf[n] = 0;
+    return (String) buf[0:n];
+}
 
 // 1. Basic temporary file — write, read back, auto-delete on close
 fn void? basic_tempfile()
@@ -22,7 +35,7 @@ fn void? basic_tempfile()
     tmp.file.writef("Hello from temp!\n")!;
     tmp.file.writef("Line %d\n", 2)!;
     tmp.file.flush();
-
+    
     // Seek back to the beginning and read
     tmp.file.seek(0, 0);
     char[256] buf;
@@ -31,6 +44,7 @@ fn void? basic_tempfile()
 
     // close() removes the file automatically
     tmp.close();
+
     io::printn("temp file removed");
 }
 
@@ -75,9 +89,10 @@ fn void? atomic_write(String dest)
     tmp.file.writef("timeout = 30\n")!;
     tmp.file.flush();
     tmp.close_handle(); // close file handle before rename (required on Windows)
-// warn("-");
+
     // Rename temp -> dest (atomic on POSIX)
-    stdio::rename(tmp.fullpath.ptr, dest.ptr);
+    os::rename(tmp.fullpath, dest);
+
     io::printfn("committed: %s", dest);
 }
 
@@ -87,24 +102,25 @@ fn void? basic_tempdir()
 {
     io::printn("\n=== 4. basic temp dir ===");
 
-    AioTempDir tdir = tempfile::temporayDirectory();
+    AioTempDir tdir = tempfile::temporaryDirectory();
     io::printfn("created : %s", tdir.fullpath);
 
     // Create a few files inside the temp dir
-    char[1024] pbuf;
     String[] names = { "a.txt", "b.txt", "c.log" };
     foreach (name : names) {
-        int n = stdio::snprintf(&pbuf[0], pbuf.len, "%.*s/%s", tdir.fullpath.len, tdir.fullpath.ptr, name.ptr);
-        String fpath = (String)pbuf[:n];
-// warn("-%s", fpath);
+        char[1024] pbuf;
+        String fpath = bcat(&pbuf, tdir.fullpath, "/", name);
+
         AioFile f = aiofiles::open(fpath, "w")!;
         f.writef("// %s\n", name)!;
         f.close();
         io::printfn("  wrote: %s", fpath);
     }
-// warn("-");
+
     // close() recursively removes everything
+
     tdir.close();
+
     io::printn("temp dir removed");
 }
 
@@ -113,15 +129,16 @@ fn void? tempdir_sandbox()
 {
     io::printn("\n=== 5. temp dir sandbox ===");
 
-    AioTempDir tdir = tempfile::temporayDirectory();
+    AioTempDir tdir = tempfile::temporaryDirectory();
     defer tdir.close();
 
     // Build nested structure: <tdir>/sub/deep/
-    char[1024] sub; char[1024] deep;
-    int ns = stdio::snprintf(&sub[0], sub.len, "%.*s/sub", tdir.fullpath.len, tdir.fullpath.ptr);
-    int nd = stdio::snprintf(&deep[0], deep.len, "%.*s/sub/deep", tdir.fullpath.len, tdir.fullpath.ptr);
-    os::makedirs((String)sub[:ns]);
-    os::makedirs((String)deep[:nd]);
+    char[1024] _sub; char[1024] _deep;
+    String sub = bcat(&_sub, tdir.fullpath, "/sub");
+    String deep = bcat(&_deep, tdir.fullpath, "/sub/deep");
+
+    os::makedirs(sub);
+    os::makedirs(deep);
 
     // Write a file at each level
     String[] paths = {
@@ -191,6 +208,7 @@ fn void main_coro()
     basic_tempfile()!!;
     tempfile_as_buffer()!!;
     atomic_write("config.ini")!!;
+    @assert(path::exists("config.ini"), "error");
     basic_tempdir()!!;
     tempdir_sandbox()!!;
     multi_tempfiles()!!;

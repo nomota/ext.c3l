@@ -25,7 +25,7 @@ fn Char16*? utf8to16(String path, Char16[] wpath) @private
     if (path.len == 0) return errno::F_BAD_LENGTH~;
 
     Char16[] p2 = path.to_utf16(tmem)!;
-    defer free(p2);
+    // defer free(p2);
     
     if (p2.len >= wpath.len-1) return errno::F_BAD_LENGTH~;
     
@@ -43,7 +43,7 @@ fn Char16*? utf8to16(String path, Char16[] wpath) @private
 fn String? u16to8(Char16[] from, char[] buf) @private
 {
     String s = string::from_utf16(tmem, from)!;
-    defer s.free(tmem);
+    // defer s.free(tmem);
     
     if (s.len >= buf.len+1) return errno::F_BAD_LENGTH~;
     
@@ -174,7 +174,7 @@ fn void? remove_dir(String path) @maydiscard
 }
 
 <*
-returned List{String} must be freed properly
+returned List{String} must be freed properly, not only list itself, but also containing strings
 *>
 fn List{String}? list_dir(Allocator allocx, String path)
 {
@@ -339,15 +339,15 @@ fn void DirEntry.free(&self)
     self.name.free(self.allocx);
 }
 
-fn String bcat(char[] buf, String... args) @inline @private
+fn String bcat(char[] buf, String... args)
 {
-    buf[0] = 0;
+    usz n = 0;
     foreach (arg: args) {
-        string::strncat(buf.ptr, arg.ptr, buf.len);
+        buf[n:arg.len] = arg[0:arg.len];
+        n += arg.len;
     }
-    usz n = string::strlen(buf.ptr);
     buf[n] = 0;
-    return (String)buf[0..n-1];
+    return (String) buf[0:n];
 }
 
 fn long? DirEntry.last_modified(&self)

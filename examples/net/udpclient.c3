@@ -20,10 +20,11 @@ fn void main(String[] args)
     }
     defer (void)sock.close();
     (void)sock.sendto(args[1], "127.0.0.1", 5757);
+    io::printfn("udpclient: sent: %s to port 5757", args[1]);
     
     char[1024] buf;
     char[64] ipb;
     ushort port;
     (void)sock.recvfrom(&buf, &ipb, &port);
-    stdio::printf("%s:%d %s\n", &ipb[0], port, &buf[0]);
+    stdio::printf("udpclient: recv from:%s:%d msg:%s\n", &ipb[0], port, &buf[0]);
 }

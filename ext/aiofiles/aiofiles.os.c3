@@ -1,5 +1,9 @@
 // aiofiles.os.c3
 
+// async os operations on top of `asyncio`
+
+// Nomota <hiongun@gmail.com>; MIT License
+
 module ext::aiofiles::os;
 
 import std::collections::list;
@@ -57,12 +61,13 @@ fn void* _stat(void* arg)
 
 fn Stat? stat(String path)
 {
-    Arg arg = { 
+    Arg *arg = mem_alloc(Arg); defer mem_free(arg);
+    *arg = { 
         .path = path,
         .error = NONE,
     };
 
-    Arg*? a = asyncio::run_in_executor(&_stat, &arg);
+    Arg*? a = asyncio::run_in_executor(&_stat, arg);
     if (catch err = a) {
         return err~;
     }
@@ -86,9 +91,10 @@ fn void* _rename(void* arg)
 
 fn void? rename(String path, String path2) @maydiscard
 {
-    Arg arg = { .path = path, .path2 = path2, .error = NONE };
+    Arg *arg = mem_alloc(Arg); defer mem_free(arg);
+    *arg = { .path = path, .path2 = path2, .error = NONE };
 
-    Arg*? a = asyncio::run_in_executor(&_rename, &arg);
+    Arg*? a = asyncio::run_in_executor(&_rename, arg);
     if (catch err = a) {
         return err~;
     }
@@ -119,8 +125,9 @@ fn void* _replace(void* arg)
 
 fn void? replace(String path, String path2) @maydiscard
 {
-    Arg arg = { .path = path, .path2 = path2, .error = NONE };
-    Arg*? a = asyncio::run_in_executor(&_replace, &arg);
+    Arg *arg = mem_alloc(Arg); defer mem_free(arg);
+    *arg = { .path = path, .path2 = path2, .error = NONE };
+    Arg*? a = asyncio::run_in_executor(&_replace, arg);
     if (catch err = a) {
         return err~;
     }
@@ -144,8 +151,9 @@ fn void* _remove(void* arg)
 
 fn void? remove(String path) @maydiscard
 {
-    Arg arg = { .path = path, .error = NONE };
-    Arg*? a = asyncio::run_in_executor(&_remove, &arg);
+    Arg *arg = mem_alloc(Arg); defer mem_free(arg);
+    *arg = { .path = path, .error = NONE };
+    Arg*? a = asyncio::run_in_executor(&_remove, arg);
     if (catch err = a) {
         return err~;
     }
@@ -182,8 +190,9 @@ fn void* _mkdir(void* arg)
 
 fn void? mkdir(String path, int mode=0o777) @maydiscard
 {
-    Arg arg = { .path = path, .mode = mode, .error = NONE };
-    Arg*? a = asyncio::run_in_executor(&_mkdir, &arg);
+    Arg *arg = mem_alloc(Arg); defer mem_free(arg);
+    *arg = { .path = path, .mode = mode, .error = NONE };
+    Arg*? a = asyncio::run_in_executor(&_mkdir, arg);
     if (catch err = a) {
         return err~;
     }
@@ -214,8 +223,9 @@ fn void* _makedirs(void* arg)
 
 fn void? makedirs(String path, int mode=0o777, bool exist_ok=true) @maydiscard
 {
-    Arg arg = { .path = path, .mode = mode, .exist_ok = exist_ok, .error = NONE };
-    Arg*? a = asyncio::run_in_executor(&_makedirs, &arg);
+    Arg *arg = mem_alloc(Arg); defer mem_free(arg);
+    *arg = { .path = path, .mode = mode, .exist_ok = exist_ok, .error = NONE };
+    Arg*? a = asyncio::run_in_executor(&_makedirs, arg);
     if (catch err = a) {
         return err~;
     }
@@ -266,8 +276,9 @@ fn void* _removedirs(void* arg)
 
 fn void? removedirs(String path, int mode=0o777) @maydiscard
 {
-    Arg arg = { .path = path, .error = NONE };
-    Arg*? a = asyncio::run_in_executor(&_removedirs, &arg);
+    Arg *arg = mem_alloc(Arg); defer mem_free(arg);
+    *arg = { .path = path, .error = NONE };
+    Arg*? a = asyncio::run_in_executor(&_removedirs, arg);
     if (catch err = a) {
         return err~;
     }
@@ -292,10 +303,14 @@ fn void* _listdir(void* arg)
     return (void*) a;
 }
 
+<*
+ returned List{String} must be freed properly, not only list itself, but also containing strings
+*>
 fn List{String}? listdir(Allocator allocx, String path)
 {
-    Arg arg = { .path = path, .allocx = allocx, .error = NONE };
-    Arg*? a = asyncio::run_in_executor(&_listdir, &arg);
+    Arg *arg = mem_alloc(Arg); defer mem_free(arg);
+    *arg = { .path = path, .allocx = allocx, .error = NONE };
+    Arg*? a = asyncio::run_in_executor(&_listdir, arg);
     if (catch err = a) {
         return err~;
     }
@@ -372,12 +387,13 @@ fn void* _link(void* arg)
 
 fn void? link(String path, String path2) @maydiscard
 {
-    Arg arg = {
+    Arg *arg = mem_alloc(Arg); defer mem_free(arg);
+    *arg = {
         .path = path, 
         .path2 = path2, 
         .error = NONE
     };
-    Arg*? a = asyncio::run_in_executor(&_link, &arg);
+    Arg*? a = asyncio::run_in_executor(&_link, arg);
     if (catch err = a) {
         return err~;
     }
@@ -401,12 +417,13 @@ fn void* _symlink(void* arg)
 
 fn void? symlink(String path, String path2) @maydiscard
 {
-    Arg arg = {
+    Arg *arg = mem_alloc(Arg); defer mem_free(arg);
+    *arg = {
         .path = path, 
         .path2 = path2, 
         .error = NONE
     };
-    Arg*? a = asyncio::run_in_executor(&_symlink, &arg);
+    Arg*? a = asyncio::run_in_executor(&_symlink, arg);
     if (catch err = a) {
         return err~;
     }
@@ -432,12 +449,13 @@ fn void* _readlink(void* arg)
 
 fn usz? readlink(String path, char[] buf) @maydiscard
 {
-    Arg arg = {
+    Arg *arg = mem_alloc(Arg); defer mem_free(arg);
+    *arg = {
         .path = path, 
         .buf = buf, 
         .error = NONE
     };
-    Arg*? a = asyncio::run_in_executor(&_readlink, &arg);
+    Arg*? a = asyncio::run_in_executor(&_readlink, arg);
     if (catch err = a) {
         return err~;
     }
@@ -490,8 +508,9 @@ fn void* _getsize(void* arg)
 
 fn usz? getsize(String path)
 {
-    Arg arg = { .path = path, .error = NONE };
-    Arg*? a = asyncio::run_in_executor(&_getsize, &arg);
+    Arg *arg = mem_alloc(Arg); defer mem_free(arg);
+    *arg = { .path = path, .error = NONE };
+    Arg*? a = asyncio::run_in_executor(&_getsize, arg);
     if (catch err = a) {
         return err~;
     }
@@ -513,8 +532,9 @@ fn void* _exists(void* arg)
 
 fn bool exists(String path)
 {
-    Arg arg = { .path = path };
-    Arg*? a = asyncio::run_in_executor(&_exists, &arg);
+    Arg *arg = mem_alloc(Arg); defer mem_free(arg);
+    *arg = { .path = path };
+    Arg*? a = asyncio::run_in_executor(&_exists, arg);
     if (catch err = a) {
         warn("%s", err);
         return false;
@@ -533,8 +553,9 @@ fn void* _isfile(void* arg)
 
 fn bool isfile(String path)
 {
-    Arg arg = { .path = path };
-    Arg*? a = asyncio::run_in_executor(&_isfile, &arg);
+    Arg *arg = mem_alloc(Arg); defer mem_free(arg);
+    *arg = { .path = path };
+    Arg*? a = asyncio::run_in_executor(&_isfile, arg);
     if (catch err = a) {
         warn("%s", err);
         return false;
@@ -553,8 +574,9 @@ fn void* _isdir(void* arg)
 
 fn bool isdir(String path)
 {
-    Arg arg = { .path = path };
-    Arg*? a = asyncio::run_in_executor(&_isdir, &arg);
+    Arg *arg = mem_alloc(Arg); defer mem_free(arg);
+    *arg = { .path = path };
+    Arg*? a = asyncio::run_in_executor(&_isdir, arg);
     if (catch err = a) {
         warn("%s", err);
         return false;
@@ -573,8 +595,9 @@ fn void* _islink(void* arg)
 
 fn bool islink(String path)
 {
-    Arg arg = { .path = path };
-    Arg*? a = asyncio::run_in_executor(&_islink, &arg);
+    Arg *arg = mem_alloc(Arg); defer mem_free(arg);
+    *arg = { .path = path };
+    Arg*? a = asyncio::run_in_executor(&_islink, arg);
     if (catch err = a) {
         warn("%s", err);
         return false;

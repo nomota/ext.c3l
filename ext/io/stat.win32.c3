@@ -8,12 +8,13 @@ import c::windows;
 import c::winbase;
 import c::fileapi;
 import c::sys::stat;
+import ext::debug;
 
 fn Char16*? utf8to16(String path, Char16[] wpath) @private
 {
     if (path.len == 0) return errno::F_BAD_LENGTH~;
     Char16[] p2 = path.to_utf16(tmem)!;
-    defer free(p2);
+    // defer free(p2);
     
     if (p2.len >= wpath.len-1) return errno::F_BAD_LENGTH~;
     
@@ -30,17 +31,17 @@ fn Char16*? utf8to16(String path, Char16[] wpath) @private
 
 fn bool exists(String path) 
 {
-    Char16[260] wpath;
+    Char16[512] wpath;
     Char16*? name = utf8to16(path, &wpath);
     if (catch err = name) return false;
- 
+
     winbase::DWord attrs = winbase::getFileAttributesW(name);
     return attrs != windows::INVALID_FILE_ATTRIBUTES;
 }
 
 fn usz? size(String path) 
 {
-    Char16[260] wpath;
+    Char16[512] wpath;
     Char16* name = utf8to16(path, &wpath)!;
     
     fileapi::Win32FileAttributeData file_info;
@@ -54,7 +55,7 @@ fn usz? size(String path)
 
 fn long? last_modified(String path) 
 {
-    Char16[260] wpath;
+    Char16[512] wpath;
     Char16* name = utf8to16(path, &wpath)!;
     
     fileapi::Win32FileAttributeData file_info;
@@ -68,7 +69,7 @@ fn long? last_modified(String path)
 
 fn bool is_dir(String path) 
 {
-    Char16[260] wpath;
+    Char16[512] wpath;
     Char16*? name = utf8to16(path, &wpath);
     if (catch err = name) return false;
   
@@ -80,7 +81,7 @@ fn bool is_dir(String path)
 
 fn bool is_file(String path) 
 {
-    Char16[260] wpath;
+    Char16[512] wpath;
     Char16*? name = utf8to16(path, &wpath);
     if (catch err = name) return false;
    
@@ -92,7 +93,7 @@ fn bool is_file(String path)
 
 fn bool is_link(String path) 
 {
-    Char16[260] wpath;
+    Char16[512] wpath;
     Char16*? name = utf8to16(path, &wpath);
     if (catch err = name) return false;
     
@@ -104,15 +105,16 @@ fn bool is_link(String path)
 
 fn usz? read_link(String path, char[] output) 
 {
-    Char16[260] wpath;
+    Char16[512] wpath;
     Char16* name = utf8to16(path, &wpath)!;
     
     windows::Handle handle = windows::createFileW(
-        name, 0, 
-        windows::FILE_SHARE_READ | windows::FILE_SHARE_WRITE,
-        null, windows::OPEN_EXISTING, windows::FILE_FLAG_OPEN_REPARSE_POINT,
+        name, 0,
+        windows::FILE_SHARE_READ | windows::FILE_SHARE_WRITE | windows::FILE_SHARE_DELETE,
+        null, windows::OPEN_EXISTING,
+        windows::FILE_FLAG_OPEN_REPARSE_POINT | windows::FILE_FLAG_BACKUP_SEMANTICS,
         windows::INVALID_HANDLE_VALUE);
-    
+
     if (handle == windows::INVALID_HANDLE_VALUE) {
         return errno::get_fault()~;
     }
@@ -137,7 +139,7 @@ fn usz? read_link(String path, char[] output)
     usz len = reparse.printNameLength / 2;
     
     String s = string::from_utf16(tmem, target[0:len])!;
-    defer s.free(tmem);
+    // defer s.free(tmem);
     
     if (s.len >= output.len) return errno::F_BAD_LENGTH~;
     
@@ -149,7 +151,7 @@ fn usz? read_link(String path, char[] output)
 
 fn bool is_readable(String path) 
 {
-    Char16[260] wpath;
+    Char16[512] wpath;
     Char16*? name = utf8to16(path, &wpath);
     if (catch err = name) return false;
    
@@ -166,7 +168,7 @@ fn bool is_readable(String path)
 
 fn bool is_writeable(String path) 
 {
-    Char16[260] wpath;
+    Char16[512] wpath;
     Char16*? name = utf8to16(path, &wpath);
     if (catch err = name) return false;
 
@@ -217,7 +219,7 @@ fn Mode_t umask(Mode_t mask)
 
 fn void? change_mode(String file, Mode_t mode) @maydiscard
 {
-    Char16[260] wpath;
+    Char16[512] wpath;
     Char16* name = utf8to16(file, &wpath)!;
 
     Dword attrs = windows::getFileAttributesW(name);
@@ -238,10 +240,10 @@ fn void? change_mode(String file, Mode_t mode) @maydiscard
 
 fn void? link(String old, String new) @maydiscard
 {
-    Char16[260] wpath1;
+    Char16[512] wpath1;
     Char16* wold = utf8to16(old, &wpath1)!;
 
-    Char16[260] wpath2;
+    Char16[512] wpath2;
     Char16* wnew = utf8to16(new, &wpath2)!;
 
     windows::Bool r = winbase::createHardLinkW(wnew, wold, null);
@@ -252,18 +254,18 @@ fn void? link(String old, String new) @maydiscard
 
 fn void? symlink(String old, String new) @maydiscard
 {
-    Char16[260] wpath1;
+    Char16[512] wpath1;
     Char16* wold = utf8to16(old, &wpath1)!;
 
-    Char16[260] wpath2;
+    Char16[512] wpath2;
     Char16* wnew = utf8to16(new, &wpath2)!;
 
     int flag = 0; // file 
-    if (is_dir(old)) flag = 1;
+    if (is_dir(old)) flag = 1; // dir
     
-    windows::Bool r = winbase::createSymbolicLinkW(wnew, wold, 1);
+    // winbase::SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE (0x2)
+    windows::Bool r = winbase::createSymbolicLinkW(wnew, wold, flag);
     if (! r) {
         return errno::get_fault()~;
     }
 }
-

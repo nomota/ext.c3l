@@ -2,11 +2,13 @@
 module cfile_example;
 
 import ext::io::cfile;
+import ext::io::stat;
 import std::io;
+import ext::debug;
 
-// ─────────────────────────────────────────────
+// 
 // 1. Writing to a File
-// ─────────────────────────────────────────────
+// 
 fn void example_write()
 {
     cfile::File? fp = cfile::open("hello.txt", "w");
@@ -27,9 +29,9 @@ fn void example_write()
     io::printfn("hello.txt written successfully");
 }
 
-// ─────────────────────────────────────────────
+// 
 // 2. Reading Line by Line
-// ─────────────────────────────────────────────
+// 
 fn void example_readline()
 {
     cfile::File? fp = cfile::open("hello.txt", "r");
@@ -49,9 +51,9 @@ fn void example_readline()
     }
 }
 
-// ─────────────────────────────────────────────
+// 
 // 3. Buffer Read + seek / tell
-// ─────────────────────────────────────────────
+// 
 fn void example_read_buffer()
 {
     cfile::File? fp = cfile::open("hello.txt", "r");
@@ -76,9 +78,9 @@ fn void example_read_buffer()
     fp.seek(0, 0)!!;
 }
 
-// ─────────────────────────────────────────────
+// 
 // 4. Reading One Byte at a Time
-// ─────────────────────────────────────────────
+// 
 fn void example_read_byte()
 {
     cfile::File? fp = cfile::open("hello.txt", "r");
@@ -95,17 +97,17 @@ fn void example_read_byte()
     io::printfn("\nTotal bytes read: %d", count);
 }
 
-// ─────────────────────────────────────────────
+// 
 // 5. Load / Save an Entire File
-// ─────────────────────────────────────────────
+// 
 fn void example_load_save()
 {
-    char[]? buf = cfile::load(mem, "hello.txt");
+    char[]? buf = cfile::load(tmem, "hello.txt");
     if (catch err = buf) {
         io::printfn("Load failed: %s", err);
         return;
     }
-    defer free(buf);
+    // defer free(buf);
 
     io::printfn("File size : %d bytes", buf.len);
     io::printfn("Content   :\n%s", (String)buf);
@@ -114,9 +116,9 @@ fn void example_load_save()
     io::printfn("output.txt saved");
 }
 
-// ─────────────────────────────────────────────
+// 
 // 6. File Existence, Size, and Modification Time
-// ─────────────────────────────────────────────
+// 
 fn void example_stat()
 {
     String path = "hello.txt";
@@ -137,9 +139,9 @@ fn void example_stat()
     }
 }
 
-// ─────────────────────────────────────────────
+// 
 // 7. File Type and Permission Flags
-// ─────────────────────────────────────────────
+// 
 fn void example_file_type()
 {
     String path = "hello.txt";
@@ -152,9 +154,9 @@ fn void example_file_type()
     io::printfn("Executable   ? %s", cfile::is_executable(path) ? "yes" : "no");
 }
 
-// ─────────────────────────────────────────────
+// 
 // 8. Copy, Rename, and Remove
-// ─────────────────────────────────────────────
+// 
 fn void example_ops()
 {
     cfile::copy("hello.txt", "hello_backup.txt")!!;
@@ -167,10 +169,10 @@ fn void example_ops()
     io::printfn("Removed    hello_renamed.txt");
 }
 
-// ─────────────────────────────────────────────
+// 
 // 9. Read Symbolic Link Target (POSIX only)
-// ─────────────────────────────────────────────
-fn void example_read_link()
+// 
+fn void example_read_link() @if(env::LINUX)
 {
     char[512] link_buf;
 
@@ -182,9 +184,25 @@ fn void example_read_link()
     io::printfn("Executable path: %s", (String)link_buf[:len]);
 }
 
-// ─────────────────────────────────────────────
+fn void example_read_link() @if(env::WIN32)
+{
+    cfile::remove("mylink");
+    stat::symlink("cfile_example.exe", "mylink");
+return;
+    char[512] link_buf;
+
+    usz? len = cfile::read_link("mylink", &link_buf);
+    if (catch err = len) {
+        io::printfn("read_link failed: %s", err);
+        return;
+    }
+    io::printfn("Executable path: %s", (String)link_buf[:len]);
+    cfile::remove("mylink");
+}
+
+// 
 // 10. Change File Permissions (POSIX only)
-// ─────────────────────────────────────────────
+// 
 fn void example_chmod()
 {
     // 0o644 = owner rw, group/others r
@@ -192,9 +210,9 @@ fn void example_chmod()
     io::printfn("Permissions changed to 0644");
 }
 
-// ─────────────────────────────────────────────
+// 
 // main
-// ─────────────────────────────────────────────
+// 
 fn void main()
 {
     io::printfn("=== ext::io::cfile examples ===\n");

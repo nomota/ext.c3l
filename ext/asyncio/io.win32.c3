@@ -230,7 +230,6 @@ fn void register_read(int fd, Future* future, ulong offset) @private
     op.future = future;
     op.file_offset = offset;
 
-    
     // _iocp_associate(h);
     if (!_iocp_associate(h)) {
         future.set_exception(IO_ERROR);
@@ -254,6 +253,7 @@ fn void register_read(int fd, Future* future, ulong offset) @private
         ulong pos = io_tell((int)(iptr)h);
         op.ov.offset = (uint)pos;
         op.ov.offsetHigh = (uint)(pos >> 32);
+
         winbase::Bool rc = winbase::readFile(h, &op.buf[0], IOCP_BUF_SIZE, null, &op.ov);
         if (rc) return;
         if (winbase::getLastError() != winbase::ERROR_IO_PENDING) {
@@ -262,14 +262,7 @@ fn void register_read(int fd, Future* future, ulong offset) @private
             _op_free(op);
         }
         
-        winbase::DWord bytesTransferred;
-        winbase::Bool success = winbase::getOverlappedResult(h, &op.ov, &bytesTransferred, winbase::TRUE);
-        if (success) {
-            // If you started at 'ol.Offset' and wrote 'bytesTransferred',
-            // your new "Tell" position is:
-            ulong newPos = ((ulong)op.ov.offsetHigh << 32 | op.ov.offset) + bytesTransferred;
-            curPos[(int)(iptr)h] = newPos;
-        }
+        // IO_PENDING: return immediately, io_poll will resolve the future
     }
 }
 
@@ -334,14 +327,7 @@ fn void _start_write(int fd, void* data, usz len, Future* future, ulong offset)
             _op_free(op);
         }
 
-        winbase::DWord bytesTransferred;
-        winbase::Bool success = winbase::getOverlappedResult(h, &op.ov, &bytesTransferred, winbase::TRUE);
-        if (success) {
-            // If you started at 'ol.Offset' and wrote 'bytesTransferred',
-            // your new "Tell" position is:
-            ulong newPos = ((ulong)op.ov.offsetHigh << 32 | op.ov.offset) + bytesTransferred;
-            curPos[(int)(iptr)h] = newPos;
-        }
+        // IO_PENDING: return immediately, io_poll will resolve the future
     }
 }
 
@@ -376,8 +362,7 @@ fn void io_poll(ulong timeout_us)
     winbase::OverlappedEntry[MAX_EVENTS] entries;
     winbase::ULong removed = 0;
 
-    winbase::DWord timeout_ms = (timeout_us / 1000 > 0xFFFFFFFE)
-    ? winbase::INFINITE : (winbase::DWord)(timeout_us / 1000);
+    winbase::DWord timeout_ms = (timeout_us / 1000 > 0xFFFFFFFE) ? winbase::INFINITE : (winbase::DWord)(timeout_us / 1000);
     winbase::Bool ok = winbase::getQueuedCompletionStatusEx(_iocp, &entries[0], MAX_EVENTS, (ulong*)&removed, timeout_ms, winbase::FALSE);
 
     if (!ok && removed == 0) return;
@@ -421,23 +406,28 @@ fn usz? async_read(int fd, void* out_buf, usz max_len)
     usz total = 0;
     while (total < max_len) {
         Future* fut = loop.create_future();
+
         register_read(fd, fut, offset);
         void*? raw  = fut.await();
         fault ferror = fut.error;
         
         fut.result = null; // non-allocated
         fut.free();
-        
+
         if (catch err = raw) {
             if (ferror == IO_ERROR) return IO_ERROR~;
             return err~;
         }
-        if (raw == null) return 0;
-    
+        if (raw == null) return total;  // EOF (null = 0 bytes transferred)
+        
         IocpOp* op = (IocpOp*)raw;
         winbase::DWord n = op.transferred;
         if (n > (winbase::DWord)max_len) n = (winbase::DWord)max_len;
         string::memcpy(out_buf, &op.buf[0], (usz)n);
+        
+        // Update file position (was previously done inside GetOverlappedResult block)
+        curPos[fd] = ((ulong)op.ov.offsetHigh << 32 | op.ov.offset) + n;
+
         _op_free(op);
     
         total += (usz)n;
@@ -477,6 +467,10 @@ fn usz? async_write(int fd, void* buf, usz len)
 
         IocpOp* op = (IocpOp*)raw;
         winbase::DWord written = op.transferred;
+        
+        // Update file position
+        curPos[fd] = ((ulong)op.ov.offsetHigh << 32 | op.ov.offset) + written;
+
         _op_free(op);
 
         total += (usz)written;
@@ -654,7 +648,7 @@ fn Char16*? utf8to16(String path, Char16[] wpath) @private
 {
     if (path.len == 0) return errno::F_INVAL~;
     Char16[] p2 = path.to_utf16(tmem)!;
-    defer free(p2);
+    //defer free(p2);
     
     if (p2.len >= wpath.len-1) return errno::F_BAD_LENGTH~;
     
@@ -700,16 +694,18 @@ fn int? open_file(String path, String mode)
     // Overlapped IO for asynchronous
     winbase::DWord flags = attributes | winbase::FILE_FLAG_OVERLAPPED;
 
-    winbase::DWord share = winbase::FILE_SHARE_READ;
+    winbase::DWord share = winbase::FILE_SHARE_READ | winbase::FILE_SHARE_WRITE | winbase::FILE_SHARE_DELETE;
 
     Char16[260] wbuf;
     Char16*? wpath = utf8to16(path, &wbuf);
     if (catch err = wpath) {
         return err~;
     }
-    
+
     winbase::Handle h = winbase::createFileW(wpath, access, share, null, disposition, flags, null);
-    if (h == winbase::INVALID_HANDLE_VALUE) return errno::get_fault()~;
+    if (h == winbase::INVALID_HANDLE_VALUE) {
+        return errno::get_fault()~;
+    }
 
     // For append mode, seek to end
     if (mode[0] == 'a') {
@@ -770,6 +766,7 @@ fn PipePair? create_pipe_async()
 fn void close_file(int fd) 
 {
     unregister(fd);
+    curPos.remove(fd);
 
     if (_is_socket((winbase::Handle)(iptr)fd)) {
         winsock2::closesocket((winsock2::Socket)(iptr)fd);
@@ -826,18 +823,51 @@ fn long io_size(int fd)
 
 fn int io_stdin() 
 {
-    winbase::Handle h = winbase::getStdHandle(winbase::STD_INPUT_HANDLE);
+   // winbase::Handle h = winbase::getStdHandle(winbase::STD_INPUT_HANDLE);
+   
+    winbase::Handle h = winbase::createFileA(
+        "CONIN$",
+        winbase::GENERIC_READ,
+        winbase::FILE_SHARE_READ,
+        null,
+        winbase::OPEN_EXISTING,
+        winbase::FILE_FLAG_OVERLAPPED,
+        null
+    );
+     
     return (int)(iptr)h;
 }
 
 fn int io_stdout() 
 {
-    winbase::Handle h = winbase::getStdHandle(winbase::STD_OUTPUT_HANDLE);
+    // winbase::Handle h = winbase::getStdHandle(winbase::STD_OUTPUT_HANDLE);
+    
+    winbase::Handle h = winbase::createFileA(
+        "CONOUT$",
+        winbase::GENERIC_WRITE,
+        winbase::FILE_SHARE_WRITE,
+        null,
+        winbase::OPEN_EXISTING,
+        winbase::FILE_FLAG_OVERLAPPED,
+        null
+    );
+    
     return (int)(iptr)h;
 }
 
 fn int io_stderr() 
 {
-    winbase::Handle h = winbase::getStdHandle(winbase::STD_ERROR_HANDLE);
+    // winbase::Handle h = winbase::getStdHandle(winbase::STD_ERROR_HANDLE);
+    
+    winbase::Handle h = winbase::createFileA(
+        "CONOUT$", // CONERR$ not exists
+        winbase::GENERIC_WRITE,
+        winbase::FILE_SHARE_WRITE,
+        null,
+        winbase::OPEN_EXISTING,
+        winbase::FILE_FLAG_OVERLAPPED,
+        null
+    );
+
     return (int)(iptr)h;
 }

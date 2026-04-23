@@ -1,5 +1,7 @@
 // cfile.posix.c3
 
+// file i/o
+
 module ext::io::cfile @if(!env::WIN32);
 
 import c::errno;
@@ -10,17 +12,6 @@ import c::sys::stat;
 import std::io;
 import ext::io::stat;
 import ext::mem;
-
-macro void warn(String fmt, args...)
-{
-    io::printf("%s,%d: ", $$FILE, $$LINE);
-    io::printfn(fmt, ...args);
-}
-
-macro _assert(expr, String msg) @builtin
-{
-    if (!(expr)) { warn("%s", msg); stdlib::exit(1); }
-}
 
 struct File 
 {
@@ -163,7 +154,7 @@ fn char[]? load(Allocator allocx, String file)
 
 fn void? save(String filename, char[] data)
 {
-	File file = open(filename, "wb")!;
+	File file = open(filename, "w")!;
 	defer (void)file.close();
 	while (data.len)
 	{

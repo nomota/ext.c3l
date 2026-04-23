@@ -56,6 +56,7 @@ fn void? read_lines()
     while (!f.at_eof()) {
         usz n = f.read_until('\n', &buf)!;
         if (n == 0) break;
+
         io::printfn("[%d] %s", lineno++, (String)buf[:n]);
     }
 }
@@ -87,25 +88,8 @@ fn void? seek_demo()
     io::printfn("After truncate: %d bytes", new_size);
 }
 
-// 4. stdin / stdout pipe handling
-fn void? echo_stdin()
-{
-    AioFile in  = aiofiles::stdin();
-    AioFile out = aiofiles::stdout();
-    AioFile err = aiofiles::stderr();
 
-    err.writef("[echo] type something (EOF to quit)\n")!;
-
-    char[1024] buf;
-    while (!in.at_eof()) {
-        usz n = in.read_until('\n', &buf)!;
-        if (n == 0) break;
-        out.writef(">> %s", (String)buf[:n])!;
-        out.flush();
-    }
-}
-
-// 5. os::stat / rename / remove
+// 4. os::stat / rename / remove
 fn void? os_stat_demo()
 {
     io::printn("\n=== 4. os stat / rename / remove ===");
@@ -135,7 +119,7 @@ fn void? os_stat_demo()
     io::printfn("removed: %s", !path::exists("target.txt") ? "yes" : "no");
 }
 
-// 6. mkdir / makedirs / listdir / removedirs
+// 5. mkdir / makedirs / listdir / removedirs
 fn void? dir_demo()
 {
     io::printn("\n=== 5. mkdir / listdir / removedirs ===");
@@ -175,7 +159,7 @@ fn void? dir_demo()
     @assert(!path::exists("sandbox"), "err");
 }
 
-// 7. scandir — directory iterator
+// 6. scandir — directory iterator
 fn void? scandir_demo()
 {
     io::printn("\n=== 6. scandir ===");
@@ -220,7 +204,7 @@ fn void? scandir_demo()
     @assert(!path::exists("scan_test"), "err");
 }
 
-// 8. symlink / link / readlink
+// 7. symlink / link / readlink
 fn void? link_demo()
 {
     io::printn("\n=== 7. symlink / link / readlink ===");
@@ -256,7 +240,7 @@ fn void? link_demo()
     @assert(! path::exists("link_to_original.txt"), "err");
 }
 
-// 9. Chunked file copy utility
+// 8. Chunked file copy utility
 fn void? copy_file(String src, String dst)
 {
     io::printn("\n=== 8. file copy ===");
@@ -278,7 +262,7 @@ fn void? copy_file(String src, String dst)
     io::printfn("copied %d bytes: %s -> %s", total, src, dst);
 }
 
-// 10. Log writer
+// 9. Log writer
 struct Logger {
     AioFile file;
 }
@@ -301,8 +285,8 @@ fn void? Logger.log(&self, String level, String msg)
 
 fn void? logger_demo()
 {
-    io::printn("\n=== 9. logger ===");
-
+    io::printn("\n=== 9. logger ===\n");
+    
     Logger log = logger_open("app.log")!;
     defer log.close();
 
@@ -311,12 +295,42 @@ fn void? logger_demo()
     log.log("WARN",  "config not found, using defaults")!;
     log.log("ERROR", "connection timeout")!;
 
+    io::printn("Log 4 lines:");
+
     // Print full log
     AioFile f = aiofiles::open("app.log", "r")!;
     defer f.close();
     char[1024] buf;
     usz n = f.read(&buf)!;
     io::print((String)buf[:n]);
+    
+    io::printn("done.");
+}
+
+// 10. stdin / stdout  handling
+fn void? echo_stdin()
+{
+    io::printn("\n=== 10. stdin/out  ===");
+    
+    AioFile in  = aiofiles::stdin();
+    AioFile out = aiofiles::stdout();
+    AioFile err = aiofiles::stderr();
+
+    err.writef("[echo] type something (EOF to quit)\n")!;
+
+    char[1024] buf;
+    while (!in.at_eof()) {
+        usz? n = in.read_until('\n', &buf);
+        if (catch e = n) {
+            warn("%s", e);
+            return e~;
+        }
+// warn("n = %d", n);        
+        
+        if (n == 0) break;
+        out.writef(">> %s", (String)buf[:n])!;
+        out.flush();
+    }
 }
 
 fn void main_coro()
@@ -339,6 +353,8 @@ fn void main_coro()
         
     logger_demo()!!;
 
+    // echo_stdin()!!; // interactive
+    
     // Cleanup
     os::remove("hello.txt")!!;
     os::remove("hello_copy.txt")!!;

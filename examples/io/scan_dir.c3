@@ -21,7 +21,8 @@ fn void? list_dir(String path, int depth = 0) @maydiscard
         defer entry.free();
 
         String name = entry.name;
-
+        if (name == "." || name == "..") continue;
+        
         if (entry.is_dir()) {
             io::printfn("%*s[DIR]  %s/", depth*2, "", name);
 

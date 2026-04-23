@@ -1,0 +1,141 @@
+// executor.c3
+
+// call loop.run_in_executor() to treat a blocking (non-async-friendly) function in a thread, in parallel with other async functions
+
+// Nomota <hiongun@gmail.com>; MIT License
+
+module ext::asyncio;
+
+import std::thread;
+import ext::debug;
+import ext::mem;
+import ext::thread::fiber;
+import c::pthread;
+import c::errno;
+
+alias ExecutorFn = fn void*(void*);
+
+faultdef THREAD_CREATE_FAILED;
+
+tlocal ThreadPool{4} pool;
+tlocal bool pool_initialized = false;
+
+struct ExecutorWork {
+    ExecutorFn func;
+    void* arg;
+    void* result;
+    Future* future;
+    EventLoop* loop;
+    bool alive;
+}
+
+fn void _executor_wakeup(void* work)
+{
+    ExecutorWork* w = (ExecutorWork*)work;
+
+  $if $defined(env::WIN32):
+    _active_op_count--;
+  $endif
+  
+    if (! w.future.done()) {
+        w.future.set_result(null); // notify finish
+    }
+}
+
+fn int _executor_thread(void* work)
+{
+  // fiber::active();
+  @pool_init(mem, 4_000_000) { // Temp allocator needs init at each thread
+    ExecutorWork* w = (ExecutorWork*)work;
+    w.result = w.func(w.arg); // blocking operation runs on OS thread
+
+ //   w.loop.call_soon_threadsafe(&_executor_wakeup, w); // safe cross-thread wakeup
+ w.alive = false;
+    
+    return 0;
+  };
+}
+
+// Public API
+
+// Run blocking func(arg) in a new OS thread.
+// The calling fiber suspends until the thread completes.
+
+fn void*? EventLoop.run_in_executor(&self, ExecutorFn func, void* arg = null)
+{
+    if (! pool_initialized) {
+        pool.init()!;
+        pool_initialized = true;
+    }
+    
+    Future* fut = self.create_future();
+    //fut.defer_free();
+    
+    ExecutorWork* w = mem_alloc(ExecutorWork);
+    //defer mem_free(w);
+    *w = {
+        .func = func, 
+        .arg = arg, 
+        .result = null, 
+        .future = fut,
+        .loop = self,
+        .alive = true,
+    };
+
+  $if $defined(env::WIN32):
+    // keep doing io_poll(), while thread is running
+    _active_op_count++;
+  $endif
+    fiber::diag();
+//warn("-");
+//    self.executor_count++;
+//    pool.push(&_executor_thread, w)!;
+    
+ 
+    thread::Thread t;
+    t.create(&_executor_thread, w)!;
+    t.detach()!;
+
+
+/*
+    // std::thread 대신 pthread 직접 생성 + 스택 크기 명시
+    PthreadAttr attr;
+    pthread::pthread_attr_init(&attr);
+    pthread::pthread_attr_setstacksize(&attr, 8 * 1024 * 1024); // 8MB 명시
+    warn("sizeof PthreadAttr = %d", (int)PthreadAttr.sizeof);
+*/
+/*
+    Pthread tid;
+    int rc = pthread::pthread_create(&tid, null, &_executor_thread, w);
+    if (rc != 0) {
+        // rc가 진짜 에러코드, errno는 stale
+        warn("pthread_create failed: rc=%d errno=%d", rc, errno::errno());
+        //pthread::pthread_attr_destroy(&attr);
+        self.executor_count--;
+        mem_free(w);
+        fut.free();
+        return THREAD_CREATE_FAILED~;
+    }
+    //pthread::pthread_attr_destroy(&attr);
+    pthread::pthread_detach(tid);
+*/
+
+    //void* r = fut.await()!; // fiber yields here; resumes in _executor_wakeup
+    while (w.alive) {
+        asyncio::sleep_zero();
+    }
+//warn("-");
+    
+    void* result = w.result;
+    mem_free(w);
+//    self.executor_count--;
+ //   fut.free();
+    return result;
+}
+
+// Module-level shorthand — uses the currently running loop.
+fn void*? run_in_executor(ExecutorFn func, void* arg = null)
+{
+    return get_running_loop().run_in_executor(func, arg)!;
+}
+

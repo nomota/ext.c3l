@@ -286,6 +286,8 @@ struct EventLoop {
     Task*[] all_tasks;
     usz all_task_count;
     usz all_task_cap;
+    
+    usz executor_count;
 }
 
 tlocal EventLoop* loop;
@@ -336,6 +338,7 @@ fn EventLoop* new_event_loop()
     lp.all_tasks = mem_alloc_array(Task*, lp.all_task_cap);
     lp.all_task_count = 0;
     
+    lp.executor_count = 0;
     return lp;
 }
 
@@ -973,7 +976,8 @@ fn void run(Coroutine main_coro)
     loop.running = true;
     
     // Register the main coroutine as the first Task
-    Task* tt = loop.create_task(main_coro, "main", 80_000);
+    Task* tt = loop.create_task(main_coro, "main", 120_000);
+    tt.defer_free();
     
     while (loop.running) {
         // 1. Drain thread-safe queue into soon_queue
@@ -994,7 +998,7 @@ fn void run(Coroutine main_coro)
         Task* task = loop._dequeue();
 
         if (task == null) {
-            bool has_pending = loop.timer_count > 0 || loop.cb_timer_count > 0 || loop.soon_count > 0 || io_pending();
+            bool has_pending = loop.timer_count > 0 || loop.cb_timer_count > 0 || loop.soon_count > 0 || io_pending() || loop.executor_count > 0;
             if (!has_pending) {
                 loop.running = false;
                 break;
@@ -1019,10 +1023,6 @@ fn void run(Coroutine main_coro)
         }
 
         if (task.state == State.CANCELLED) {
-            if (task.fiber != null) {
-                //fiber::delete(task.fiber);
-                //task.fiber = null;
-            }
             continue;
         }
 
@@ -1033,7 +1033,7 @@ fn void run(Coroutine main_coro)
         loop._flush_deferred_future_frees();
         loop._flush_deferred_task_frees();
     }
-    // tt.free();
+
     loop.close();
     loop.free();
 }

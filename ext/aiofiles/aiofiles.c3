@@ -1,4 +1,9 @@
 // aiofiles.c3
+
+// async file io on top of `asyncio`
+
+// Nomota <hiongun@gmail.com>; MIT License
+
 module ext::aiofiles;
 
 import std::io;
@@ -99,7 +104,7 @@ fn bool AioFile.at_eof(&self) @inline
 fn bool AioFile.fill(&self) @inline
 {
     if (self.eof) return false;
-    
+
     if (self.rbuf_start > 0) {
         usz remaining = self.rbuf_end - self.rbuf_start;
         if (remaining > 0) {
@@ -108,6 +113,7 @@ fn bool AioFile.fill(&self) @inline
         self.rbuf_end = remaining;
         self.rbuf_start = 0;
     }
+
     if (self.rbuf_end >= READ_BUF_SIZE) return true;
 
     usz? n = asyncio::async_read(self.fd, &self.rbuf[self.rbuf_end], READ_BUF_SIZE - self.rbuf_end);
@@ -115,7 +121,7 @@ fn bool AioFile.fill(&self) @inline
         self.error = err;
         return false;
     }
-    
+
     if (n > 0)  { 
         self.rbuf_end += (usz)n; 
         return true; 
@@ -176,6 +182,7 @@ fn usz? AioFile.read_until(&self, char delim, char[] buf)
             if (self.eof) return total;
             if (!self.fill()) return total;
         }
+
         if (self.error != NONE) {
             return self.error~;
         }

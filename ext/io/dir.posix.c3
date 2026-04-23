@@ -1,28 +1,34 @@
 // dir.posix.c3
-//
+
 // This module provides directory operations for Posix systems.
 // get_cur_dir() change_dir() make_dir() remove_dir()
 // list_dir() is_dir() is_file()
 
-module ext::io::dir @if(!env::WIN32); // Posix
+// Nomota <hiongun@gmail.com>; MIT License
+
+module ext::io::dir @if(!env::WIN32); // POSIX
 
 import c::errno;
 import c::dirent;
 import c::sys::stat;
 import c::string;
+import c::stdio;
 import c::unistd;
 import ext::io::stat;
 import std::collections::list;
+import ext::debug;
+
 const int MAX_PATH = 1024;
 
 faultdef NO_MORE_ENTRY;
 
-
 fn char*? path_to_cstr(String path, char[] buffer)
 {
     if (path.len+1 >= buffer.len) return errno::E_NAME_TOO_LONG~;
+    
     buffer[0:path.len] = path[0:path.len];
     buffer[path.len] = 0;
+
     return buffer.ptr;
 }
 
@@ -118,7 +124,7 @@ fn void? remove_dir(String path) @maydiscard
 }
 
 <*
-  returned List{String} must be free'd properly
+  returned List{String} must be freed properly, not only list itself, but also containing strings
 *>
 fn List{String}? list_dir(Allocator allocx, String path)
 {
@@ -140,15 +146,16 @@ fn List{String}? list_dir(Allocator allocx, String path)
     }
     
     dirent::DirEnt* entry;
-    while ((entry = dirent::readdir(dir))) 
-    {
-        // Skip "." and ".."
+    while ((entry = dirent::readdir(dir))) {
         char* name = (char*)&entry.d_name[0];
-        String name_str = ((ZString)name).str_view();
-        if (name_str == "." || name_str == "..") continue;
+        usz n = (usz)string::strlen(name);
+        String name_s = (String)name[0:n];;
+
+        // Skip "." and ".."
+        if (name_s== "." || name_s == "..") continue;
         
         // Copy the name and add to list
-        String name_copy = name_str.copy(allocx);
+        String name_copy = name_s.copy(allocx);
         entries.push(name_copy);
     }
     
@@ -198,16 +205,17 @@ fn void DirIterator.close(&self)
 fn DirEntry? DirIterator.next(&self)
 {
     dirent::DirEnt* entry;
-    while ((entry = dirent::readdir(self.dir))) 
-    {
-        // Skip "." and ".."
+    while ((entry = dirent::readdir(self.dir))) {
         char* name = (char*)&entry.d_name[0];
-        String name_str = ((ZString)name).str_view();
-        if (name_str == "." || name_str == "..") continue;
+        usz n = (usz)string::strlen(name);
+        String name_s = (String)name[0:n];
+
+        // Skip "." and ".."
+        if (name_s== "." || name_s == "..") continue;
         
         return {
             .path = self.path,
-            .name = name_str.copy(self.allocx),
+            .name = name_s.copy(self.allocx),
             .allocx = self.allocx,
         };
     }
@@ -219,15 +227,16 @@ fn void DirEntry.free(&self)
     self.name.free(self.allocx);
 }
 
-fn String bcat(char[] buf, String... args) @inline @private
+// no boundary check, buf must be enough
+fn String bcat(char[] buf, String... args)
 {
-    buf[0] = 0;
+    usz n = 0;
     foreach (arg: args) {
-        string::strncat(buf.ptr, arg.ptr, buf.len);
+        buf[n:arg.len] = arg[0:arg.len];
+        n += arg.len;
     }
-    usz n = string::strlen(buf.ptr);
     buf[n] = 0;
-    return (String)buf[0..n-1];
+    return (String) buf[0:n];
 }
 
 fn long? DirEntry.last_modified(&self)
