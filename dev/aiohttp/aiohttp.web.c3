@@ -424,7 +424,7 @@ fn char*? Request.read(&self, usz* out_len)
         usz len = 0;
         ChunkFrame frame;
         while (!dec.done()) {
-            usz n = self.stream.read(&raw);
+            usz n = self.stream.read(&raw)!;
             if (n == 0) break;
             dec.feed(&raw[0], n)!!;
             while (dec.next(&frame)) {
@@ -446,7 +446,7 @@ fn char*? Request.read(&self, usz* out_len)
         while (total == 0 || len < total) {
             usz want = REQ_READ_BUFSZ;
             if (total > 0 && total - len < want) want = total - len;
-            usz n = self.stream.read((char[]) buf[len:want]);
+            usz n = self.stream.read((char[]) buf[len:want])!;
             if (n == 0) break;
             len += n;
         }
@@ -581,7 +581,7 @@ fn Response* json_response(String json_str, int status = 200)
 {
     return response_new(
         status,
-        "", // ????
+        aiohttp::http_reason(status),
         (char*)json_str.ptr,
         json_str.len,
         "application/json",
@@ -681,10 +681,10 @@ fn void? write_response(Stream* s, Response* resp) @private
         b.crlf();
     }
     b.crlf();
-    s.write(b.str()); // ???
+    s.write(b.str())!;
 
     if (resp.body_len > 0 && resp.body != null) {
-        s.write(resp.body[0:resp.body_len ]); // ???
+        s.write(resp.body[0:resp.body_len ])!;
     }
 }
 
@@ -743,7 +743,7 @@ fn void? StreamResponse.prepare(&self, Request* req)
         b.crlf();
     }
     b.crlf();
-    self.stream.write(b.str()); // ????
+    self.stream.write(b.str())!;
 }
 
 fn void? StreamResponse.write(&self, char* data, usz len) @maydiscard
@@ -753,7 +753,7 @@ fn void? StreamResponse.write(&self, char* data, usz len) @maydiscard
     char* frame = localmem.malloc(frame_sz);
     defer localmem.free(frame);
     usz written = aiohttp::chunk_encode(frame, data, len);
-    self.stream.write(frame[0:written]); // ????
+    self.stream.write(frame[0:written])!;
 }
 
 fn void? StreamResponse.write_eof(&self) @maydiscard
@@ -762,7 +762,7 @@ fn void? StreamResponse.write_eof(&self) @maydiscard
     self.eof_sent = true;
     char[5] tail;
     usz n = aiohttp::chunk_encode_final(&tail[0]);
-    self.stream.write(tail[0:n]); // ????
+    self.stream.write(tail[0:n])!;
 }
 
 fn void StreamResponse.free(&self)
@@ -844,7 +844,7 @@ fn void? file_response_send(FileResponse* fr, Stream* s) @private
         b.put(fr.headers.entries[i].value); b.crlf();
     }
     b.crlf();
-    s.write(b.str()); // ????
+    s.write(b.str())!;
 
     // stream file body
     char[65536] chunk;
@@ -852,7 +852,7 @@ fn void? file_response_send(FileResponse* fr, Stream* s) @private
         usz? n = afile.read_unbuffered(&chunk);
         if (catch err = n) break;
         if (n == 0) break;
-        s.write(chunk[0:n]); // ????
+        s.write(chunk[0:n])!;
     }
     afile.close();
 }
@@ -899,7 +899,7 @@ fn void? WebSocketResponse.prepare(&self, Request* req)
     // build 101 response
     char[512] hs_buf;
     usz hs_len = aiohttp::ws_server_handshake_accept(&hs_buf[0], 512, wskey, self.protocol, localmem);
-    self.stream.write(hs_buf[0:hs_len]); // ???
+    self.stream.write(hs_buf[0:hs_len])!;
 }
 
 fn void? ws_server_send(WebSocketResponse* ws, WsMsgType type, char* data, usz len) @private
@@ -911,7 +911,7 @@ fn void? ws_server_send(WebSocketResponse* ws, WsMsgType type, char* data, usz l
     if (catch err = frame) return INTERNAL_SERVER_ERROR~;
     defer frame.free(localmem);
 
-    ws.stream.write(frame[0:frame.len]); // ???
+    ws.stream.write(frame[0:frame.len])!;
 }
 
 fn void? WebSocketResponse.send_str  (&self, String data) @maydiscard => ws_server_send(self, WsMsgType.TEXT,   (char*)data.ptr, data.len);
@@ -939,9 +939,12 @@ fn WsMessage? WebSocketResponse.receive(&self)
                 char[4] no_mask = { 0,0,0,0 };
                 char[4] cb;
                 usz clen = aiohttp::ws_close_frame(&cb[0], WsCloseCode.NORMAL_CLOSURE, "", false, no_mask);
-                self.stream.write(cb[0:clen]); // ???
-                WsMessage msg; msg.type=WsMsgType.CLOSE; msg.data=null;
-                msg.data_len=0; msg.extra=frame.close_reason;
+                self.stream.write(cb[0:clen])!;
+                WsMessage msg;
+                msg.type=WsMsgType.CLOSE;
+                msg.data=null;
+                msg.data_len=0;
+                msg.extra=frame.close_reason;
                 return msg;
             }
             char* buf = localmem.malloc(frame.data_len > 0 ? frame.data_len : 1);
@@ -951,7 +954,8 @@ fn WsMessage? WebSocketResponse.receive(&self)
                 WsFrame cont; bool? gc = self.decoder.next(&cont);
                 if (catch err = gc) break;
                 if (!gc) {
-                    usz n = self.stream.read(&raw); if (n==0) break;
+                    usz n = self.stream.read(&raw)!;
+                    if (n==0) break;
                     self.decoder.feed(&raw[0], n)!; continue;
                 }
                 char* nb = localmem.malloc(total + cont.data_len);
@@ -962,7 +966,7 @@ fn WsMessage? WebSocketResponse.receive(&self)
             WsMessage msg; msg.type=frame.type; msg.data=buf;
             return msg;
         }
-        usz n = self.stream.read(&raw); 
+        usz n = self.stream.read(&raw)!; 
         if(n==0){self.closed=true; return INTERNAL_SERVER_ERROR~;}
         self.decoder.feed(&raw[0], n)!;
     }
@@ -985,7 +989,7 @@ fn void? WebSocketResponse.close(&self, WsCloseCode code = WsCloseCode.NORMAL_CL
     char[4] no_mask = {0,0,0,0};
     char[140] cb;
     usz clen = aiohttp::ws_close_frame(&cb[0], code, "", false, no_mask);
-    self.stream.write(cb[0:clen]); // ???
+    self.stream.write(cb[0:clen])!;
 }
 
 fn void WebSocketResponse.free(&self)
@@ -1066,7 +1070,10 @@ fn void handle_connection(Stream* stream, Application* app) @private
     // Read until full request headers are available.
     bool got_req = false;
     while (!got_req && filled < buf.len) {
-        usz n = stream.read(buf[filled:buf.len - filled]);
+        usz? n = stream.read(buf[filled:buf.len - filled]);
+        if (catch err = n) {
+            return;
+        }
         if (n == 0) return;
         filled += n;
         for (usz i = 0; i + 3 < filled; i++) {

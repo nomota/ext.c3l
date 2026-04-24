@@ -1,4 +1,4 @@
-// aiohttpmtypes.c3
+// aiohttp.types.c3
 
 module ext::aiohttp;
 

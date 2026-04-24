@@ -150,7 +150,7 @@ fn char*? resp_read_headers(
 {
     usz filled = 0;
     while (filled < scratch_size) {
-        usz n = stream.read(scratch[filled: scratch_size - filled]);
+        usz n = stream.read(scratch[filled: scratch_size - filled])!;
         if (n == 0) return RESPONSE_ERROR~;
         filled += n;
         for (usz i = 0; i + 3 < filled; i++) {
@@ -232,7 +232,7 @@ fn char*? ClientResponse.read(&self, usz* out_len)
         usz   len = 0;
         ChunkFrame frame;
         while (!self.chunk_dec.done()) {
-            usz n = self.stream.read(&raw);
+            usz n = self.stream.read(&raw)!;
             if (n == 0) break;
             self.chunk_dec.feed(&raw[0], n)!;
             while (self.chunk_dec.next(&frame)) {
@@ -255,7 +255,7 @@ fn char*? ClientResponse.read(&self, usz* out_len)
         while (total == 0 || len < total) {
             usz want = RESP_READ_BUFSIZE;
             if (total > 0 && total - len < want) want = total - len;
-            usz n = self.stream.read(buf[len:want]);
+            usz n = self.stream.read(buf[len:want])!;
             if (n == 0) break;
             len += n;
             if (total == 0 && len + RESP_READ_BUFSIZE > cap2) {
@@ -529,13 +529,13 @@ fn ClientWs*? ClientSession.ws_connect(
         ws_key_str,
         (String)proto_buf[0:proto_len],
     );
-    stream.write(hs_buf[0:hs_len]); // ???
+    stream.write(hs_buf[0:hs_len])!;
 
     // read 101 response
     char[RESP_READ_BUFSIZE] resp_buf; usz resp_filled = 0;
     bool got_hs = false;
     while (!got_hs && resp_filled < RESP_READ_BUFSIZE) {
-        usz n = stream.read(resp_buf[resp_filled: RESP_READ_BUFSIZE - resp_filled ]);
+        usz n = stream.read(resp_buf[resp_filled: RESP_READ_BUFSIZE - resp_filled ])!;
         if (n == 0) { pool_release(&self.connector.pool, stream, parsed.host, port); return WS_ERROR~; }
         resp_filled += n;
         for (usz i = 0; i + 3 < resp_filled; i++) {
@@ -586,7 +586,7 @@ fn void? ws_send(ClientWs* ws, WsMsgType type, char* data, usz len) @private
     if (catch err = frame) return WS_ERROR~;
     defer frame.free(localmem);
 
-    ws.stream.write(frame[0:frame.len]); // ???
+    ws.stream.write(frame[0:frame.len])!;
 }
 
 fn void? ClientWs.send_str(&self, String data) @maydiscard
@@ -630,7 +630,7 @@ fn WsMessage? ClientWs.receive(&self)
                 bool? gc = self.decoder.next(&cont);
                 if (catch err = gc) break;
                 if (!gc) {
-                    usz n = self.stream.read(&raw);
+                    usz n = self.stream.read(&raw)!;
                     if (n == 0) break;
                     self.decoder.feed(&raw[0], n)!;
                     continue;
@@ -644,7 +644,7 @@ fn WsMessage? ClientWs.receive(&self)
             msg.data = buf; msg.data_len = total; msg.extra = "";
             return msg;
         }
-        usz n = self.stream.read(&raw);
+        usz n = self.stream.read(&raw)!;
         if (n == 0) { self.closed = true; return WS_ERROR~; }
         self.decoder.feed(&raw[0], n)!;
     }
@@ -678,7 +678,7 @@ fn void? ClientWs.close(&self,
     char[4] mask = { (char)(seed>>24),(char)(seed>>16),(char)(seed>>8),(char)seed };
     char[140] cb; usz clen = ws_close_frame(&cb[0], code,
         message != null ? (String)message[0: msg_len] : "", true, mask);
-    self.stream.write(cb[0:clen]); // ???
+    self.stream.write(cb[0:clen])!;
 }
 
 fn void ClientWs.free(&self)

@@ -150,16 +150,10 @@ struct ReqCtx @private {
     char[REQ_BOUNDARY_LEN] boundary;
 }
 
-// non-optional stream.write() to optional
-faultdef STREAM_WRITE_FAIL;
 
 fn usz? s_write(Stream* s, char[] buf) @inline
 {
-    usz n = s.write(buf);
-    if (n == 0) {
-        return STREAM_WRITE_FAIL~;
-    }
-    return n;
+    return s.write(buf)!;
 }
 
 //  multipart body builder 
