@@ -1,8 +1,13 @@
 // fiber.asm_inc.c3
 
+// Assembly context switching code
+// converted from libco
+
+// Nomota <hiongun@gmail.com>; MIT License
+
 module ext::thread::fiber @if(env::X86_64);
 
-// ========================================
+// 
 // x86-64 swap function (machine code)
 //
 // Two ABI variants are compiled in conditionally:
@@ -18,7 +23,7 @@ module ext::thread::fiber @if(env::X86_64);
 //   mov [prev+N], reg      ; save callee-saved registers
 //   mov reg,    [new+N]    ; restore callee-saved registers
 //   jmp rax                ; jump to entrypoint (or resume point)
-// ========================================
+// 
 
 
 // ----------------------------------------
@@ -136,8 +141,8 @@ const char[*] ASM = {
   0xd61f03c0,  /* br x30               */
 };
 
-/*
-module ext::thread::fiber::asm @if(env::X86);
+
+module ext::thread::fiber @if(env::X86);
 
 // asm_switch(oldp, newp);
 // fastcall: oldp to edx, newp to ecx, push return addr, call asm
@@ -164,4 +169,3 @@ const char[*] ASM = {
     0xff, 0xe0, // jmp eax
 };
 
-*/

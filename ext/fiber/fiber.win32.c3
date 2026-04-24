@@ -1,6 +1,10 @@
 // fiber.win32.c3
 
-module ext::thread::fiber @if(env::WIN32);
+// Window native Fiber coroutine
+
+// Nomota <hiongun@gmail.com>; MIT License
+
+module ext::thread::fiber @if(env::WIN32 && !(env::X86_64 || env::AARCH64));
 
 import c::winbase;
 import ext::mem;

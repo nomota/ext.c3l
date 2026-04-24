@@ -1,3 +1,8 @@
+// cfile_example.C3
+
+// cfile examples
+
+// Nomota <hiongun@gmail.com>; MIT License
 
 module cfile_example;
 
@@ -188,7 +193,7 @@ fn void example_read_link() @if(env::WIN32)
 {
     cfile::remove("mylink");
     stat::symlink("cfile_example.exe", "mylink");
-return;
+
     char[512] link_buf;
 
     usz? len = cfile::read_link("mylink", &link_buf);

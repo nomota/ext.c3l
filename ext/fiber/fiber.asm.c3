@@ -1,16 +1,23 @@
 // fiber.asm.c3
 
-module ext::thread::fiber @if(!env::WIN32 && (env::X86_64 || env::AARCH64));
+// Fast context switching by assembly code
 
-import c::unistd; // sysconf
-import c::sys::mman; // mprotect
+// Nomota <hiongun@gmail.com>; MIT Licensd
+
+module ext::thread::fiber @if(env::X86_64 || env::AARCH64);
+
+import c::unistd;
+import c::sys::mman;
 import std::io;
 import c::string;
 import c::stdlib;
+import c::stdio;
+import c::windows;
+import c::memoryapi;
+import c::winnt;
 import ext::debug;
 import ext::mem;
 
-// alias Fiber = void*;
 alias SwapFn = fn void(void*, void*) @callconv("stdcall");
 
 struct Fiber {
@@ -36,12 +43,34 @@ fn void init(Allocator allocx = mem, bool debug = true) @private
     mem::set_allocator(allocx);
     debug::set_debug(debug);
 
+  $if env::WIN32:
+    asmblock[0:ASMWIN64.len] = ASMWIN64[0:ASMWIN64.len];
+ 
+    ulong addr = (ulong)(void*)&asmblock;
+
+    // Windows page alignment
+    ulong page_size = 8192;
+    ulong base = addr & ~(page_size - 1);
+    ulong size = (addr - base) + (ulong)asmblock.len;
+    windows::DWord old_protect;
+
+    windows::Bool ok = memoryapi::virtualProtect((void*)base, (usz)size, winnt::PAGE_EXECUTE_READ, &old_protect);
+
+    if (ok != windows::TRUE) {
+        stdio::printf("VirtualProtect failed\n");
+        stdlib::exit(1);
+    }
+  $else // POSIX
     asmblock[0:ASM.len] = ASM[0:ASM.len];
+    
     ulong addr = (ulong)(void*)&asmblock;
     ulong page_size = (ulong)unistd::sysconf(unistd::_SC_PAGESIZE);
     ulong base = addr - (addr % page_size);
     ulong size = (addr - base) + (ulong)asmblock.len;
-    mman::mprotect((void*)base, (usz)size, mman::PROT_READ | mman::PROT_EXEC);
+
+    mman::mprotect((void*)base, (usz)size,
+        mman::PROT_READ | mman::PROT_EXEC);
+  $endif
 
     asm_swap = (SwapFn)(void*)&asmblock;
 
@@ -59,18 +88,18 @@ fn void deinit()
     running = null;
 }
 
-// ========================================
+// 
 // crash — safety net if a coroutine entrypoint ever returns
-// ========================================
+// 
 
 fn void crash() @noreturn @private
 {
     unreachable("crash");
 }
 
-// ========================================
+// 
 // Public API
-// ========================================
+// 
 
 /// Return the currently active coroutine handle.
 fn Fiber* active()
@@ -91,7 +120,6 @@ memory (handle base)
 │  &crash          │  ← *p+1  (guard: called if entrypoint returns)
 │  entrypoint addr │  ← *p    (popped → rax, then jmp rax)
 └──────────────────┘  ← stack_top (16-byte aligned, 32 bytes below raw top)
-
 */
 
 /// Create a coroutine in caller-supplied memory (zero-copy).

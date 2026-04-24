@@ -16,25 +16,37 @@ import c::errno;
 
 alias ExecutorFn = fn void*(void*);
 
+tlocal ThreadPool{4} pool;
+tlocal bool pool_initialized = false;
+
 struct ExecutorWork {
     ExecutorFn func;
     void* arg;
     void* result;
-    Atomic{bool} alive;
+    Future* future;
+    EventLoop* loop;
+}
+
+fn void _executor_wakeup(void* work)
+{
+    ExecutorWork* w = (ExecutorWork*)work;
+
+    if (! w.future.done()) {
+        w.future.set_result(null); // notify finish
+    }
 }
 
 fn int _executor_thread(void* work)
 {
-  @pool_init(mem, 4_000) { // Temp allocator needs init at each thread
-
     ExecutorWork* w = (ExecutorWork*)work;
 
+  @pool_init(mem, 16_000) { // Temp allocator needs init at each thread
     w.result = w.func(w.arg); // blocking operation runs on OS thread
-
-    w.alive.store(false);
-    
-    return 0;
   };
+  
+    w.loop.call_soon_threadsafe(&_executor_wakeup, w); // safe cross-thread wakeup
+
+    return 0;
 }
 
 // Public API
@@ -44,40 +56,34 @@ fn int _executor_thread(void* work)
 
 fn void*? EventLoop.run_in_executor(&self, ExecutorFn func, void* arg = null)
 {
-    ExecutorWork* w = mem_alloc(ExecutorWork);
+    if (! pool_initialized) {
+        pool.init()!;
+        pool_initialized = true;
+    }
+
+    Future* fut = self.create_future();
+    fut.defer_free();
+    
+    ExecutorWork* w = mem_alloc(ExecutorWork); defer mem_free(w);
 
     *w = {
         .func = func, 
         .arg = arg, 
         .result = null,
+        .future = fut, // to know when thread finish
+        .loop = self,
     };
-    w.alive.store(true);
-    
-  $if $defined(env::WIN32):
-    // keep doing io_poll(), while thread is running
-    _active_op_count++;
-  $endif
 
     self.executor_count++;
  
-    thread::Thread t;
-    t.create(&_executor_thread, w)!;
+    pool.push(&_executor_thread, w)!;
+    
+    void* r = fut.await()!; // resumes in _executor_wakeup
 
-    // non-blocking wait
-    while (w.alive.load()) {
-        asyncio::sleep_zero();
-    }
-    
-    t.join()!;
-    
     self.executor_count--;
 
-  $if $defined(env::WIN32):
-    _active_op_count--;
-  $endif
-
     void* result = w.result;
-    mem_free(w);
+
     return result;
 }
 
