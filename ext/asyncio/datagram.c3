@@ -16,7 +16,7 @@ struct Datagram {
 
 fn Datagram* datagram_new(int fd) @private // called at loop.open_datagram(ip, port)
 {
-    Datagram* d = mem_alloc(Datagram);
+    Datagram* d = localmem.alloc(Datagram);
     *d = {
         .fd = fd,
         .closed = false,
@@ -30,7 +30,7 @@ fn Datagram* datagram_new(int fd) @private // called at loop.open_datagram(ip, p
 
 fn void Datagram._free(&self) 
 {
-    mem_free(self);
+    localmem.free(self);
 }
 
 fn usz Datagram.sendto(&self, char[] data, char[] ip, short port)
@@ -77,39 +77,11 @@ fn usz EventLoop.sock_recvfrom(&self, int sock_fd, char[] data, char[] ip, usz* 
     return n;
 }
 
-
-module ext::asyncio @if(!env::WIN32);
-
-import c::string;
-import c::fcntl;
-import c::unistd;
-
 fn void Datagram.close(&self) 
 {
     if (self.closed) return;
     self.closed = true;
-
-    unregister(self.fd);
-    unistd::close(self.fd);
+    socket_close(self.fd);
     self._free();
 }
 
-module ext::asyncio @if(env::WIN32);
-
-import c::winbase;
-import c::winsock2;
-
-fn void Datagram.close(&self) 
-{
-    if (self.closed) return;
-    self.closed = true;
-
-    unregister(self.fd);
-
-    if (_is_socket((winbase::Handle)(iptr)self.fd)) {
-        winsock2::closesocket((winsock2::Socket)self.fd);
-    } else {
-        winbase::closeHandle((winbase::Handle)(iptr)self.fd);
-    }
-    self._free();
-}

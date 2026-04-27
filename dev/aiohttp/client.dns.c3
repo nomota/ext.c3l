@@ -3,6 +3,7 @@
 module ext::aiohttp;
 
 import ext::asyncio;
+import ext::debug;
 
 // TTL-based DNS resolution cache — used internally by TcpConnector.
 //
@@ -128,6 +129,7 @@ fn usz dns_free_slot(DnsCache* c, ulong now_us) @private
 // Initialise a DnsCache.
 fn void dns_cache_init(DnsCache* c, bool enabled, ulong ttl_us)
 {
+warn("-");
     c.count = 0;
     c.enabled = enabled;
     c.ttl_us  = ttl_us;
@@ -283,20 +285,15 @@ fn bool? dns_resolve(
     Stream*? s = asyncio::open_connection(host, port);
     if (catch err = s) return false;
 
-    // asyncio::open_connection does not expose the resolved IP directly in
-    // the current API, so we store the original hostname as the "IP" key.
-    // When TLS or literal IPs are involved, the caller should pass the
-    // already-resolved address. This entry still prevents redundant lookups
-    // within the TTL window.
-    dns_cache_put(c, host, host); // host → host (pass-through, avoids re-lookup)
+    String ip = s.get_ip();
+    
+    dns_cache_put(c, host, ip); // host → ip (pass-through, avoids re-lookup)
 
-    // hand the stream back to the caller via pool
-    // (the caller will normally use pool_acquire which handles the stream)
     s.close();
 
     // report that resolution succeeded (caller re-opens via pool_acquire)
-    *out_ip_len = host.len < DNS_IP_MAX ? host.len : DNS_IP_MAX;
-    for (usz i = 0; i < *out_ip_len; i++) out_ip[i] = host[i];
+    *out_ip_len = ip.len < DNS_IP_MAX ? ip.len : DNS_IP_MAX;
+    for (usz i = 0; i < *out_ip_len; i++) out_ip[i] = ip[i];
     out_ip[*out_ip_len] = 0;
 
     return true;

@@ -6,6 +6,8 @@ import ext::asyncio;
 import ext::serializer::http;
 import std::encoding::base64;
 import std::hash::sha1;
+import ext::mem;
+import ext::debug;
 
 //  constants 
 
@@ -31,29 +33,30 @@ struct TcpConnector {
 }
 
 fn TcpConnector* connector_new(
-    int        limit                = 100,
-    int        limit_per_host       = 0,
-    TlsConfig* tls                  = null,
-    usz        read_bufsize         = 65536,
-    bool       use_dns_cache        = true,
-    ulong      ttl_dns_cache_us     = 10_000_000,
-    ulong      keepalive_timeout_us = 15_000_000,
-    bool       force_close          = false,
-)
+    int limit = 100,
+    int limit_per_host = 0,
+    TlsConfig* tls = null,
+    usz read_bufsize = 65536,
+    bool use_dns_cache = true,
+    ulong ttl_dns_cache_us = 10_000_000,
+    ulong keepalive_timeout_us = 15_000_000,
+    bool force_close = false)
 {
     TcpConnector* c = localmem.alloc(TcpConnector);
-    c.limit                = limit;
-    c.limit_per_host       = limit_per_host;
-    c.tls                  = tls;
-    c.read_bufsize         = read_bufsize > 0 ? read_bufsize : RESP_READ_BUFSIZE;
-    c.use_dns_cache        = use_dns_cache;
-    c.ttl_dns_cache_us     = ttl_dns_cache_us;
+    c.limit = limit;
+    c.limit_per_host = limit_per_host;
+    c.tls = tls;
+    c.read_bufsize = read_bufsize > 0 ? read_bufsize : RESP_READ_BUFSIZE;
+    c.use_dns_cache = use_dns_cache;
+    c.ttl_dns_cache_us = ttl_dns_cache_us;
     c.keepalive_timeout_us = keepalive_timeout_us;
-    c.force_close          = force_close;
-    c.closed               = false;
-    (void) pool_init(&c.pool, limit, limit_per_host,
-              keepalive_timeout_us, force_close, localmem); // ???
+    c.force_close = force_close;
+    c.closed = false;
+    
+    (void) pool_init(&c.pool, limit, limit_per_host, keepalive_timeout_us, force_close, localmem);
+
     dns_cache_init(&c.dns, use_dns_cache, ttl_dns_cache_us);
+
     return c;
 }
 
@@ -81,33 +84,36 @@ struct ClientSession {
 }
 
 fn ClientSession* session_new(
-    TcpConnector* connector        = null,
-    ClientTimeout timeout          = { .total_us = 30_000_000 },
-    Headers*      default_headers  = null,
-    BasicAuth*    auth             = null,
-    CookieJar*    cookie_jar       = null,
-    bool          raise_for_status = false,
-)
+    TcpConnector* connector = null,
+    ClientTimeout timeout = { .total_us = 30_000_000 },
+    Headers* default_headers = null,
+    BasicAuth* auth = null,
+    CookieJar* cookie_jar = null,
+    bool raise_for_status = false)
 {
+    if (localmem == (LocalAllocator){}) {
+        localmem = tmem;
+    }
+    
     ClientSession* s = localmem.alloc(ClientSession);
     if (connector == null) {
-        s.connector      = connector_new();
+        s.connector = connector_new();
         s.owns_connector = true;
     } else {
-        s.connector      = connector;
+        s.connector = connector;
         s.owns_connector = false;
     }
-    s.timeout          = timeout;
-    s.default_headers  = default_headers;
-    s.auth             = auth;
+    s.timeout = timeout;
+    s.default_headers = default_headers;
+    s.auth = auth;
     s.raise_for_status = raise_for_status;
-    s.closed           = false;
+    s.closed = false;
     if (cookie_jar == null) {
         s.cookie_jar = cookiejar_new();
-        s.owns_jar   = true;
+        s.owns_jar = true;
     } else {
         s.cookie_jar = cookie_jar;
-        s.owns_jar   = false;
+        s.owns_jar = false;
     }
     return s;
 }
@@ -182,10 +188,10 @@ fn ClientResponse*? build_response(
         if (c < '0' || c > '9') break;
         r.status = r.status * 10 + (int)(c - '0');
     }
-    r.reason   = p.message;
-    r.url      = *req_url;
+    r.reason = p.message;
+    r.url = *req_url;
     r.released = false;
-    r.stream   = stream;
+    r.stream = stream;
     r.connector = connector;
     r.body_buf = null;
     r.body_len = 0;
@@ -202,16 +208,16 @@ fn ClientResponse*? build_response(
     for (usz i = 0; i < p.n_set_cookies && nc < http::MAX; i++) {
         http::SetCookie* sc = &p.set_cookies[i];
         raw_cookies[nc++] = (Cookie){
-            .name      = sc.name,   .value   = sc.value,
-            .domain    = sc.domain, .path    = sc.path,
-            .expires   = 0,         .secure  = sc.secure,
+            .name = sc.name,   .value = sc.value,
+            .domain = sc.domain, .path = sc.path,
+            .expires = 0,         .secure = sc.secure,
             .http_only = sc.http_only, .same_site = sc.same_site,
         };
     }
     if (nc > 0) jar.update(&raw_cookies[0], nc, req_url);
     r.cookies = jar;
 
-    r.is_chunked     = p.chunked;
+    r.is_chunked = p.chunked;
     r.content_length = p.content_length;
     if (r.is_chunked) r.chunk_dec.init();
     return r;
@@ -249,7 +255,7 @@ fn char*? ClientResponse.read(&self, usz* out_len)
         self.body_buf = buf; self.body_len = len;
     } else {
         usz total = self.content_length;
-        usz cap2  = total > 0 ? total : RESP_READ_BUFSIZE;
+        usz cap2 = total > 0 ? total : RESP_READ_BUFSIZE;
         char* buf = localmem.malloc(cap2);
         usz   len = 0;
         while (total == 0 || len < total) {
@@ -299,8 +305,8 @@ fn void ClientResponse.release(&self)
                      self.url.host, self.url.effective_port());
         self.stream = null;
     }
-    if (self.body_buf  != null) { localmem.free(self.body_buf);  self.body_buf  = null; }
-    if (self.headers   != null) { self.headers.free();        self.headers   = null; }
+    if (self.body_buf  != null) { localmem.free(self.body_buf);  self.body_buf = null; }
+    if (self.headers   != null) { self.headers.free();        self.headers = null; }
     localmem.free(self);
 }
 
@@ -324,10 +330,10 @@ fn ClientResponse*? session_do_request(
 
     while (true) {
         ushort port = url.effective_port();
-
+warn("-");
         Stream*? stream = pool_acquire(&s.connector.pool, url.host, port, s.timeout.connect_us, localmem);
         if (catch err = stream) return CONNECTION_FAILED~;
-
+warn("-");
         // inject cookies
         usz nc_jar;
         Cookie* jar_cookies = s.cookie_jar.filter(&url, &nc_jar);
@@ -555,15 +561,15 @@ fn ClientWs*? ClientSession.ws_connect(
     if (catch err = ok) { pool_release(&self.connector.pool, stream, parsed.host, port); return WS_ERROR~; }
 
     ClientWs* ws = localmem.alloc(ClientWs);
-    ws.closed            = false;
-    ws.protocol          = "";
-    ws.compress          = compress;
-    ws.stream            = stream;
-    ws.connector         = self.connector;
-    ws.url               = parsed;
-    ws.heartbeat_us      = heartbeat_us;
+    ws.closed = false;
+    ws.protocol = "";
+    ws.compress = compress;
+    ws.stream = stream;
+    ws.connector = self.connector;
+    ws.url = parsed;
+    ws.heartbeat_us = heartbeat_us;
     ws.receive_timeout_us = receive_timeout_us;
-    ws.last_error        = NONE;
+    ws.last_error = NONE;
     ws.decoder.init(false, 0); // server sends unmasked
 
     // build peername "host:port"
@@ -590,15 +596,15 @@ fn void? ws_send(ClientWs* ws, WsMsgType type, char* data, usz len) @private
 }
 
 fn void? ClientWs.send_str(&self, String data) @maydiscard
-    => ws_send(self, WsMsgType.TEXT, (char*)data.ptr, data.len);
+ => ws_send(self, WsMsgType.TEXT, (char*)data.ptr, data.len);
 fn void? ClientWs.send_bytes(&self, char* data, usz len) @maydiscard
-    => ws_send(self, WsMsgType.BINARY, data, len);
+ => ws_send(self, WsMsgType.BINARY, data, len);
 fn void? ClientWs.send_json(&self, String json_str) @maydiscard
-    => ws_send(self, WsMsgType.TEXT, (char*)json_str.ptr, json_str.len);
+ => ws_send(self, WsMsgType.TEXT, (char*)json_str.ptr, json_str.len);
 fn void? ClientWs.ping(&self, char* message = null, usz msg_len = 0) @maydiscard
-    => ws_send(self, WsMsgType.PING, message, msg_len);
+ => ws_send(self, WsMsgType.PING, message, msg_len);
 fn void? ClientWs.pong(&self, char* message = null, usz msg_len = 0) @maydiscard
-    => ws_send(self, WsMsgType.PONG, message, msg_len);
+ => ws_send(self, WsMsgType.PONG, message, msg_len);
 
 fn WsMessage? ClientWs.receive(&self)
 {
@@ -689,6 +695,6 @@ fn void ClientWs.free(&self)
 }
 
 fn String ClientWs.get_peername(&self)
-    => (String) self.peername_buf[0: self.peername_len];
+ => (String) self.peername_buf[0: self.peername_len];
 
 fn fault ClientWs.exception(&self) => self.last_error;

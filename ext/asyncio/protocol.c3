@@ -44,7 +44,7 @@ fn void _open_stream()
     Transport* trans = ctx.transport;
     Protocol proto = ctx.protocol;
 
-    mem_free(task.arg);
+    localmem.free(task.arg);
     task.arg = null;
 
     Stream*? stream = open_connection(trans.host, trans.port);
@@ -88,7 +88,7 @@ fn Transport* EventLoop.create_connection(&self, Protocol proto, String host, us
     t.host = host;
     t.port = port;
     
-    Context* ctx = mem_alloc(Context);
+    Context* ctx = localmem.alloc(Context);
     ctx.transport = t;
     ctx.protocol = proto;
 
@@ -158,7 +158,7 @@ fn void _drive_datagram()
     Transport* trans = ctx.transport;
     DatagramProtocol dproto = ctx.dprotocol;
 
-    mem_free(task.arg);
+    localmem.free(task.arg);
     task.arg = null;
 
     Datagram*? datagram = bind_endpoint(trans.host, trans.port);
@@ -210,7 +210,7 @@ fn Transport* EventLoop.create_datagram_endpoint(&self, DatagramProtocol proto, 
     t.host = host;
     t.port = port;
 
-    Context* ctx = mem_alloc(Context);
+    Context* ctx = localmem.alloc(Context);
     ctx.transport = t;
     ctx.dprotocol = proto;
     
@@ -249,7 +249,7 @@ struct Transport {
 
 fn Transport* transport_new() @private
 {
-    Transport* t = mem_alloc(Transport);
+    Transport* t = localmem.alloc(Transport);
     *t = {};
     return t;
 }
@@ -257,7 +257,7 @@ fn Transport* transport_new() @private
 fn void Transport.free(&self)
 {
     if (!self.closed) self.close();
-    mem_free(self);
+    localmem.free(self);
 }
 
 faultdef NO_WRITE_ON_UDP;
@@ -300,7 +300,7 @@ struct MyProto (Protocol) {
 
 fn MyProto* myproto_new(char[] msg, Future* on_con_lost)
 {
-    MyProto* p = mem_alloc(MyProto);
+    MyProto* p = localmem.alloc(MyProto);
     self.msg = msg;
     self.on_con_lost = on_con_lost;
     return p;
@@ -310,7 +310,7 @@ fn void MyProto.free(&self)
 {
     self.transport.free();
     self.on_con_lost.free();
-    mem_free(&self);
+    localmem.free(&self);
 }
 
 fn void MyProto.connection_made(&self, Transport* transport) @dynamic
@@ -357,13 +357,13 @@ struct MyProto (Protocol) {
 
 fn MyProto* myproto_new()
 {
-    MyProto* p = mem_alloc(MyProto);
+    MyProto* p = localmem.alloc(MyProto);
     return p;
 }
 
 fn void MyProto.free(&self)
 {
-    mem_free(&self);
+    localmem.free(&self);
 }
 
 fn void MyProto.connection_made(&self, Transport* transport) @dynamic
@@ -413,7 +413,7 @@ struct MyProto (DatagramProtocol) {
 
 fn MyProto* myproto_new(char[] msg, Future* on_con_lost)
 {
-    MyProto* p = mem_alloc(MyProto);
+    MyProto* p = localmem.alloc(MyProto);
     p.msg = msg;
     p.on_con_lost = on_con_lost;
     return p;
@@ -422,7 +422,7 @@ fn MyProto* myproto_new(char[] msg, Future* on_con_lost)
 fn void MyProto.free(&self)
 {
     self.transport.free();
-    mem_free(&self);
+    localmem.free(&self);
 }
 
 fn void MyProto.connection_made(&self, Transport* transport) @dynamic

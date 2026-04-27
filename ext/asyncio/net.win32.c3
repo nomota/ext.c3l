@@ -1,5 +1,9 @@
 // net.win32.c3
 
+// Net functions for asyncio
+
+// Nomota <hiongun@gmail.com>; MIT License
+
 module ext::asyncio @if(env::WIN32) @link("ws2_32");
 
 import std::io;
@@ -14,6 +18,14 @@ import c::guiddef;
 import c::mswsock;
 import ext::debug;
 import ext::mem;
+import std::collections::map;
+
+tlocal HashMap{int,String} ips; // IP addr cache
+
+fn String? socket_ip(int fd)
+{
+    return ips[fd]!;
+}
 
 fn char* str2cptr(String str, char[] buf) @inline
 {
@@ -55,6 +67,11 @@ fn int socket_new(int family, int type)
 
 fn void socket_close(int fd)
 {
+    String? ip = ips[sock];
+    if (try ip) {
+        ip.free(localmem);
+        ips.remove(sock);
+    }
     unregister(fd);
     winsock2::closesocket((winsock2::Socket)(iptr)fd);
 }
@@ -73,6 +90,23 @@ fn int socket(String ipversion, String proto)
 }
 
 alias ClientHandler = fn void(Stream*);
+
+fn void store_ip_addr(int sock, netdb::AddrInfo* res)
+{
+    void *addr;
+    if (res.ai_family == winsock2::AF_INET) { // IPv4
+        winsock2::SockAddrIn *ipv4 = (winsock2::SockAddrIn*)res.ai_addr;
+        addr = &(ipv4.sin_addr);
+    } else { // IPv6
+        winsock2::SockAddrIn6 *ipv6 = (winsock2::SockAddrIn6*)res.ai_addr;
+        addr = &(ipv6.sin6_addr);
+    }
+    
+    // Convert binary IP to String
+    char[64] ipstr;
+    winsock2::inet_ntop(res.ai_family, addr, &ipstr[0], 64);
+    ips[sock] = ((String)ipstr[0:string::strlen(&ipstr[0])]).copy(localmem);
+}
 
 alias ConnectExFn = fn winbase::Bool(
     winsock2::Socket s,
@@ -208,6 +242,7 @@ fn int? _resolve_and_connect_win(char* host, ushort port)
             continue;
         }
 
+        store_ip_addr((int)sock, rp);
         result = (int)sock;
         break;
     }
@@ -256,6 +291,7 @@ fn int? _resolve_and_datagram(char* host, ushort port)
         int yes = 1;
         winsock2::setsockopt(sock, winsock2::SOL_SOCKET, winsock2::SO_REUSEADDR, (char*)&yes, $sizeof(yes));
 
+        store_ip_addr(fd, rp);
         result = (int)sock;
         break;
     }
@@ -313,6 +349,7 @@ fn int? _resolve_and_bind_win(char* host, ushort port)
             continue;
         }
 
+        store_ip_addr(fd, rp);
         result = (int)sock;
         break;
     }
@@ -343,7 +380,7 @@ struct Server {
 
 fn Server* server_new()
 {
-    Server* s = mem_alloc(Server);
+    Server* s = localmem.alloc(Server);
     *s = {};
     return s;
 }
@@ -354,7 +391,7 @@ fn void Server.free(&self)
     if (self.transport != null) { // protocol.c3
         self.transport.free();
     }
-    mem_free(self);
+    localmem.free(self);
 }
 
 struct ClientCtx {
@@ -371,7 +408,7 @@ fn void _client_task()
     int fd = ctx.fd;
     ClientHandler handler = ctx.handler;
 
-    mem_free(ctx);
+    localmem.free(ctx);
     self.arg = null;
     
     Stream* conn = stream_new(fd);
@@ -473,7 +510,7 @@ fn void _accept_loop_win(Server* self)
         }
 
         // @assert(_client_ctx_count < 256, "asyncio::net: client pool overflow");
-        ClientCtx* ctx = mem_alloc(ClientCtx);
+        ClientCtx* ctx = localmem.alloc(ClientCtx);
         *ctx = { (int)accept_sock, self.handler };
 
         loop.create_task(&_client_task, "tcp_client", 128_000, true, ctx);

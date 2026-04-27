@@ -17,7 +17,7 @@ struct TaskGroup {
 
 fn TaskGroup* taskgroup_new() 
 {
-    TaskGroup* tg = mem_alloc(TaskGroup);
+    TaskGroup* tg = localmem.alloc(TaskGroup);
     *tg = {
         .count = 0,
         .failed = false,
@@ -32,7 +32,7 @@ fn void TaskGroup.free(&self)
     for (usz i = 0; i < self.count; i++) {
         self.tasks[i].free();
     }
-    mem_free(self);
+    localmem.free(self);
 }
 
 fn Task* TaskGroup.create_task(&self, Coroutine coro, String name = "tg_task", uint stack_size = 64_000, void* arg=null) 

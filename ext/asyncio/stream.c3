@@ -28,7 +28,7 @@ struct Stream {
 
 fn Stream* stream_new(int fd) @private
 {
-    Stream* s = mem_alloc(Stream);
+    Stream* s = localmem.alloc(Stream);
     *s = {};
     s.fd = fd;
     s.eof = false;
@@ -44,10 +44,19 @@ fn Stream* stream_new(int fd) @private
     return s;
 }
 
+fn String Stream.get_ip(&self) 
+{
+    String? ip = ips[self.fd]; // defined in net.*.c3
+    if (catch err = ip) {
+        return "";
+    }
+    return ip;
+}
+
 // close() calls _free()
 fn void Stream._free(&self) 
 {
-    mem_free(self);
+    localmem.free(self);
 }
 
 fn bool Stream.at_eof(&self) @inline 
@@ -206,7 +215,7 @@ fn void Stream.close(&self)
     if (self.closed) return;
     self.closed = true;
     
-    close_file(self.fd);
+    socket_close(self.fd);
 
     self._free();
 }

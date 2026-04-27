@@ -3,6 +3,7 @@
 module ext::aiohttp;
 
 import std::encoding::base64;
+import ext::debug;
 
 // Shared types for ext::aiohttp.
 //
@@ -124,8 +125,11 @@ fn bool hdr_ieq(String a, String b) @private @inline
 
 fn Headers* headers_new()
 {
+warn("-");
     Headers* h = localmem.alloc(Headers);
+warn("-%d", HEADERS_INIT_CAP);
     h.entries  = localmem.malloc(HEADERS_INIT_CAP * Header.sizeof);
+warn("-");
     h.count    = 0;
     h.capacity = HEADERS_INIT_CAP;
     return h;
@@ -134,6 +138,7 @@ fn Headers* headers_new()
 fn void headers_grow(Headers* h) @private
 {
     usz new_cap = h.capacity * 2;
+warn("-");
     Header* new_buf = localmem.malloc(new_cap * Header.sizeof);
     for (usz i = 0; i < h.count; i++) new_buf[i] = h.entries[i];
     localmem.free(h.entries);
@@ -143,7 +148,8 @@ fn void headers_grow(Headers* h) @private
 
 fn void Headers.free(&self)
 {
-    localmem.free(self.entries);
+    @assert(self != null, "error");
+    if (self.entries != null) localmem.free(self.entries);
     localmem.free(self);
 }
 

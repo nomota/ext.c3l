@@ -4,6 +4,7 @@ module ext::aiohttp;
 
 import ext::asyncio;
 import ext::mem;
+import ext::debug;
 
 // HTTP/1.1 connection pool — used internally by TcpConnector.
 //
@@ -191,7 +192,6 @@ fn ConnPool*? PoolTable.get_or_create(&self, String host, ushort port, Allocator
     cp.closed    = false;
 
     if (self.limit_per_host > 0) {
-        mem::set_allocator(alloc);
         cp.sem = asyncio::semaphore_new(self.limit_per_host);
     } else {
         cp.sem = null;
@@ -213,6 +213,7 @@ fn void? pool_init(
     Allocator   alloc,
 )
 {
+warn("-");
     localmem = alloc;
     
     pt.pool_count           = 0;
@@ -223,7 +224,6 @@ fn void? pool_init(
     pt.closed               = false;
 
     if (limit > 0) {
-        mem::set_allocator(alloc);
         pt.global_sem = asyncio::semaphore_new(limit);
     } else {
         pt.global_sem = null;
@@ -242,12 +242,15 @@ fn Stream*? pool_acquire(
     Allocator   alloc,
 )
 {
+warn("-");
     localmem = alloc;
     
     if (pt.closed) return CONNECTION_FAILED ~;
 
     // global limit
-    if (pt.global_sem != null) pt.global_sem.acquire();
+    if (pt.global_sem != null) {
+        pt.global_sem.acquire();
+    }
 
     ConnPool* cp = pt.get_or_create(host, port, alloc)!;
 
@@ -266,13 +269,13 @@ fn Stream*? pool_acquire(
         s.close();
         cp.total--;
     }
-
+warn("%s %d", host, port);
     // open a new TCP connection
-    mem::set_allocator(alloc);
     Stream*? ns = asyncio::open_connection(host, port);
+warn("-");
     if (catch err = ns) {
         // release semaphores on failure
-        if (cp.sem        != null) cp.sem.release();
+        if (cp.sem != null) cp.sem.release();
         if (pt.global_sem != null) pt.global_sem.release();
         return CONNECTION_FAILED ~;
     }
@@ -291,12 +294,13 @@ fn void pool_release(
     ushort     port,
 )
 {
+warn("-");
     bool did_return = false;
 
     if (!pt.closed && !pt.force_close) {
         // best-effort: find the pool (it must already exist)
         char[POOL_HOST_KEY_MAX] key;
-        usz klen = pool_make_key(key[0..], host, port);
+        usz klen = pool_make_key(&key[0], host, port);
 
         for (usz i = 0; i < pt.pool_count; i++) {
             ConnPool* cp = &pt.pools[i];
@@ -326,14 +330,16 @@ fn void pool_release(
             }
         }
         s.close();
-        if (pt.global_sem != null) pt.global_sem.release();
     }
+    
+    if (pt.global_sem != null) pt.global_sem.release();
 }
 
 // Close all idle connections older than keepalive_timeout_us.
 // Call periodically (e.g. every 5 seconds) from the event loop.
 fn void pool_reap(PoolTable* pt)
 {
+warn("-");
     ulong now = asyncio::clock_now();
     for (usz i = 0; i < pt.pool_count; i++) {
         ConnPool* cp = &pt.pools[i];
@@ -349,6 +355,7 @@ fn void pool_reap(PoolTable* pt)
 // New acquire() calls will fail after this.
 fn void pool_close(PoolTable* pt)
 {
+warn("-");
     pt.closed = true;
     for (usz i = 0; i < pt.pool_count; i++) {
         ConnPool* cp = &pt.pools[i];

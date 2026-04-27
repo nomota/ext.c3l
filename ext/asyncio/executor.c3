@@ -64,7 +64,7 @@ fn void*? EventLoop.run_in_executor(&self, ExecutorFn func, void* arg = null)
     Future* fut = self.create_future();
     fut.defer_free();
     
-    ExecutorWork* w = mem_alloc(ExecutorWork); defer mem_free(w);
+    ExecutorWork* w = localmem.alloc(ExecutorWork); defer localmem.free(w);
 
     *w = {
         .func = func, 

@@ -65,15 +65,15 @@ fn void future_init(Future* f, EventLoop* loop) @inline @private
 
 fn Future* future_new(EventLoop* loop) @private
 {
-    Future* f = mem_alloc(Future);
+    Future* f = localmem.alloc(Future);
     future_init(f, loop);
     return f;
 }
 
 fn void Future.free(&self)
 {
-    if (self.result != null) mem_free(self.result);
-    mem_free(self);
+    if (self.result != null) localmem.free(self.result);
+    localmem.free(self);
 }
 
 fn void Future.defer_free(&self)
@@ -125,7 +125,7 @@ fn void? Future.set_result(&self, void* data) @maydiscard
         self.set_exception(INVALID_STATE_ERR);
         return INVALID_STATE_ERR~;
     }
-    if (self.result != null) mem_free(self.result);
+    if (self.result != null) localmem.free(self.result);
     self.state = State.FINISHED;
     self.result = data;
 
@@ -358,7 +358,7 @@ fn void task_return(void* value)
 
 fn Task* task_new(EventLoop* loop, Coroutine coro, String name = "", usz stack_size = 128_000, bool autofree = false, void* arg = null) @private
 {
-    Task* t = mem_alloc(Task);
+    Task* t = localmem.alloc(Task);
     future_init(&t.fut, loop);
     t.coro = coro;
     t.name = name;
@@ -378,7 +378,7 @@ fn void Task.free(&self)
     if (self.loop != null && self.loop.all_task_count > 0) self.loop._unregister_task(self);
 
     if (self.result != null) {
-        mem_free(self.result);
+        localmem.free(self.result);
     }
     if (self.fiber != null) {
         // warn("del fiber %s stack_size:%.dKB, filled:%dKB %.2f%% used.", self.name, self.fiber.stack_size/1024, fiber::stack_used(self.fiber)/1024, (float)fiber::stack_filled(self.fiber)/(float)self.fiber.stack_size*(float)100.0);
@@ -390,7 +390,7 @@ fn void Task.free(&self)
     if (self.fut_waiter != null) {
         self.fut_waiter = null;
     }
-    mem_free(self);
+    localmem.free(self);
 }
 
 fn void Task.defer_free(&self)

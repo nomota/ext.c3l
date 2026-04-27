@@ -153,8 +153,8 @@ fn void? as_completed(Task** tasks, usz count, CompletedCallback cb) @maydiscard
 {
     @assert(count <= cfg.task_queue_size, "too many tasks as_completed");
     
-    bool[] flags = mem_alloc_array(bool, cfg.task_queue_size);
-    defer mem_free(flags);
+    bool[] flags = localmem.alloc_array(bool, cfg.task_queue_size);
+    defer localmem.free(flags);
     
     usz done = 0;
     while (done < count) {
@@ -195,7 +195,7 @@ struct CallbackHandle {
 
 fn CallbackHandle* callbackhandle_new(SoonCallback cb, void* arg) @private
 {
-    CallbackHandle* h = mem_alloc(CallbackHandle);
+    CallbackHandle* h = localmem.alloc(CallbackHandle);
     *h = { cb, arg, false };
     return h;
 }
@@ -209,7 +209,7 @@ fn void CallbackHandle.cancel(&self)
 
 fn void CallbackHandle.free(&self)
 {
-    mem_free(self);
+    localmem.free(self);
 }
 
 // ---------------------------------------
@@ -233,6 +233,7 @@ struct EventLoopConfig {
 }
 
 tlocal EventLoopConfig cfg;
+tlocal LocalAllocator localmem = {};
 
 fn void set_eventloop_config(usz taskq=1024, usz timerq=512, usz soonq=512)
 {
@@ -241,7 +242,10 @@ fn void set_eventloop_config(usz taskq=1024, usz timerq=512, usz soonq=512)
         return;
     }
     cfg = { taskq, timerq, soonq, true };
-    mem::set_allocator(mem);
+
+    if (localmem == (LocalAllocator){}) {
+        localmem = mem;
+    }
 }
 
 struct EventLoop {
@@ -300,42 +304,42 @@ fn EventLoop* new_event_loop()
     
     io_init();
     
-    EventLoop* lp = mem_alloc(EventLoop);
+    EventLoop* lp = localmem.alloc(EventLoop);
     *lp = {};
     lp.q_cap = cfg.task_queue_size;
-    lp.queue = mem_alloc_array(Task*, lp.q_cap);
+    lp.queue = localmem.alloc_array(Task*, lp.q_cap);
     lp.q_count = 0;
     
     lp.timer_cap = cfg.timer_queue_size;
-    lp.timers = mem_alloc_array(TimerEntry, lp.timer_cap);
+    lp.timers = localmem.alloc_array(TimerEntry, lp.timer_cap);
     lp.timer_count = 0;
 
     lp.soon_cap = cfg.soon_queue_size;
-    lp.soon_queue = mem_alloc_array(CallbackHandle*, lp.soon_cap);
+    lp.soon_queue = localmem.alloc_array(CallbackHandle*, lp.soon_cap);
     lp.soon_count = 0;
     
-    lp.ts_queue = mem_alloc_array(CallbackHandle*, lp.soon_cap);
+    lp.ts_queue = localmem.alloc_array(CallbackHandle*, lp.soon_cap);
     lp.ts_count = 0;
     
     lp.cb_timer_cap  = cfg.timer_queue_size;
-    lp.cb_timers = mem_alloc_array(CallbackTimerEntry, lp.cb_timer_cap);
+    lp.cb_timers = localmem.alloc_array(CallbackTimerEntry, lp.cb_timer_cap);
     lp.cb_timer_count = 0;
 
     lp.ts_mutex.init()!!;
     lp.main_fiber = fiber::active();
 
     lp.to_free_cap = 256;
-    lp.to_free = mem_alloc_array(Future*, lp.to_free_cap);
+    lp.to_free = localmem.alloc_array(Future*, lp.to_free_cap);
     lp.to_free_count = 0;
 
     lp.to_free_task_cap = 128;
-    lp.to_free_tasks = mem_alloc_array(Task*, lp.to_free_task_cap);
+    lp.to_free_tasks = localmem.alloc_array(Task*, lp.to_free_task_cap);
     lp.to_free_task_count = 0;
     
     lp.closing = false;
 
     lp.all_task_cap = 256;
-    lp.all_tasks = mem_alloc_array(Task*, lp.all_task_cap);
+    lp.all_tasks = localmem.alloc_array(Task*, lp.all_task_cap);
     lp.all_task_count = 0;
     
     lp.executor_count = 0;
@@ -346,16 +350,16 @@ fn void EventLoop.free(&self)
 {
     self.ts_mutex.destroy()!!;
 
-    mem_free(self.queue);
-    mem_free(self.timers);
-    mem_free(self.soon_queue);
-    mem_free(self.ts_queue);
-    mem_free(self.cb_timers);
-    mem_free(self.all_tasks);
-    mem_free(self.to_free);
-    mem_free(self.to_free_tasks);
+    localmem.free(self.queue);
+    localmem.free(self.timers);
+    localmem.free(self.soon_queue);
+    localmem.free(self.ts_queue);
+    localmem.free(self.cb_timers);
+    localmem.free(self.all_tasks);
+    localmem.free(self.to_free);
+    localmem.free(self.to_free_tasks);
 
-    mem_free(self);
+    localmem.free(self);
 }
 
 fn void set_event_loop(EventLoop* lp)
@@ -466,9 +470,9 @@ fn void EventLoop._register_task(&self, Task* t)
 
     if (self.all_task_count == self.all_task_cap) {
         usz new_cap = self.all_task_cap * 2;
-        Task*[] arr = mem_alloc_array(Task*, new_cap);
+        Task*[] arr = localmem.alloc_array(Task*, new_cap);
         for (usz i = 0; i < self.all_task_count; i++) arr[i] = self.all_tasks[i];
-        mem_free(self.all_tasks);
+        localmem.free(self.all_tasks);
         self.all_tasks = arr;
         self.all_task_cap = new_cap;
     }
@@ -507,9 +511,9 @@ fn void EventLoop._defer_free_future(&self, Future* f)
 
     if (self.to_free_count == self.to_free_cap) {
         usz new_cap = self.to_free_cap * 2;
-        Future*[] arr = mem_alloc_array(Future*, new_cap);
+        Future*[] arr = localmem.alloc_array(Future*, new_cap);
         for (usz i = 0; i < self.to_free_count; i++) arr[i] = self.to_free[i];
-        mem_free(self.to_free);
+        localmem.free(self.to_free);
         self.to_free = arr;
         self.to_free_cap = new_cap;
     }
@@ -540,9 +544,9 @@ fn void EventLoop._defer_free_task(&self, Task* t)
 
     if (self.to_free_task_count == self.to_free_task_cap) {
         usz new_cap = self.to_free_task_cap * 2;
-        Task*[] arr = mem_alloc_array(Task*, new_cap);
+        Task*[] arr = localmem.alloc_array(Task*, new_cap);
         for (usz i = 0; i < self.to_free_task_count; i++) arr[i] = self.to_free_tasks[i];
-        mem_free(self.to_free_tasks);
+        localmem.free(self.to_free_tasks);
         self.to_free_tasks = arr;
         self.to_free_task_cap = new_cap;
     }

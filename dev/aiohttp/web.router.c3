@@ -2,6 +2,7 @@
 
 module ext::aiohttp::web;
 
+import ext::debug;
 
 // HTTP request router — used internally by Application.
 //
@@ -188,10 +189,11 @@ fn usz re_match(char* re, usz re_len, char* s, usz si, usz slen)
 // Segments are stored as slices into path.
 fn usz split_path(String path, String* out_segs, usz cap) @private
 {
+    warn("path: %s", path);
     usz count = 0;
     usz i = 0;
     if (i < path.len && path[i] == '/') i++; // skip leading '/'
-    while (i <= path.len && count < cap) {
+    while (i < path.len && count < cap) {
         usz start = i;
         while (i < path.len && path[i] != '/') i++;
         if (i > start || (i == start && i < path.len)) {
@@ -199,12 +201,15 @@ fn usz split_path(String path, String* out_segs, usz cap) @private
         }
         if (i < path.len) i++; // skip '/'
     }
+    warn("count: %d", count);
     return count;
 }
 
 // Compile a route pattern string into a CompiledRoute.
 fn void compile_pattern(CompiledRoute* r, String pattern) @private
 {
+    warn("compile_pattern(%s)", pattern);
+    
     r.raw_pattern    = pattern;
     r.seg_count      = 0;
     r.param_count    = 0;
@@ -213,7 +218,8 @@ fn void compile_pattern(CompiledRoute* r, String pattern) @private
     // split on '/'
     String[ROUTER_MAX_SEGMENTS] path_segs;
     usz nseg = split_path(pattern, &path_segs[0], ROUTER_MAX_SEGMENTS);
-
+    warn("nseg = %d", nseg);
+    
     for (usz si = 0; si < nseg && r.seg_count < ROUTER_MAX_SEGMENTS; si++) {
         String seg = path_segs[si];
         Segment* s = &r.segs[r.seg_count++];
@@ -361,9 +367,13 @@ fn void? router_add(
     String         name = "",
 )
 {
+    warn("router_add(%s, %s)", method, pattern);
     if (ri.route_count >= ROUTER_MAX_ROUTES) return aiohttp::CONNECTION_FAILED~;
     CompiledRoute* r = &ri.routes[ri.route_count++];
+    
     compile_pattern(r, pattern);
+    
+warn("-");
     r.method   = method;
     r.is_ws    = false;
     r.handler  = handler;
@@ -381,7 +391,9 @@ fn void? router_add_ws(
 {
     if (ri.route_count >= ROUTER_MAX_ROUTES) return aiohttp::CONNECTION_FAILED~;
     CompiledRoute* r = &ri.routes[ri.route_count++];
+    
     compile_pattern(r, pattern);
+    
     r.method     = HttpMethod.GET; // WS always starts with GET
     r.is_ws      = true;
     r.ws_handler = handler;

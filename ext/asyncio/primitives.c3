@@ -18,13 +18,13 @@ struct Lock {
 
 fn Lock* lock_new() @inline 
 {
-    Lock* lock = mem_alloc(Lock);
+    Lock* lock = localmem.alloc(Lock);
     return lock;
 }
 
 fn void Lock.free(&self)
 {
-    mem_free(self);
+    localmem.free(self);
 }
 
 fn bool Lock.is_locked(&self) @inline
@@ -74,14 +74,14 @@ struct Semaphore {
 
 fn Semaphore* semaphore_new(int initial_value) 
 {
-    Semaphore* sem = mem_alloc(Semaphore);
+    Semaphore* sem = localmem.alloc(Semaphore);
     sem.value = initial_value;
     return sem;
 }
 
 fn void Semaphore.free(&self)
 {
-    mem_free(self);
+    localmem.free(self);
 }
 
 fn int Semaphore.count(&self) @inline 
@@ -123,7 +123,7 @@ struct Event {
 fn Event* event_new() 
 {
     EventLoop* loop = get_running_loop();
-    Event* event = mem_alloc(Event);
+    Event* event = localmem.alloc(Event);
     event.future = loop.create_future();
     return event;
 }
@@ -131,7 +131,7 @@ fn Event* event_new()
 fn void Event.free(&self) 
 {
     self.future.free();
-    mem_free(self);
+    localmem.free(self);
 }
 
 fn bool Event.is_set(&self) @inline 
@@ -178,17 +178,17 @@ struct Queue {
 
 fn Queue* queue_new(usz capacity = QUEUE_CAP_DEFAULT) 
 {
-    Queue* q = mem_alloc(Queue);
+    Queue* q = localmem.alloc(Queue);
     *q = {};
     q.capacity = capacity;
-    q.buf = mem_alloc_array(void*, capacity);
+    q.buf = localmem.alloc_array(void*, capacity);
     return q;
 }
 
 fn void Queue.free(&self) 
 {
-    mem_free(self.buf);
-    mem_free(self);
+    localmem.free(self.buf);
+    localmem.free(self);
 }
 
 fn usz Queue.size(&self) @inline
@@ -297,7 +297,7 @@ struct Channel {
 fn Channel* channel_new() 
 {
     EventLoop* loop = get_running_loop();
-    Channel* chan = mem_alloc(Channel);
+    Channel* chan = localmem.alloc(Channel);
     chan.future = loop.create_future();
     return chan;
 }
@@ -305,7 +305,7 @@ fn Channel* channel_new()
 fn void Channel.free(&self) 
 {
     self.future.free();
-    mem_free(self);
+    localmem.free(self);
 }
 
 // send and wake up the receiver

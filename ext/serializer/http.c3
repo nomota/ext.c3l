@@ -349,13 +349,9 @@ fn char*? parse_key_value(char* buf, char* end, String* key, String* value)
 fn char*? parse_request(char* buf, char* end, Request* req)
 {
     buf = parse_http_req_line(buf, end, &req.method, &req.uri, &req.version)!;
+warn("-");
     uint n = 0;
-    while (n < MAX) {
-        buf = parse_key_value(buf, end, &req.headers[n].key, &req.headers[n].value)!;
-        n++;
-        req.n_headers = n;
-
-        if (buf >= end) { return INCOMPLETE~; }
+    while (n < MAX && buf < end) {
         if (*buf == '\n') {
             req.body = ++buf;
             return buf;
@@ -364,6 +360,12 @@ fn char*? parse_request(char* buf, char* end, Request* req)
             req.body = buf+2;
             return buf+2;
         }
+
+        buf = parse_key_value(buf, end, &req.headers[n].key, &req.headers[n].value)!;
+        n++;
+        req.n_headers = n;
+
+        if (buf >= end) { return INCOMPLETE~; }
     }
 
     return INCOMPLETE~;

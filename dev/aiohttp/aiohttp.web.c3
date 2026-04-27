@@ -8,6 +8,8 @@ import ext::serializer::http;
 import ext::aiofiles;
 import ext::aiofiles::os;
 import ext::mem;
+import ext::debug;
+import ext::thread::fiber;
 
 // HTTP/1.1 server implementation.
 //
@@ -76,6 +78,14 @@ struct Application {
 
 fn Application* app_new(usz client_max_size = 1024 * 1024)
 {
+    if (localmem == (LocalAllocator){}) {
+        if (aiohttp::localmem == (LocalAllocator){}) {
+            aiohttp::localmem = tmem;
+        }
+        
+        localmem = aiohttp::localmem;;
+    }
+    
     Application* app = localmem.alloc(Application);
     app.router = localmem.alloc(Router);
     app.middleware_count = 0;
@@ -581,9 +591,9 @@ fn Response* json_response(String json_str, int status = 200)
 {
     return response_new(
         status,
-        aiohttp::http_reason(status),
-        (char*)json_str.ptr,
-        json_str.len,
+        "", // empty text
+        (char*)json_str.ptr, // body
+        json_str.len, // body len
         "application/json",
         "utf-8",
     );
@@ -1006,7 +1016,7 @@ fn Request* build_request(http::Request* p, Stream* s, Application* app, Allocat
 {
     localmem = alloc;
     Request* req = localmem.alloc(Request);
-
+warn("-");
     HttpMethod? meth = aiohttp::http_method_from_str(p.method);
     req.method = meth ?? HttpMethod.GET;
 
@@ -1014,12 +1024,13 @@ fn Request* build_request(http::Request* p, Stream* s, Application* app, Allocat
     aiohttp::Url url_val = aiohttp::url_parse(p.uri) ?? (aiohttp::Url){ .path = p.uri };
     req.url  = url_val;
     req.path = p.uri;
-
+warn("-");
+    aiohttp::localmem = alloc;
     req.headers = aiohttp::headers_new();
     for (uint i = 0; i < p.n_headers; i++) {
         req.headers.add(p.headers[i].key, p.headers[i].value);
     }
-
+warn("-");
     // query params
     req.query = aiohttp::headers_new();
     p.decode_query();
@@ -1028,14 +1039,14 @@ fn Request* build_request(http::Request* p, Stream* s, Application* app, Allocat
         String dv = aiohttp::pct_decode(localmem, p.queries[i].value, true);
         req.query.add(dk, dv);
     }
-
+warn("-");
     // cookies
     req.cookies = aiohttp::headers_new();
     p.decode_cookies();
     for (uint i = 0; i < p.n_cookies; i++) {
         req.cookies.add(p.cookies[i].key, p.cookies[i].value);
     }
-
+warn("-");
     req.match_info   = aiohttp::headers_new();
     req.can_read_body = true;
     req.app          = app;
@@ -1043,50 +1054,68 @@ fn Request* build_request(http::Request* p, Stream* s, Application* app, Allocat
     req.raw_body     = null;
     req.raw_body_len = 0;
     req.body_read    = false;
-
+warn("-");
     p.decode_content_length();
     req.content_length = p.content_length;
     req.is_chunked     = p.chunked;
-
+warn("-");
     return req;
 }
 
 fn void request_free(Request* req) @private
 {
-    req.headers.free();
-    req.query.free();
-    req.cookies.free();
-    req.match_info.free();
+    if (req.headers != null) req.headers.free();
+    if (req.query != null) req.query.free();
+    if (req.cookies != null) req.cookies.free();
+    if (req.match_info != null) req.match_info.free();
     if (req.raw_body != null) localmem.free(req.raw_body);
     localmem.free(req);
 }
 
 // Handle one HTTP connection (runs in a fiber spawned by asyncio::start_server).
-fn void handle_connection(Stream* stream, Application* app) @private
+fn void? handle_connection(Stream* stream, Application* app) @private
 {
     char[REQ_READ_BUFSZ * 2] buf;
     usz filled = 0;
-
+warn("REQ_READ_BUFSZ*2:%d", REQ_READ_BUFSZ*2);
+fiber::diag();
     // Read until full request headers are available.
     bool got_req = false;
     while (!got_req && filled < buf.len) {
-        usz? n = stream.read(buf[filled:buf.len - filled]);
+warn("-");
+        usz? n = stream.read_any(buf[filled:buf.len - filled]);
         if (catch err = n) {
+            warn("%s", err);
             return;
         }
-        if (n == 0) return;
+        if (n == 0) {
+            warn("eof");
+            return;
+        }
         filled += n;
-        for (usz i = 0; i + 3 < filled; i++) {
-            if (buf[i]=='\r'&&buf[i+1]=='\n'&&buf[i+2]=='\r'&&buf[i+3]=='\n') { got_req = true;
+        
+warn("buf[%s]", (String)buf[0:filled]);
+        for (usz i = 0; i + 1 < filled; i++) {
+            if (i+3 < filled && buf[i]=='\r'&&buf[i+1]=='\n'&&buf[i+2]=='\r'&&buf[i+3]=='\n') { got_req = true;
+                break;
+            }
+            if (i+2 < filled && buf[i]=='\n'&&buf[i+1]=='\r'&&buf[i+2]=='\n') { got_req = true;
+                break;
+            }
+            if (i+1 < filled && buf[i]=='\n'&&buf[i+1]=='\n') { got_req = true;
                 break;
             }
         }
     }
-    if (!got_req) return; // headers too large
-
+    if (!got_req) {
+        warn("header is too large");
+        return; // headers too large
+    }
+    
     http::Request parsed;
     char*? body_ptr = http::parse_request(&buf[0], &buf[filled], &parsed);
     if (catch err = body_ptr) {
+        warn("bad request");
         // send 400
         Response* bad = http_bad_request();
         defer bad.free();
@@ -1094,8 +1123,10 @@ fn void handle_connection(Stream* stream, Application* app) @private
         return;
     }
 
+    warn("header parsed");
+    
     Request* req = build_request(&parsed, stream, app, localmem);
-
+warn("-");
     // check for WebSocket upgrade
     String? upgrade_hdr = req.headers.get("upgrade");
     bool is_ws_upgrade = false;
@@ -1111,22 +1142,24 @@ fn void handle_connection(Stream* stream, Application* app) @private
             is_ws_upgrade = match;
         }
     }
-
+warn("-");
     if (is_ws_upgrade) {
         RouteMatch ws_match;
         bool found = router_match_ws(&app.router.inner, req.path, &ws_match);
+warn("-");
         if (!found) {
             Response* r = http_not_found();
             defer r.free();
             defer request_free(req);
+warn("-");
             (void)write_response(stream, r);
             return;
         }
             
         // fill match_info
         req.match_info.free();
-        req.match_info = router_match_info(&ws_match, localmem)!!;
-
+        req.match_info = router_match_info(&ws_match, localmem)!;
+warn("-");
         WebSocketResponse* ws = ws_response_new();
         defer ws.free();
         (void)ws.prepare(req);
@@ -1134,16 +1167,18 @@ fn void handle_connection(Stream* stream, Application* app) @private
     } else {
         RouteMatch match;
         bool found = router_match(&app.router.inner, req.method, req.path, &match);
+warn("-");
         if (!found) {
             Response* r = http_not_found();
             defer r.free();
             request_free(req);
+warn("-");
             (void) write_response(stream, r);
             return;
         }
         req.match_info.free();
-        req.match_info = router_match_info(&match, tmem)!!; // ?????
-
+        req.match_info = router_match_info(&match, tmem)!;
+warn("-");
         // run middleware chain
         MwTable mw_table;
         mw_table_init(&mw_table);
@@ -1152,19 +1187,23 @@ fn void handle_connection(Stream* stream, Application* app) @private
         }
 
         Response*? resp = mw_chain_call(&mw_table, match.handler, req);
+warn("-");
         if (catch errr = resp) {
             Response* err = http_internal_server_error();
             defer err.free();
             defer request_free(req);
+warn("-");
             (void)write_response(stream, err);
             return;
         }
 
         if (resp != null) {
             defer resp.free();
+warn("-");
             (void)write_response(stream, resp);
         }
     }
+warn("-");
     request_free(req);
 }
 
@@ -1221,8 +1260,17 @@ tlocal Application* tl_serving_app @private = null;
 
 fn void tcp_client_handler(Stream* stream) @private
 {
-    handle_connection(stream, tl_serving_app);
+  @pool() {
+    warn("handle_connection()");
+fiber::diag();
+
+    if (catch err = handle_connection(stream, tl_serving_app)) {
+        warn("%s", err);
+    }
+
+    warn("stream.close()");
     stream.close();
+  };
 }
 
 fn TcpSite* tcpsite_new(
@@ -1255,6 +1303,8 @@ fn void? TcpSite.start(&self) @maydiscard
     );
     if (catch err = srv) return aiohttp::CONNECTION_FAILED~;
     self.server = srv;
+    
+    warn("srv.serve_forever()");
     self.server.serve_forever()!;
 }
 
@@ -1270,6 +1320,21 @@ fn void TcpSite.free(&self)
     localmem.free(self);
 }
 
+tlocal AppRunner* runner = null;
+tlocal TcpSite* site = null;
+
+fn void site_run_coro()
+{
+    if (catch err = site.start()) {
+        warn("TcpSite.start() failed: %s", err);
+        return;
+    }
+    warn("TcpSite.start() success");
+    
+    (void)site.stop();
+    warn("site.stop()");
+}
+
 //  top-level run_app 
 
 fn void? run_app(
@@ -1279,10 +1344,17 @@ fn void? run_app(
     TlsConfig*   tls  = null,
 ) @maydiscard
 {
-    AppRunner* runner = runner_new(app);
-    TcpSite*   site   = tcpsite_new(runner, host, port, 60_000_000, tls, 128);
-    site.start()!;
-    site.stop()!;
+    warn("AppRunner new()");
+    // AppRunner* 
+    runner = runner_new(app);
+    
+    warn("TcpSite new %s:%d", host, port);
+    // TcpSite* 
+    site = tcpsite_new(runner, host, port, 60_000_000, tls, 128);
+
+    asyncio::run(&site_run_coro);
+    
+    warn("site.free()");
     site.free();
     runner.free();
 }

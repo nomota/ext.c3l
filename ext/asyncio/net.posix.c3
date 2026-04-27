@@ -1,5 +1,9 @@
 // net.posix.c3
 
+// Net functions for asyncio
+
+// Nomota <hiongun@gmail.com>; MIT License
+
 module ext::asyncio @if(!env::WIN32);
 
 import std::io;
@@ -7,6 +11,7 @@ import c::stdio;
 import c::string;
 import c::stdlib;
 import c::netinet::in;
+import c::arpa::inet;
 import c::netdb;
 import c::sys::socket;
 import c::unistd;
@@ -14,6 +19,14 @@ import c::fcntl;
 import c::errno;
 import ext::debug;
 import ext::mem;
+import std::collections::map;
+
+tlocal HashMap{int,String} ips; // IP addr cache
+
+fn String? socket_ip(int fd)
+{
+    return ips[fd]!;
+}
 
 fn char* str2cptr(String str, char[] buf) @inline @private
 {
@@ -35,6 +48,11 @@ fn int socket_new(int family, int type) @private
 
 fn void socket_close(int sock)
 {
+    String? ip = ips[sock];
+    if (try ip) {
+        ip.free(localmem);
+        ips.remove(sock);
+    }
     unregister(sock);
     unistd::close(sock);
 }
@@ -53,6 +71,23 @@ fn int socket(String ipversion, String proto)
 }
 
 alias ClientHandler = fn void(Stream*);
+
+fn void store_ip_addr(int sock, netdb::AddrInfo* res)
+{
+    void *addr;
+    if (res.ai_family == socket::AF_INET) { // IPv4
+        in::SockAddrIn *ipv4 = (in::SockAddrIn*)res.ai_addr;
+        addr = &(ipv4.sin_addr);
+    } else { // IPv6
+        in::SockAddrIn6 *ipv6 = (in::SockAddrIn6*)res.ai_addr;
+        addr = &(ipv6.sin6_addr);
+    }
+    
+    // Convert binary IP to String
+    char[64] ipstr;
+    inet::inet_ntop(res.ai_family, addr, &ipstr[0], 64);
+    ips[sock] = ((String)ipstr[0:string::strlen(&ipstr[0])]).copy(localmem);
+}
 
 fn int? _resolve_and_connect(char* host, ushort port) 
 {
@@ -77,8 +112,11 @@ fn int? _resolve_and_connect(char* host, ushort port)
         if (fd < 0) { rp = rp.ai_next; continue; }
 
         int rc = socket::connect(fd, rp.ai_addr, rp.ai_addrlen);
-        if (rc == 0) break;
-
+        if (rc == 0) {
+            store_ip_addr(fd, rp);
+            break;
+        }
+        
         if (errno::errno() == errno::EINPROGRESS) {
             Future* wfut = loop.create_future();
             
@@ -93,7 +131,10 @@ fn int? _resolve_and_connect(char* host, ushort port)
             int err = 0; 
             socket::SockLen elen = $sizeof(err);
             socket::getsockopt(fd, socket::SOL_SOCKET, socket::SO_ERROR, &err, &elen);
-            if (err == 0) break;
+            if (err == 0) {
+                store_ip_addr(fd, rp);
+                break;
+            }
             socket_close(fd);
             fd = -1;
             rp = rp.ai_next;
@@ -146,7 +187,7 @@ fn int? _resolve_and_datagram(char* host, ushort port)
         int yes = 1;
         socket::setsockopt(fd, socket::SOL_SOCKET, socket::SO_REUSEADDR, (char*)&yes, $sizeof(yes));
         socket::setsockopt(fd, socket::SOL_SOCKET, socket::SO_REUSEPORT, (char*)&yes, $sizeof(yes));
-
+        store_ip_addr(fd, rp);
         break;
     }
 
@@ -193,7 +234,10 @@ fn int? _resolve_and_bind(char* host, ushort port)
         socket::setsockopt(fd, socket::SOL_SOCKET, socket::SO_REUSEADDR, (char*)&yes, $sizeof(yes));
         socket::setsockopt(fd, socket::SOL_SOCKET, socket::SO_REUSEPORT, (char*)&yes, $sizeof(yes));
 
-        if (socket::bind(fd, rp.ai_addr, rp.ai_addrlen) == 0) break; // success
+        if (socket::bind(fd, rp.ai_addr, rp.ai_addrlen) == 0) {
+            store_ip_addr(fd, rp);
+            break; // success
+        }
 
         socket_close(fd);
         fd = -1;
@@ -225,7 +269,7 @@ struct Server {
 
 fn Server* server_new() @private
 {
-    Server* s = mem_alloc(Server);
+    Server* s = localmem.alloc(Server);
     *s = {};
     return s;
 }
@@ -236,7 +280,7 @@ fn void Server.free(&self)
     if (self.transport != null) { // protocol.c3
         self.transport.free();
     }
-    mem_free(self);
+    localmem.free(self);
 }
 
 struct ClientCtx {
@@ -253,7 +297,7 @@ fn void _client_task()
     int fd = ctx.fd;
     ClientHandler handler = ctx.handler;
 
-    mem_free(ctx);
+    localmem.free(ctx);
     self.arg = null;
     
     Stream* conn = stream_new(fd);
@@ -297,11 +341,11 @@ fn void? _accept_loop(Server* self)
             }
             set_nonblocking(cfd);
 
-            ClientCtx* ctx = mem_alloc(ClientCtx);
+            ClientCtx* ctx = localmem.alloc(ClientCtx);
             *ctx = { cfd, self.handler };
 
             // warn("create_task tcp_client");
-            loop.create_task(&_client_task, "tcp_client", 80_000, true, ctx);
+            loop.create_task(&_client_task, "tcp_client", 256_000, true, ctx);
             // No need to defer_free(), autofree == true
             // task.defer_free();
             // asyncio::sleep_zero(); // need this to transfer _client_ctx to _client_task
