@@ -11,6 +11,7 @@ import ext::mem;
 import ext::debug;
 import ext::thread::fiber;
 import std::collections::pair;
+import std::collections::list;
 
 //  constants 
 
@@ -246,11 +247,11 @@ fn ClientResponse*? build_response(
 
     // update cookie jar from Set-Cookie
     p.decode_setcookies();
-    Cookie[http::MAX] raw_cookies;
-    usz nc = 0;
-    for (usz i = 0; i < p.n_set_cookies && nc < http::MAX; i++) {
+    
+    List{Cookie} raw_cookies;
+    for (usz i = 0; i < p.n_set_cookies; i++) {
         http::SetCookie* sc = &p.set_cookies[i];
-        raw_cookies[nc++] = (Cookie){
+        raw_cookies.push((Cookie){
             .name = sc.name,
             .value = sc.value,
             .domain = sc.domain,
@@ -259,9 +260,11 @@ fn ClientResponse*? build_response(
             .secure = sc.secure,
             .http_only = sc.http_only, 
             .same_site = sc.same_site,
-        };
+        });
     }
-    if (nc > 0) jar.update(&raw_cookies[0], nc, req_url);
+    if (raw_cookies.len() > 0) {
+        jar.update(raw_cookies.to_array(tmem), req_url);
+    }
     r.cookies = jar;
 
     r.is_chunked = p.chunked;

@@ -438,19 +438,15 @@ fn Headers*? router_match_info(RouteMatch* m, Allocator alloc)
     localmem = alloc;
     
     Headers* h = localmem.alloc(Headers);
-    h.count    = 0;
-    h.capacity = m.param_count;
 
     if (m.param_count == 0) {
-        h.entries = null;
         return h;
     }
 
-    h.entries = localmem.malloc(m.param_count * Header.sizeof);
     for (usz i = 0; i < m.param_count; i++) {
-        h.entries[i] = (Header){ m.param_names[i], m.param_values[i] };
-        h.count++;
+        h.entries.push({ m.param_names[i], m.param_values[i] });
     }
+    
     return h;
 }
 
@@ -494,7 +490,7 @@ fn String router_url_for(
                 // look up param name in provided Headers
                 String val = "";
                 if (params != null) {
-                    for (usz k = 0; k < params.count; k++) {
+                    for (usz k = 0; k < params.len(); k++) {
                         if (params.entries[k].name == seg.text) {
                             val = params.entries[k].value;
                             break;

@@ -76,19 +76,6 @@ fn String method_str(HttpMethod m) @private @inline
     }
 }
 
-// Case-insensitive header name equality.
-fn bool hdr_name_eq(String a, String b) @private
-{
-    if (a.len != b.len) return false;
-    for (usz i = 0; i < a.len; i++) {
-        char ca = a[i]; 
-        if (ca >= 'A' && ca <= 'Z') ca = (char)(ca | 0x20);
-        char cb = b[i]; 
-        if (cb >= 'A' && cb <= 'Z') cb = (char)(cb | 0x20);
-        if (ca != cb) return false;
-    }
-    return true;
-}
 
 // Generate a simple hex boundary string from a counter + clock value.
 // Writes exactly REQ_BOUNDARY_LEN hex chars into out[REQ_BOUNDARY_LEN].
@@ -106,41 +93,14 @@ fn void make_boundary(char* out) @private
 // Merge default_headers + per-request headers into a flat list,
 // with per-request headers overriding defaults (case-insensitive key match).
 
-struct MergedHeaders @private {
-    Header[REQ_MAX_HEADERS] entries;
-    usz    count;
-}
-
-fn void merged_init(MergedHeaders* m) @private { m.count = 0; }
-
-fn void merged_add(MergedHeaders* m, String name, String value) @private
-{
-    // overwrite if key already present
-    for (usz i = 0; i < m.count; i++) {
-        if (hdr_name_eq(m.entries[i].name, name)) {
-            m.entries[i].value = value;
-            return;
-        }
-    }
-    if (m.count >= REQ_MAX_HEADERS) return;
-    m.entries[m.count++] = (Header){ name, value };
-}
-
-fn void merged_add_headers(MergedHeaders* m, Headers* h) @private
+fn void merged_add_headers(Headers* m, Headers* h) @private
 {
     if (h == null) return;
-    for (usz i = 0; i < h.count; i++) {
-        merged_add(m, h.entries[i].name, h.entries[i].value);
+    for (usz i = 0; i < h.len(); i++) {
+        m.set(h.entries[i].name, h.entries[i].value);
     }
 }
 
-fn bool merged_has(MergedHeaders* m, String name) @private
-{
-    for (usz i = 0; i < m.count; i++) {
-        if (hdr_name_eq(m.entries[i].name, name)) return true;
-    }
-    return false;
-}
 
 //  request write context 
 
@@ -253,7 +213,7 @@ fn void? req_write(
     Stream*        stream,
     HttpMethod     method,
     Url*           url,
-    Headers*       params,
+    Params*       params,
     Headers*       default_headers,
     Headers*       req_headers,
     BasicAuth*     auth,
@@ -289,8 +249,7 @@ fn void? req_write(
     if (has_form) make_boundary(&ctx.boundary[0]);
 
     //  merge headers 
-    MergedHeaders merged;
-    merged_init(&merged);
+    Headers merged;
     merged_add_headers(&merged, default_headers);
     merged_add_headers(&merged, req_headers);
 
@@ -306,18 +265,18 @@ fn void? req_write(
     }
 
     // query string: original url.query + extra params
-    bool has_q = url.query.len > 0 || (params != null && params.count > 0);
+    bool has_q = url.query.len > 0 || (params != null && params.len() > 0);
     if (has_q) {
         buf.putc('?');
         if (url.query.len > 0) {
             buf.put(url.query);
-            if (params != null && params.count > 0) buf.putc('&');
+            if (params != null && params.len() > 0) buf.putc('&');
         }
-        if (params != null && params.count > 0) {
+        if (params != null && params.len() > 0) {
             // inline encode params directly into scratch (avoid alloc)
-            for (usz pi = 0; pi < params.count; pi++) {
+            for (usz pi = 0; pi < params.len(); pi++) {
                 if (pi > 0) buf.putc('&');
-                Header* h = &params.entries[pi];
+                Param h = params.entries[pi];
                 // percent-encode key
                 foreach (c : h.name) {
                     if (pct_unreserved(c)) {
@@ -345,7 +304,7 @@ fn void? req_write(
     buf.put(" HTTP/1.1\r\n");
 
     //  Host header 
-    if (!merged_has(&merged, "host")) {
+    if (!merged.has("host")) {
         buf.put("Host: ");
         buf.put(url.host);
         // emit non-default port
@@ -359,12 +318,12 @@ fn void? req_write(
     }
 
     //  Connection header 
-    if (!merged_has(&merged, "connection")) {
+    if (!merged.has("connection")) {
         buf.put("Connection: keep-alive\r\n");
     }
 
     //  Authorization (Basic Auth) 
-    if (auth != null && !merged_has(&merged, "authorization")) {
+    if (auth != null && !merged.has("authorization")) {
         // "username:password" → base64
         usz cred_len = auth.username.len + 1 + auth.password.len;
         char* cred = localmem.malloc(cred_len);
@@ -379,7 +338,7 @@ fn void? req_write(
     }
 
     //  Content-Type 
-    if (body_len > 0 && !merged_has(&merged, "content-type")) {
+    if (body_len > 0 && !merged.has("content-type")) {
         if (has_json) {
             buf.put("Content-Type: application/json\r\n");
         } else if (has_form) {
@@ -392,7 +351,7 @@ fn void? req_write(
     }
 
     //  Content-Length 
-    if (body_len > 0 && !merged_has(&merged, "content-length")) {
+    if (body_len > 0 && !merged.has("content-length")) {
         buf.put("Content-Length: ");
         char[20] lbuf;
         usz llen = fmt_decimal(&lbuf[0], body_len);
@@ -401,7 +360,7 @@ fn void? req_write(
     }
 
     //  merged custom headers 
-    for (usz i = 0; i < merged.count; i++) {
+    for (usz i = 0; i < merged.len(); i++) {
         buf.put(merged.entries[i].name);
         buf.put(": ");
         buf.put(merged.entries[i].value);
@@ -447,7 +406,7 @@ fn void? req_write_urlencoded(
     char[REQ_SCRATCH_SIZE] body_buf;
     usz body_len = 0;
     if (fields != null) {
-        for (usz i = 0; i < fields.count; i++) {
+        for (usz i = 0; i < fields.len(); i++) {
             if (i > 0) body_buf[body_len++] = '&';
             Header* h = &fields.entries[i];
             foreach (c : h.name) {
@@ -474,8 +433,9 @@ fn void? req_write_urlencoded(
 
     // add Content-Type to req_headers merge
     // (inject via a small synthetic Headers on stack)
-    Header ct_hdr = { "Content-Type", "application/x-www-form-urlencoded" };
-    Headers ct_wrap = { &ct_hdr, 1, 1 };
+
+    Headers ct_wrap;
+    ct_wrap.add("Content-Type", "application/x-www-form-urlencoded");
 
     // merge ct_wrap + req_headers by calling req_write with data pointer
     req_write(

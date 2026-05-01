@@ -46,7 +46,7 @@ fn void server_coro()
         ushort port;
         char[1024] respbuf;
         
-        usz n = server.recvfrom(&buf, &ip, &iplen, &port);
+        usz n = server.recvfrom(&buf, &ip, &iplen, &port)!!;
         if (n == 0) {
             io::printfn("[server] recvfrom failed: %s", server.error);
             break;
@@ -57,7 +57,7 @@ fn void server_coro()
             String resp = bcat(&respbuf, "+OK shutdown");
             io::printfn("[server] send:%s, to:%s:%d", resp, (String)ip[0:iplen], port);
     
-            n = server.sendto(resp, ip[0:iplen], port);
+            n = server.sendto(resp, ip[0:iplen], port)!!;
             
             break;
         }
@@ -65,7 +65,7 @@ fn void server_coro()
         String resp = bcat(&respbuf, "+OK ", (String)buf[0:n]);
         io::printfn("[server] send:%s, to:%s:%d", resp, (String)ip[0:iplen], port);
 
-        n = server.sendto(resp, ip[0:iplen], port);
+        n = server.sendto(resp, ip[0:iplen], port)!!;
         if (n == 0) {
             io::printfn("[server] sendto failed: %s", server.error);
             break;
@@ -88,28 +88,28 @@ fn void client_coro()
 
     char[] msg1 = "msg1: Hello, asyncio!";
     io::printfn("[client] sock_sendto: %s", (String)msg1);
-    loop.sock_sendto(sock, msg1, "127.0.0.1", 9100);
+    loop.sock_sendto(sock, msg1, "127.0.0.1", 9100)!!;
 
     char[1024] rbuf;
     char[64] ip;
     usz iplen;
     ushort port;
     
-    usz n = loop.sock_recvfrom(sock, &rbuf, &ip, &iplen, &port);
+    usz n = loop.sock_recvfrom(sock, &rbuf, &ip, &iplen, &port)!!;
     io::printfn("[client] echo: %s", (String)rbuf[0:n]);
     
     char[] msg2 = "msg2: World!";
     io::printfn("[client] sock_sendto: %s", (String)msg2);
-    loop.sock_sendto(sock, msg2, "127.0.0.1", 9100);
+    loop.sock_sendto(sock, msg2, "127.0.0.1", 9100)!!;
 
-    n = loop.sock_recvfrom(sock, &rbuf, &ip, &iplen, &port);
+    n = loop.sock_recvfrom(sock, &rbuf, &ip, &iplen, &port)!!;
     io::printfn("[client] echo: %s", (String)rbuf[0:n]);
 
     char[] msg3 = "QUIT";
     io::printfn("[client] sock_sendto: %s", (String)msg3);
-    loop.sock_sendto(sock, msg3, "127.0.0.1", 9100);
+    loop.sock_sendto(sock, msg3, "127.0.0.1", 9100)!!;
 
-    n = loop.sock_recvfrom(sock, &rbuf, &ip, &iplen, &port);
+    n = loop.sock_recvfrom(sock, &rbuf, &ip, &iplen, &port)!!;
     io::printfn("[client] echo: %s", (String)rbuf[0:n]);
 
     asyncio::socket_close(sock);
@@ -129,28 +129,28 @@ fn void client_stop()
 
     char[] msg1 = "msg1: Hello, asyncio!";
     io::printfn("[client] sock_sendto: %s", (String)msg1);
-    loop.sock_sendto(sock, msg1, "127.0.0.1", 9100);
+    loop.sock_sendto(sock, msg1, "127.0.0.1", 9100)!!;
 
     char[1024] rbuf;
     char[64] ip;
     usz iplen;
     ushort port;
     
-    usz n = loop.sock_recvfrom(sock, &rbuf, &ip, &iplen, &port);
+    usz n = loop.sock_recvfrom(sock, &rbuf, &ip, &iplen, &port)!!;
     io::printfn("[client] echo: %s", (String)rbuf[0:n]);
     
     char[] msg2 = "msg2: World!";
     io::printfn("[client] sock_sendto: %s", (String)msg2);
-    loop.sock_sendto(sock, msg2, "127.0.0.1", 9100);
+    loop.sock_sendto(sock, msg2, "127.0.0.1", 9100)!!;
 
-    n = loop.sock_recvfrom(sock, &rbuf, &ip, &iplen, &port);
+    n = loop.sock_recvfrom(sock, &rbuf, &ip, &iplen, &port)!!;
     io::printfn("[client] echo: %s", (String)rbuf[0:n]);
 
     char[] msg3 = "STOP";
     io::printfn("[client] sock_sendto: %s", (String)msg3);
-    loop.sock_sendto(sock, msg3, "127.0.0.1", 9100);
+    loop.sock_sendto(sock, msg3, "127.0.0.1", 9100)!!;
 
-    n = loop.sock_recvfrom(sock, &rbuf, &ip, &iplen, &port);
+    n = loop.sock_recvfrom(sock, &rbuf, &ip, &iplen, &port)!!;
     io::printfn("[client] echo: %s", (String)rbuf[0:n]);
 
     asyncio::socket_close(sock);

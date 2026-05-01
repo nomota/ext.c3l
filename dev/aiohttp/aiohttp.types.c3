@@ -3,7 +3,9 @@
 module ext::aiohttp;
 
 import std::encoding::base64;
+import std::collections::list;
 import ext::debug;
+import ext::mem;
 
 // Shared types for ext::aiohttp.
 //
@@ -13,6 +15,8 @@ import ext::debug;
 // Url parsing and percent-encoding live in util.url.c3 (same module).
 // WebSocket frame types (WsMsgType, WsCloseCode, WsMessage) are declared here
 // and used by both util.ws.c3 and the client/server implementations.
+
+tlocal LocalAllocator localmem = {};
 
 //  faults 
 
@@ -55,13 +59,15 @@ fn String HttpMethod.str(self) @inline
 
 fn HttpMethod? http_method_from_str(String s)
 {
-    if (s == "GET")     return HttpMethod.GET;
-    if (s == "POST")    return HttpMethod.POST;
-    if (s == "PUT")     return HttpMethod.PUT;
-    if (s == "PATCH")   return HttpMethod.PATCH;
-    if (s == "DELETE")  return HttpMethod.DELETE;
-    if (s == "HEAD")    return HttpMethod.HEAD;
-    if (s == "OPTIONS") return HttpMethod.OPTIONS;
+    switch (s) {
+        case "GET": return HttpMethod.GET;
+        case "POST": return HttpMethod.POST;
+        case "PUT": return HttpMethod.PUT;
+        case "PATCH": return HttpMethod.PATCH;
+        case "DELETE": return HttpMethod.DELETE;
+        case "HEAD": return HttpMethod.HEAD;
+        case "OPTIONS": return HttpMethod.OPTIONS;
+    }
     return RESPONSE_ERROR~;
 }
 
@@ -96,76 +102,73 @@ fn ushort Url.effective_port(&self) @inline
     return scheme_default_port(self.scheme);
 }
 
-//  Headers 
+//  Headers, Cookies
 
-const usz HEADERS_INIT_CAP @private = 16;
-
-struct Header {
+struct KeyVal {
     String name;
     String value;
 }
 
-struct Headers {
-    Header* entries;
-    usz     count;
-    usz     capacity;
+struct KeyVals {
+    List{KeyVal} entries;
 }
 
+alias Header = KeyVal;
+alias Param = KeyVal;
+
+alias Cookies = KeyVals;
+alias Headers = KeyVals;
+alias Params = KeyVals;
+
 // Case-insensitive header name comparison.
-fn bool hdr_ieq(String a, String b) @private @inline
+fn bool str_iequals(String a, String b) @private @inline
 {
     if (a.len != b.len) return false;
     for (usz i = 0; i < a.len; i++) {
-        char ca = a[i]; if (ca >= 'A' && ca <= 'Z') ca = (char)(ca | 0x20);
-        char cb = b[i]; if (cb >= 'A' && cb <= 'Z') cb = (char)(cb | 0x20);
+        char ca = a[i];
+        if (ca >= 'A' && ca <= 'Z') ca = (char)(ca | 0x20);
+        char cb = b[i];
+        if (cb >= 'A' && cb <= 'Z') cb = (char)(cb | 0x20);
         if (ca != cb) return false;
     }
     return true;
 }
 
-fn Headers* headers_new()
+fn KeyVals* keyvals_new()
 {
-    Headers* h = localmem.alloc(Headers);
+    KeyVals* h = localmem.alloc(KeyVals);
 
-    h.entries  = localmem.malloc(HEADERS_INIT_CAP * Header.sizeof);
-
-    h.count    = 0;
-    h.capacity = HEADERS_INIT_CAP;
+    h.entries.init(localmem);
     return h;
 }
 
-fn void headers_grow(Headers* h) @private
-{
-    usz new_cap = h.capacity * 2;
+fn Cookies* cookies_new() => (Cookies*)keyvals_new();
 
-    Header* new_buf = localmem.malloc(new_cap * Header.sizeof);
-    for (usz i = 0; i < h.count; i++) new_buf[i] = h.entries[i];
-    localmem.free(h.entries);
-    h.entries  = new_buf;
-    h.capacity = new_cap;
-}
+fn Headers* headers_new() => (Headers*)keyvals_new();
 
-fn void Headers.free(&self)
+fn Params* params_new() => (Params*)keyvals_new();
+
+fn void KeyVals.free(&self)
 {
     @assert(self != null, "error");
-    if (self.entries != null) localmem.free(self.entries);
+    self.entries.free();
     localmem.free(self);
 }
 
 // Case-insensitive lookup. Returns RESPONSE_ERROR if absent.
-fn String? Headers.get(&self, String name)
+fn String? KeyVals.get(&self, String name)
 {
-    for (usz i = 0; i < self.count; i++) {
-        if (hdr_ieq(self.entries[i].name, name)) return self.entries[i].value;
+    for (usz i = 0; i < self.entries.len(); i++) {
+        if (str_iequals(self.entries[i].name, name)) return self.entries[i].value;
     }
     return RESPONSE_ERROR~;
 }
 
 // Set (overwrite first match, or append if absent).
-fn void Headers.set(&self, String name, String value)
+fn void KeyVals.set(&self, String name, String value)
 {
-    for (usz i = 0; i < self.count; i++) {
-        if (hdr_ieq(self.entries[i].name, name)) {
+    for (usz i = 0; i < self.entries.len(); i++) {
+        if (str_iequals(self.entries[i].name, name)) {
             self.entries[i].value = value;
             return;
         }
@@ -174,41 +177,42 @@ fn void Headers.set(&self, String name, String value)
 }
 
 // Always appends (allows duplicate header names — e.g. Set-Cookie).
-fn void Headers.add(&self, String name, String value)
+fn void KeyVals.add(&self, String name, String value)
 {
-    if (self.count >= self.capacity) headers_grow(self);
-    self.entries[self.count++] = (Header){ name, value };
+    self.entries.push((Header){ name, value });
 }
 
 // Remove all headers with this name (case-insensitive).
-fn void Headers.del(&self, String name)
+fn void KeyVals.del(&self, String name)
 {
-    usz dst = 0;
-    for (usz i = 0; i < self.count; i++) {
-        if (!hdr_ieq(self.entries[i].name, name)) {
-            self.entries[dst++] = self.entries[i];
+    for (usz i = 0; i < self.entries.len(); i++) {
+        if (str_iequals(self.entries[i].name, name)) {
+            self.entries.remove_at(i);
+            i--;
         }
     }
-    self.count = dst;
 }
 
-fn Header Headers.get_at(&self, usz idx)
+fn KeyVal KeyVals.get_at(&self, usz idx) @inline
 {
     return self.entries[idx];
 }
 
-fn usz Headers.len(&self) @inline { return self.count; }
+fn usz KeyVals.len(&self) @inline
+{
+    return self.entries.len();
+}
 
 // True if header name is present (case-insensitive).
-fn bool Headers.has(&self, String name)
+fn bool KeyVals.has(&self, String name)
 {
-    for (usz i = 0; i < self.count; i++) {
-        if (hdr_ieq(self.entries[i].name, name)) return true;
+    for (usz i = 0; i < self.len(); i++) {
+        if (str_iequals(self.entries[i].name, name)) return true;
     }
     return false;
 }
 
-//  Cookie 
+//  Cookie for CookieJar
 
 struct Cookie {
     String name;
@@ -223,12 +227,8 @@ struct Cookie {
 
 //  CookieJar 
 
-const usz COOKIEJAR_INIT_CAP @private = 32;
-
 struct CookieJar {
-    Cookie* cookies;
-    usz     count;
-    usz     capacity;
+    List{Cookie} cookies;
     bool    unsafe_ips; // allow cookies for bare-IP hosts (RFC 6265 §5.3 exception)
 }
 
@@ -239,27 +239,15 @@ struct DummyCookieJar { // ignores all cookies (e.g. for pure API clients)
 fn CookieJar* cookiejar_new(bool unsafe_ips = false)
 {
     CookieJar* jar = localmem.alloc(CookieJar);
-    jar.cookies = (Cookie*)localmem.malloc(COOKIEJAR_INIT_CAP * Cookie.sizeof);
-    jar.count      = 0;
-    jar.capacity   = COOKIEJAR_INIT_CAP;
+    jar.cookies.init(localmem);
     jar.unsafe_ips = unsafe_ips;
     return jar;
 }
 
 fn void CookieJar.free(&self)
 {
-    localmem.free(self.cookies);
+    self.cookies.free();
     localmem.free(self);
-}
-
-fn void cookiejar_grow(CookieJar* jar) @private
-{
-    usz new_cap = jar.capacity * 2;
-    Cookie* nb  = (Cookie*)localmem.malloc(new_cap * Cookie.sizeof);
-    for (usz i = 0; i < jar.count; i++) nb[i] = jar.cookies[i];
-    localmem.free(jar.cookies);
-    jar.cookies  = nb;
-    jar.capacity = new_cap;
 }
 
 // True if host looks like a bare IP address (simplified: no dots-in-label check).
@@ -314,10 +302,10 @@ fn bool path_match(String cookie_path, String req_path) @private
 
 // Ingest Set-Cookie values into the jar.
 // response_url is used for domain/path defaults and IP filtering.
-fn void CookieJar.update(&self, Cookie* incoming, usz count, Url* response_url)
+fn void CookieJar.update(&self, Cookie[] incoming, Url* response_url)
 {
-    for (usz i = 0; i < count; i++) {
-        Cookie* c = &incoming[i];
+    for (usz i = 0; i < incoming.len; i++) {
+        Cookie c = incoming[i];
 
         // reject IP-targeted cookies unless unsafe_ips
         if (!self.unsafe_ips && is_ip_host(response_url.host)) continue;
@@ -339,7 +327,7 @@ fn void CookieJar.update(&self, Cookie* incoming, usz count, Url* response_url)
 
         // look for existing cookie with same (name, domain, path) to overwrite
         bool found = false;
-        for (usz j = 0; j < self.count; j++) {
+        for (usz j = 0; j < self.cookies.len(); j++) {
             Cookie* existing = &self.cookies[j];
             if (existing.name   == c.name &&
                 existing.domain == effective_domain &&
@@ -355,45 +343,37 @@ fn void CookieJar.update(&self, Cookie* incoming, usz count, Url* response_url)
         }
 
         if (!found) {
-            if (self.count >= self.capacity) cookiejar_grow(self);
-            Cookie nc   = *c;
+            Cookie nc   = c;
             nc.domain   = effective_domain;
             nc.path     = effective_path;
-            self.cookies[self.count++] = nc;
+            self.cookies.push(nc);
         }
     }
 }
 
 // Return cookies applicable to url. Result is heap-allocated; caller must free.
-fn Cookie* CookieJar.filter(&self, Url* url, usz* out_count)
+fn Cookie[] CookieJar.filter(&self, Url* url)
 {
-    // count matching cookies first
-    usz matches = 0;
-    for (usz i = 0; i < self.count; i++) {
-        Cookie* c = &self.cookies[i];
+    List{Cookie} result;
+    for (usz i = 0; i < self.cookies.len(); i++) {
+        Cookie c = self.cookies[i];
         if (!domain_match(c.domain, url.host)) continue;
         if (!path_match(c.path, url.path))     continue;
         if (c.secure && !url.is_tls())         continue;
-        matches++;
+        result.push(c);
     }
-
-    *out_count = matches;
-    if (matches == 0) return null;
-
-    Cookie* result = (Cookie*)localmem.malloc(matches * Cookie.sizeof);
-    usz idx = 0;
-    for (usz i = 0; i < self.count; i++) {
-        Cookie* c = &self.cookies[i];
-        if (!domain_match(c.domain, url.host)) continue;
-        if (!path_match(c.path, url.path))     continue;
-        if (c.secure && !url.is_tls())         continue;
-        result[idx++] = *c;
-    }
-    return result;
+    return result.to_array(localmem);
 }
 
-fn Cookie CookieJar.get_at(&self, usz idx) { return self.cookies[idx]; }
-fn usz    CookieJar.len(&self) @inline     { return self.count; }
+fn Cookie CookieJar.get_at(&self, usz idx) @inline 
+{
+    return self.cookies[idx];
+}
+
+fn usz CookieJar.len(&self) @inline
+{
+    return self.cookies.len();
+}
 
 //  ClientTimeout 
 
@@ -437,6 +417,7 @@ fn String BasicAuth.encode(&self, Allocator alloc)
     usz cred_len = self.username.len + 1 + self.password.len;
     char* cred = localmem.malloc(cred_len);
     defer localmem.free(cred);
+    
     usz ci = 0;
     for (usz i = 0; i < self.username.len; i++) cred[ci++] = self.username[i];
     cred[ci++] = ':';
@@ -444,11 +425,13 @@ fn String BasicAuth.encode(&self, Allocator alloc)
 
     String b64 = base64::encode(alloc, cred[0:cred_len]);
     defer b64.free(alloc);
+    
     // "Basic " (6) + b64
     char* out = localmem.malloc(6 + b64.len + 1);
     out[0]='B'; out[1]='a'; out[2]='s'; out[3]='i'; out[4]='c'; out[5]=' ';
     for (usz i = 0; i < b64.len; i++) out[6 + i] = b64[i];
     out[6 + b64.len] = 0;
+    
     return (String) out[0: 6 + b64.len];
 }
 

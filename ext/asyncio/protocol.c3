@@ -179,7 +179,11 @@ fn void _drive_datagram()
         usz ip_len;
         ushort port;
 
-        usz n = datagram.recvfrom(&buf, &ip_str, &ip_len, &port);
+        usz? n = datagram.recvfrom(&buf, &ip_str, &ip_len, &port);
+        if (catch err = n) {
+            break;
+        }
+        
         if (n == 0) break;
 
         dproto.datagram_received(buf[0:n], ip_str[0:ip_len], port);
@@ -270,10 +274,10 @@ fn usz? Transport.write(&self, char[] data)
     return NO_WRITE_ON_UDP~;
 }
 
-fn void Transport.sendto(&self, char[] data, char[] ip, short port)
+fn void? Transport.sendto(&self, char[] data, char[] ip, short port) @maydiscard
 {
     if (self.type == 'u') {
-        self.datagram.sendto(data, ip, port);
+        self.datagram.sendto(data, ip, port)!;
     }
 }
 

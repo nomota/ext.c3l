@@ -152,7 +152,7 @@ fn void? write_response(Stream* s, Response* resp) @private
     if (!resp.headers.has("connection")) { b.put("Connection: keep-alive"); b.crlf(); }
 
     // custom headers
-    for (usz i = 0; i < resp.headers.count; i++) {
+    for (usz i = 0; i < resp.headers.len(); i++) {
         b.put(resp.headers.entries[i].name);
         b.put(": ");
         b.put(resp.headers.entries[i].value);
@@ -214,7 +214,7 @@ fn void? StreamResponse.prepare(&self, Request* req)
     b.crlf();
     b.put("Transfer-Encoding: chunked\r\n");
     if (!self.headers.has("connection")) b.put("Connection: keep-alive\r\n");
-    for (usz i = 0; i < self.headers.count; i++) {
+    for (usz i = 0; i < self.headers.len(); i++) {
         b.put(self.headers.entries[i].name);
         b.put(": ");
         b.put(self.headers.entries[i].value);
@@ -317,7 +317,7 @@ fn void? file_response_send(FileResponse* fr, Stream* s) @private
     b.put("HTTP/1.1 200 OK\r\nContent-Type: "); b.put(mime);
     b.put("\r\nContent-Length: "); b.putn((int)file_size);
     b.put("\r\nConnection: keep-alive\r\n");
-    for (usz i = 0; i < fr.headers.count; i++) {
+    for (usz i = 0; i < fr.headers.len(); i++) {
         b.put(fr.headers.entries[i].name); b.put(": ");
         b.put(fr.headers.entries[i].value); b.crlf();
     }

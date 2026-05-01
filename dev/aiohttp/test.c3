@@ -1,6 +1,11 @@
 import std::io;
 fn void main()
 {
+    String s = "a";
+    switch (s) {
+      case "a": io::printfn("a");
+    }
+    
     char[] slice;
     io::printfn("%p, %d", slice.ptr, slice.len);
     mem::free(slice.ptr);

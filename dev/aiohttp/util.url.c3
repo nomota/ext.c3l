@@ -4,8 +4,6 @@ module ext::aiohttp;
 
 import ext::mem;
 
-tlocal LocalAllocator localmem = {};
-
 // URL parsing, serialization, and percent-encoding utilities.
 //
 // url_parse()       : zero-copy — all Url fields are slices into the original raw string.
@@ -327,16 +325,16 @@ fn String Url.to_string(&self, Allocator alloc)
 // Output format: "key=value&key2=value2" (no leading '?').
 // Both keys and values are percent-encoded (RFC 3986 unreserved safe).
 // Returns "" if params is null or empty.
-fn String query_build(Allocator alloc, Headers* params)
+fn String query_build(Allocator alloc, Params* params)
 {
     localmem = alloc;
 
-    if (params == null || params.count == 0) return "";
+    if (params == null || params.len() == 0) return "";
 
     // First pass: calculate total encoded output length.
     usz total = 0;
-    for (usz i = 0; i < params.count; i++) {
-        Header* h = &params.entries[i];
+    for (usz i = 0; i < params.len(); i++) {
+        Param h = params.entries[i];
         if (i > 0) total++; // '&'
         foreach (c : h.name)  total += pct_unreserved(c) ? 1 : 3;
         total++; // '='
@@ -347,8 +345,8 @@ fn String query_build(Allocator alloc, Headers* params)
     usz j = 0;
 
     // Second pass: write encoded output.
-    for (usz i = 0; i < params.count; i++) {
-        Header* h = &params.entries[i];
+    for (usz i = 0; i < params.len(); i++) {
+        Param h = params.entries[i];
         if (i > 0) buf[j++] = '&';
 
         foreach (c : h.name) {
