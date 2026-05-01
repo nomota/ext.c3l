@@ -5,6 +5,7 @@ module ext::aiohttp;
 import ext::asyncio;
 import ext::mem;
 import ext::debug;
+import ext::thread::fiber;
 
 // HTTP/1.1 connection pool — used internally by TcpConnector.
 //
@@ -133,7 +134,7 @@ struct PoolTable @private {
     // config (copied from TcpConnector)
     int   limit;
     int   limit_per_host;
-    ulong keepalive_timeout_us;
+    double keepalive_timeout;
     bool  force_close;
 
     bool closed;
@@ -208,18 +209,17 @@ fn void? pool_init(
     PoolTable*  pt,
     int         limit,
     int         limit_per_host,
-    ulong       keepalive_timeout_us,
+    double       keepalive_timeout,
     bool        force_close,
     Allocator   alloc,
 )
 {
-warn("-");
     localmem = alloc;
     
     pt.pool_count           = 0;
     pt.limit                = limit;
     pt.limit_per_host       = limit_per_host;
-    pt.keepalive_timeout_us = keepalive_timeout_us;
+    pt.keepalive_timeout = keepalive_timeout;
     pt.force_close          = force_close;
     pt.closed               = false;
 
@@ -238,22 +238,22 @@ fn Stream*? pool_acquire(
     PoolTable*  pt,
     String      host,
     ushort      port,
-    ulong       connect_timeout_us,
+    double      connect_timeout,
     Allocator   alloc,
 )
 {
 warn("-");
     localmem = alloc;
-    
+warn("-");
     if (pt.closed) return CONNECTION_FAILED ~;
-
+warn("-");
     // global limit
     if (pt.global_sem != null) {
         pt.global_sem.acquire();
     }
 
     ConnPool* cp = pt.get_or_create(host, port, alloc)!;
-
+warn("-");
     // per-host limit
     if (cp.sem != null) cp.sem.acquire();
 
@@ -269,11 +269,12 @@ warn("-");
         s.close();
         cp.total--;
     }
-warn("%s %d", host, port);
+
     // open a new TCP connection
     Stream*? ns = asyncio::open_connection(host, port);
 warn("-");
     if (catch err = ns) {
+warn("-");
         // release semaphores on failure
         if (cp.sem != null) cp.sem.release();
         if (pt.global_sem != null) pt.global_sem.release();
@@ -343,7 +344,7 @@ warn("-");
     ulong now = asyncio::clock_now();
     for (usz i = 0; i < pt.pool_count; i++) {
         ConnPool* cp = &pt.pools[i];
-        usz reaped = cp.reap_idle(now, pt.keepalive_timeout_us);
+        usz reaped = cp.reap_idle(now, (ulong)(pt.keepalive_timeout*1_000_000));
         // release global semaphore slots for each closed idle connection
         for (usz r = 0; r < reaped; r++) {
             if (pt.global_sem != null) pt.global_sem.release();
@@ -375,6 +376,7 @@ warn("-");
         pt.global_sem.free();
         pt.global_sem = null;
     }
+warn("-");
 }
 
 // Return the total number of open connections across all hosts.

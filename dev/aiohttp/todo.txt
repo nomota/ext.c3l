@@ -1,0 +1,27 @@
+client cookie => server cookie
+
+server set-cookie
+
+client path option => server path option
+
+client query => server query resp
+
+client form => server form
+
+client multipart upload
+
+client static file url => server static
+
+client proxy => server proxy
+
+client chunk upload file
+    => server chunk read file save
+
+gzip/deflate
+
+Tls/SSL
+
+Done
+
+20260430 server config servername
+

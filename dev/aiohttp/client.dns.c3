@@ -53,7 +53,7 @@ struct DnsCache {
     DnsCacheEntry[DNS_CACHE_CAP] entries;
     usz  count;   // number of valid entries
     bool enabled;             // false = always miss (bypass cache)
-    ulong ttl_us;             // default TTL in microseconds
+    double ttl;             // default TTL in seconds
 }
 
 //  private helpers 
@@ -127,12 +127,12 @@ fn usz dns_free_slot(DnsCache* c, ulong now_us) @private
 //  public API 
 
 // Initialise a DnsCache.
-fn void dns_cache_init(DnsCache* c, bool enabled, ulong ttl_us)
+fn void dns_cache_init(DnsCache* c, bool enabled, double ttl)
 {
 warn("-");
     c.count = 0;
     c.enabled = enabled;
-    c.ttl_us  = ttl_us;
+    c.ttl = ttl;
     for (usz i = 0; i < DNS_CACHE_CAP; i++) c.entries[i].valid = false;
 }
 
@@ -175,7 +175,7 @@ fn void dns_cache_put(DnsCache* c, String host, String ip, ulong ttl_us = 0)
     if (!c.enabled) return;
 
     ulong now = asyncio::clock_now();
-    ulong actual_ttl = ttl_us > 0 ? ttl_us : c.ttl_us;
+    ulong actual_ttl = ttl_us > 0 ? ttl_us : (ulong)(c.ttl*1_000_000);
     ulong expires = now + actual_ttl;
 
     // update existing entry if host already cached

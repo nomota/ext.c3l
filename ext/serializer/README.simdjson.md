@@ -135,8 +135,8 @@ import ext::serializer::simdjson;
     char[] src = `{"name":"Alice","scores":[10,20,30]}`;
     ParseResult? result = simdjson::parse(tmem, src);
     if (catch err = result) {
-        io::printfn("parse error: %s", err);
-        return;
+        io::printfn("json parse error: %s", err);
+        return err~;
     }
     // defer result.free();
 

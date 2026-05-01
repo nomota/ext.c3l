@@ -16,7 +16,14 @@ import ext::debug;
 // GET /
 fn Response*? handle_root(Request* req)
 {
-    return web::response_new(200, "Welcome to the aiohttp server!");
+    for (usz i = 0; i < req.headers.len(); i++) {
+        Header h = req.headers.get_at(i);
+        warn("%s: %s", h.name, h.value);
+    }
+    
+    warn("req.host: %s", req.host);
+    
+    return web::response_new(200, "Welcome to the aiohttp server!\n");
 }
 
 // GET /{name}
@@ -60,7 +67,7 @@ fn void main()
     // 
 
     warn("web::run_app(port:8080)");
-    web::run_app(app, port:8080);
+    web::run_app(app, port:8080, server_header:"My test server v1.0");
 }
 
 

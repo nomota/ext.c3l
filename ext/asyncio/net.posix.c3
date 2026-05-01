@@ -20,6 +20,7 @@ import c::errno;
 import ext::debug;
 import ext::mem;
 import std::collections::map;
+import ext::thread::fiber;
 
 tlocal HashMap{int,String} ips; // IP addr cache
 
@@ -119,8 +120,8 @@ fn int? _resolve_and_connect(char* host, ushort port)
         
         if (errno::errno() == errno::EINPROGRESS) {
             Future* wfut = loop.create_future();
-            
             register_write(fd, wfut);
+
             void*? wres = wfut.await();
             wfut.free();
             if (catch err = wres) {

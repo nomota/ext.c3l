@@ -134,3 +134,15 @@ fn void LocalAllocator.free(&self, void* a)
 {
     self.release(a, false);
 }
+
+macro LocalAllocator.copy(&self, char[] str)
+{
+    char[] buf = self.alloc_array(char, str.len);
+    buf[0:str.len] = str[0:str.len];
+    return buf;
+}
+
+macro String LocalAllocator.copy_str(&self, String str)
+{
+    return (String) self.copy((char[])str);
+}

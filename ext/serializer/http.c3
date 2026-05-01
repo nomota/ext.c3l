@@ -386,8 +386,9 @@ fn char*? parse_response(char* buf, char* end, Response* resp)
             return buf;
         }
         if (*buf == '\r' && buf < end && *(buf+1) == '\n') {
+            resp.decode_content_length();
             resp.body = buf+2;
-            return buf+2;
+            return buf+2; // body_start
         }
     }
 
@@ -486,6 +487,20 @@ fn bool Request.decode_uri(&self)
     return true;
 }
 
+faultdef NOT_FOUND;
+
+fn String? Request.get(&self, String name)
+{
+    for (uint i = 0; i < self.n_headers; i++) {
+        String key = self.headers[i].key;
+        String val = self.headers[i].value;
+
+        if (str_iequals(key, name)) {
+            return val;
+        }
+    }
+    return NOT_FOUND~;
+}
 
 fn bool Request.decode_content_length(&self)
 {
@@ -514,8 +529,7 @@ fn bool Request.decode_content_length(&self)
                 while (buf < end && (*buf == ' ' || *buf == '\t' || *buf == ',')) buf++;
                 if (buf + 7 <= end && str_iequals((String)buf[0:7], "chunked")) {
                     char after = (buf + 7 < end) ? buf[7] : ',';
-                    if (after == ',' || after == ' ' || after == '\t'
-                                     || buf + 7 == end) {
+                    if (after == ',' || after == ' ' || after == '\t' || buf + 7 == end) {
                         self.chunked = true;
                         return true;
                     }
@@ -527,6 +541,47 @@ fn bool Request.decode_content_length(&self)
     }
     return false;
 }
+
+fn bool Response.decode_content_length(&self)
+{
+    for (uint i = 0; i < self.n_headers; i++) {
+        String key = self.headers[i].key;
+        String val = self.headers[i].value;
+
+        // Content-Length
+        if (key.len == 14 && str_iequals(key, "Content-Length")) {
+            usz n = 0;
+            foreach (char c : val) {
+                if (c < '0' || c > '9') return false; // non-digit → invalid
+                n = n * 10 + (usz)(c - '0');
+            }
+            self.content_length = n;
+            return true;
+        }
+
+        // Transfer-Encoding: chunked
+        if (key.len == 17 && str_iequals(key, "Transfer-Encoding")) {
+            // value may be "chunked" or "gzip, chunked" etc.
+            char* buf = val.ptr;
+            char* end = buf + val.len;
+            while (buf < end) {
+                // skip whitespace / commas
+                while (buf < end && (*buf == ' ' || *buf == '\t' || *buf == ',')) buf++;
+                if (buf + 7 <= end && str_iequals((String)buf[0:7], "chunked")) {
+                    char after = (buf + 7 < end) ? buf[7] : ',';
+                    if (after == ',' || after == ' ' || after == '\t' || buf + 7 == end) {
+                        self.chunked = true;
+                        return true;
+                    }
+                }
+                // skip to next comma
+                while (buf < end && *buf != ',') buf++;
+            }
+        }
+    }
+    return false;
+}
+
 
 
 fn bool Request.decode_cookies(&self)

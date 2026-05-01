@@ -124,7 +124,9 @@ fn void OBuf.putn(&self, int n) @inline
             v /= 10;
         }
     }
-    self.put((String) t[0:l]);
+    while (l > 0) {
+        self.out[self.cursor++] = t[--l];
+    }
 }
 
 fn void OBuf.crlf(&self) @inline

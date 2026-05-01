@@ -431,7 +431,7 @@ fn bool router_match_ws(
     return false;
 }
 
-// Build match_info Headers from a RouteMatch (allocates entries via mem).
+// Build match_info Headers from a RouteMatch (allocates entries via alloc).
 // The returned Headers* must be freed by the caller.
 fn Headers*? router_match_info(RouteMatch* m, Allocator alloc)
 {

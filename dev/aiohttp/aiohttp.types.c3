@@ -125,11 +125,10 @@ fn bool hdr_ieq(String a, String b) @private @inline
 
 fn Headers* headers_new()
 {
-warn("-");
     Headers* h = localmem.alloc(Headers);
-warn("-%d", HEADERS_INIT_CAP);
+
     h.entries  = localmem.malloc(HEADERS_INIT_CAP * Header.sizeof);
-warn("-");
+
     h.count    = 0;
     h.capacity = HEADERS_INIT_CAP;
     return h;
@@ -138,7 +137,7 @@ warn("-");
 fn void headers_grow(Headers* h) @private
 {
     usz new_cap = h.capacity * 2;
-warn("-");
+
     Header* new_buf = localmem.malloc(new_cap * Header.sizeof);
     for (usz i = 0; i < h.count; i++) new_buf[i] = h.entries[i];
     localmem.free(h.entries);
@@ -399,14 +398,14 @@ fn usz    CookieJar.len(&self) @inline     { return self.count; }
 //  ClientTimeout 
 
 struct ClientTimeout {
-    ulong total_us;        // total wall-clock budget (connect + read). 0 = unlimited
-    ulong connect_us;      // pool wait + TCP connect timeout
-    ulong sock_connect_us; // TCP connect only (subset of connect_us)
-    ulong sock_read_us;    // per-read() call timeout
+    double total;        // total wall-clock budget (connect + read). 0 = unlimited
+    double connect;      // pool wait + TCP connect timeout
+    double sock_connect; // TCP connect only (subset of connect_us)
+    double sock_read;    // per-read() call timeout
 }
 
 // Sensible default: 30 s total, no per-phase limit.
-const ClientTimeout TIMEOUT_DEFAULT = { .total_us = 30_000_000 };
+const ClientTimeout TIMEOUT_DEFAULT = { .total = 30.0 };
 
 // No timeout at all (use with care).
 const ClientTimeout TIMEOUT_NONE = { 0, 0, 0, 0 };

@@ -980,7 +980,7 @@ fn void run(Coroutine main_coro)
     loop.running = true;
     
     // Register the main coroutine as the first Task
-    Task* tt = loop.create_task(main_coro, "main", 120_000);
+    Task* tt = loop.create_task(main_coro, "main", 512_000);
     tt.defer_free();
     
     while (loop.running) {

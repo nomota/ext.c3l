@@ -37,10 +37,14 @@ char[4096] asmblock @align(4096);
 
 const char[] CANARY = "CANARYCANARYCANARYCANARY"; // 24 bytes
 
+tlocal LocalAllocator localmem = {};
+
 fn void init(Allocator allocx = mem, bool debug = true) @private
 {
     if (running != null) return;
-    mem::set_allocator(allocx);
+    if (localmem == (LocalAllocator){}) {
+        localmem = mem;
+    }
     debug::set_debug(debug);
 
   $if env::WIN32:
@@ -74,10 +78,13 @@ fn void init(Allocator allocx = mem, bool debug = true) @private
 
     asm_swap = (SwapFn)(void*)&asmblock;
 
-    primary.handle = (void*)&_buffer[0];
-    primary.block = null;
-    primary.stack_size = 0;
-    primary.done = false;
+    primary = {
+        .handle = (void*)&_buffer[0],
+        .block = null,
+        .stack_size = 0,
+        .done = false,
+    };
+    
     running = &primary;
 }
 
@@ -128,49 +135,47 @@ fn Fiber* create(uint stack_size, Coroutine coroutine)
 {
     if (running == null) init();
 
-    Fiber* fiber = mem_alloc(Fiber);
+    Fiber* fiber = localmem.alloc(Fiber);
     fiber.done = false;
     fiber.stack_size = stack_size;
 
     char* block;
-    void* handle;
 
     if (debug::debug) {
-        block = mem_malloc(stack_size + CANARY.len);
+        block = localmem.malloc(stack_size + CANARY.len);
         string::memset(&block[0], 'Z', stack_size);
         string::memcpy(&block[stack_size], CANARY.ptr, CANARY.len);
-        handle = block;
     } else {
-        block = mem_malloc(stack_size);
-        handle = block;
+        block = localmem.malloc(stack_size);
     }
 
     fiber.block = block;
+    @assert(fiber.block != null, "error");
+    
+    void *handle = block;
     fiber.handle = handle;
 
-    if (handle != null) {
-        // Build the initial stack layout:
-        //
-        //   handle[0]  = rsp  → points to p below
-        //
-        //   stack grows downward:
-        //   ┌──────────────┐ ← stack_top (16-byte aligned, 32 bytes reserved)
-        //   │  &crash      │ ← called if entrypoint returns
-        //   │  entrypoint  │ ← popped into rax by the swap stub, then jmp rax
-        //   └──────────────┘ ← p  (stored as initial rsp in handle[0])
-        //
-        ulong stack_top = (ulong)handle + stack_size;
-        stack_top -= 32; // shadow space / ABI reserve
-        stack_top &= ~((ulong)15); // 16-byte alignment
+    // Build the initial stack layout:
+    //
+    //   handle[0]  = rsp  → points to p below
+    //
+    //   stack grows downward:
+    //   ┌──────────────┐ ← stack_top (16-byte aligned, 32 bytes reserved)
+    //   │  &crash      │ ← called if entrypoint returns
+    //   │  entrypoint  │ ← popped into rax by the swap stub, then jmp rax
+    //   └──────────────┘ ← p  (stored as initial rsp in handle[0])
 
-        long* p = (long*)stack_top;
-        p--;
-        *p = (long)(void*)&crash; // return address guard
-        p--;
-        *p = (long)(void*)coroutine; // initial instruction pointer
+    ulong stack_top = (ulong)handle + stack_size;
+    stack_top -= 32; // shadow space / ABI reserve
+    stack_top &= ~((ulong)15); // 16-byte alignment
 
-        *((long*)handle) = (long)p; // store rsp in handle[0]
-    }
+    long* p = (long*)stack_top;
+    p--;
+    *p = (long)(void*)&crash; // return address guard
+    p--;
+    *p = (long)(void*)coroutine; // initial instruction pointer
+
+    *((long*)handle) = (long)p; // store rsp in handle[0]
 
     return fiber;
 }
@@ -178,7 +183,9 @@ fn Fiber* create(uint stack_size, Coroutine coroutine)
 fn void check_canary(Fiber* fiber) @inline @private
 {
     if (!debug::debug) return;
-    if (fiber.block == null) return; // primary has no block
+    if (fiber == &primary) return; // primary has no block
+    @assert(fiber.block != null, "error");
+    
     usz stack_size = fiber.stack_size;
 
     if (string::strncmp(fiber.block + stack_size, CANARY.ptr, CANARY.len) != 0) {
@@ -196,13 +203,17 @@ fn void check_canary(Fiber* fiber) @inline @private
 fn void diag()
 {
     Fiber* fiber = active();
-    if (fiber.block == null) return; // primary has no block
+    if (fiber == &primary) {
+        warn("it's primary fiber");
+        return; // primary has no block
+    }
+    warn("%p %p", fiber, fiber.handle);
+    @assert(fiber.block != null, "error");
+    
     usz stack_size = fiber.stack_size;
 
     if (string::strncmp(fiber.block + stack_size, CANARY.ptr, CANARY.len) != 0) {
         warn("Postfix canary breached, fiber stack size is too small. current stack_size:%d", stack_size);
-    } else {
-        warn("fiber stack is safe");
     }
     
     usz used = stack_used(fiber);
@@ -210,12 +221,12 @@ fn void diag()
     warn("stack_size:%d, used:%d, usage:%.1f%%", stack_size, used, usage*100);
 }
 
-
 fn usz stack_used(Fiber* fiber)
 {
     if (!debug::debug) return 0;
-    if (fiber.block == null) return 0; // primary has no block
-
+    if (fiber == &primary) return 0; // primary has no block
+    @assert(fiber.block != null, "error");
+    
     usz stack_size = fiber.stack_size;
     usz untouched = 0;
     for (isz i = 0; i < stack_size; i++) {
@@ -232,8 +243,8 @@ fn void delete(Fiber* fiber)
     if (fiber == null || fiber == &primary) return;
     check_canary(fiber);
     // warn("@@@  free block=%p,stack_size:%dKB,stack_filled:%dKB", fiber.block, fiber.stack_size/1024, stack_filled(fiber)/1024);
-    mem_free(fiber.block);
-    mem_free(fiber);
+    localmem.free(fiber.block);
+    localmem.free(fiber);
 }
 
 fn void switch_to(Fiber* fiber) @nosanitize("address")
@@ -245,7 +256,7 @@ fn void switch_to(Fiber* fiber) @nosanitize("address")
     Fiber* prev = running;
     running = fiber;
 
-    // warn("%p, %p, %d, %d", fiber.handle, prev.handle, *(long*)fiber.handle, *(long*)prev.handle);
+    // warn("%p, %p, %p, %p", prev, fiber, prev.handle, fiber.handle);
 
     asm_swap(fiber.handle, prev.handle);
 }
@@ -254,6 +265,7 @@ fn void yield() @nosanitize("address")
 {
     if (running == &primary) return;
     check_canary(running);
+    
     switch_to(&primary);
 }
 

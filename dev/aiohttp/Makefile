@@ -7,8 +7,10 @@ build:
 	@make server1
 
 clean:
+	-@rm -f x y
 	-@rm -f server1
 	-@rm -f client1
+	
 
 C3C = c3c compile
 EXT = ../../ext
@@ -19,7 +21,7 @@ FIBER = $(EXT)/fiber/*.c3
 ASYNCIO = $(EXT)/asyncio/*.c3
 AIOFILES = $(EXT)/aiofiles/*.c3
 SERIALIZER = $(EXT)/serializer/*.c3
-AIOHTTP = util.url.c3 util.chunk.c3 util.ws.c3 client.dns.c3 client.pool.c3 client.req.c3 web.router.c3 web.middleware.c3 web.static.c3 aiohttp.types.c3 aiohttp.client.c3 aiohttp.web.c3
+AIOHTTP = util.url.c3 util.chunk.c3 util.ws.c3 client.dns.c3 client.pool.c3 client.req.c3 web.router.c3 web.middleware.c3 web.static.c3 aiohttp.types.c3 aiohttp.client.c3 aiohttp.clientws.c3 aiohttp.web.c3 aiohttp.webresp.c3
 
 LIBS = $(AIOFILES) $(ASYNCIO) $(FIBER) $(IO) $(MEM) $(LIBC) $(SERIALIZER) $(AIOHTTP)
 

@@ -5,7 +5,7 @@ module example;
 import std::io;
 import ext::asyncio;
 import ext::aiohttp;
-
+import ext::debug;
 
 // 
 //  Simple HTTP GET client
@@ -14,14 +14,14 @@ import ext::aiohttp;
 fn void client_main()
 {
     ClientSession* session = aiohttp::session_new();
-
+warn("-");
     ClientResponse*? resp = session.get("http://127.0.0.1:8080/");
     if (catch err = resp) {
         io::printfn("[client] request failed: %s", err);
         session.close();
         return;
     }
-
+warn("-");
     io::printfn("[client] status: %d", resp.status);
     io::printfn("[client] reason: %s", resp.reason);
 
@@ -29,6 +29,12 @@ fn void client_main()
     if (try server) {
         io::printfn("[client] server: %s", server);
     }
+    
+    String? clen = resp.headers.get("Content-Length");
+    if (try clen) {
+        io::printfn("[client] Content-Length: %s", clen);
+    }
+
 
     String? text = resp.text();
     if (catch err = text) {
@@ -53,7 +59,9 @@ fn void client_main()
 
 fn void main()
 {
+  @assert_leak() {
     asyncio::run(&client_main);
+  };
 }
 
 /*
