@@ -81,28 +81,54 @@ fn void Response.set_header(&self, String name, String value)
     self.headers.set(name, value);
 }
 
-fn void Response.set_cookie(&self, Cookie* c)
+fn void Response.set_cookie(&self,
+    String name,
+    String value,
+    String path = "",
+    String domain = "",
+    bool secure = true,
+    bool httponly = false,
+    String samesite = "Lax", // CSRF protection ("Strict", "Lax", "None")
+    uint max_age = 3600, // seconds,
+    String expires = "",
+)
 {
     // build "Set-Cookie: name=value; Path=/; ..."
     char[512] buf; 
     OBuf b = { &buf[0], 512, 0 };
     
-    b.put(c.name); b.putc('='); b.put(c.value);
-    if (c.path.len > 0) { b.put("; Path=");  b.put(c.path);   }
-    if (c.domain.len > 0) { b.put("; Domain="); b.put(c.domain); }
-    if (c.secure) b.put("; Secure");
-    if (c.http_only) b.put("; HttpOnly");
-    if (c.same_site.len > 0) { b.put("; SameSite="); b.put(c.same_site); }
+    b.put(name); b.putc('='); b.put(value);
+    if (path.len > 0) { b.put("; Path=");  b.put(path);   }
+    if (domain.len > 0) { b.put("; Domain="); b.put(domain); }
+    if (secure) b.put("; Secure");
+    if (httponly) b.put("; HttpOnly");
+    if (samesite.len > 0) { b.put("; SameSite="); b.put(samesite); }
+    if (expires.len > 0) { b.put("; Expires="); b.put(expires); }
+    if (max_age > 0) {
+        b.put("; MaxAge=");
+        b.putn(max_age);
+    }
+
+warn("Set-Cookie: %s", b.str());
     self.headers.add("Set-Cookie", b.str().copy(localmem));
 }
 
 fn void Response.del_cookie(&self, String name)
 {
+    for (usz i = 0; i < self.headers.len(); i++) {
+        KeyVal x = self.headers.entries[i];
+        if (x.name != "Set-Cookie") continue;
+        if (! x.value.starts_with(name)) continue;
+        self.headers.entries.remove_at(i);
+        break;
+    }
+    
     // set cookie with expired date to delete it
     char[256] buf;
     OBuf b = { &buf[0], 256, 0 };
     
     b.put(name); b.put("=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+
     self.headers.add("Set-Cookie", b.str().copy(localmem));
 }
 
@@ -168,10 +194,23 @@ fn void? write_response(Stream* s, Response* resp) @private
 
 //  StreamResponse 
 
-struct StreamResponse {
+/*
+struct Response {
     int      status;
     String   reason;
     Headers* headers;
+    char*    body;
+    usz      body_len;
+    String   content_type;
+    String   charset;
+}
+*/
+
+struct StreamResponse {
+    inline Response resp;
+    // int      status;
+    // String   reason;
+    // Headers* headers;
     bool     prepared;
     bool     eof_sent;
     Stream*  stream;
@@ -180,12 +219,15 @@ struct StreamResponse {
 fn StreamResponse* stream_response_new(int status = 200)
 {
     StreamResponse* r = localmem.alloc(StreamResponse);
-    r.status = status;
-    r.reason = aiohttp::http_reason(status);
-    r.headers = aiohttp::headers_new();
-    r.prepared = false;
-    r.eof_sent = false;
-    r.stream = null;
+    *r = {
+        .status = status,
+        .reason = aiohttp::http_reason(status),
+        .headers = aiohttp::headers_new(),
+        .prepared = false,
+        .eof_sent = false,
+        .stream = null,
+    };
+    
     return r;
 }
 
@@ -194,12 +236,6 @@ fn void StreamResponse.set_header(&self, String name, String value)
     self.headers.set(name, value);
 }
 
-fn void StreamResponse.set_cookie(&self, Cookie* c)
-{
-    // reuse Response.set_cookie logic via a temporary
-    Response tmp; tmp.headers = self.headers;
-    tmp.set_cookie(c);
-}
 
 fn void? StreamResponse.prepare(&self, Request* req)
 {
@@ -255,10 +291,11 @@ fn void StreamResponse.free(&self)
 //  FileResponse 
 
 struct FileResponse {
-    int      status;
-    Headers* headers;
+    inline Response resp;
+    // int      status;
+    // Headers* headers;
     String   filepath;
-    String   content_type;
+    // String   content_type;
 }
 
 fn FileResponse* file_response_new(
@@ -268,10 +305,12 @@ fn FileResponse* file_response_new(
 )
 {
     FileResponse* r = localmem.alloc(FileResponse);
-    r.status = status;
-    r.headers = aiohttp::headers_new();
-    r.filepath = filepath;
-    r.content_type = content_type;
+    *r = {
+        .status = status,
+        .headers = aiohttp::headers_new(),
+        .filepath = filepath,
+        .content_type = content_type,
+    };
     return r;
 }
 

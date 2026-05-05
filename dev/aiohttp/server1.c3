@@ -20,11 +20,24 @@ fn Response*? handle_root(Request* req)
         Header h = req.headers.get_at(i);
         warn("%s: %s", h.name, h.value);
     }
-    
+
+    for (usz i = 0; i < req.cookies.len(); i++) {
+        KeyVal h = req.cookies.get_at(i);
+        warn("Cookie %s=%s", h.name, h.value);
+    }
+
     warn("req.host: %s", req.host);
     
-    return web::response_new(200, "Welcome to the aiohttp server!\n");
+    Response* resp = web::response_new(200, "Welcome to the aiohttp server!\n");
+warn("set_cookie");
+    resp.set_cookie("K", "V");
+    resp.set_cookie("x", "y", path:"/", domain:"google.com",
+        secure:false, httponly:true, samesite:"Lax", 
+        max_age:10, expires:"eex");
+    
+    return resp;
 }
+
 
 // GET /{name}
 fn Response*? handle_greet(Request* req)

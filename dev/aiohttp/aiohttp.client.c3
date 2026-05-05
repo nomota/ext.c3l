@@ -51,10 +51,6 @@ fn TcpConnector* connector_new(
     double keepalive_timeout = 15.0,
     bool force_close = false)
 {
-    if (localmem == (LocalAllocator){}) {
-        localmem = tmem;
-    }
-
     TcpConnector* c = localmem.alloc(TcpConnector);
     c.limit = limit;
     c.limit_per_host = limit_per_host;
@@ -94,11 +90,11 @@ struct ClientSession {
     ClientTimeout timeout;
     Headers*      default_headers;
     BasicAuth*    auth;
-    CookieJar*    cookie_jar;
+    Cookies*    cookies;
     bool          raise_for_status;
     bool          closed;
     bool owns_connector;
-    bool owns_jar;
+    bool owns_cookies;
 }
 
 fn ClientSession* session_new(
@@ -106,13 +102,9 @@ fn ClientSession* session_new(
     ClientTimeout timeout = TIMEOUT_DEFAULT,
     Headers* default_headers = null,
     BasicAuth* auth = null,
-    CookieJar* cookie_jar = null,
+    Cookies* cookies = null,
     bool raise_for_status = false)
 {
-    if (localmem == (LocalAllocator){}) {
-        localmem = tmem;
-    }
-    
     ClientSession* s = localmem.alloc(ClientSession);
     if (connector == null) {
         s.connector = connector_new();
@@ -126,12 +118,12 @@ fn ClientSession* session_new(
     s.auth = auth;
     s.raise_for_status = raise_for_status;
     s.closed = false;
-    if (cookie_jar == null) {
-        s.cookie_jar = cookiejar_new();
-        s.owns_jar = true;
+    if (cookies == null) {
+        s.cookies = cookies_new();
+        s.owns_cookies = true;
     } else {
-        s.cookie_jar = cookie_jar;
-        s.owns_jar = false;
+        s.cookies = cookies;
+        s.owns_cookies = false;
     }
     return s;
 }
@@ -141,7 +133,7 @@ fn void ClientSession.close(&self)
     if (self.closed) return;
     self.closed = true;
     if (self.owns_connector) self.connector.close();
-    if (self.owns_jar)       self.cookie_jar.free();
+    if (self.owns_cookies) self.cookies.free();
     // default_headers/auth are borrowed; caller owns them.
     localmem.free(self);
 }
@@ -209,7 +201,7 @@ fn char*? resp_read_headers(
 fn ClientResponse*? build_response(
     http::Response* p, Url* req_url, HttpMethod method,
     Stream* stream, TcpConnector* connector,
-    CookieJar* jar, char* body_start, usz body_len,
+    char* body_start, usz body_len,
     Allocator alloc,
 ) @private
 {
@@ -245,27 +237,24 @@ fn ClientResponse*? build_response(
         r.headers.add(p.headers[i].key, p.headers[i].value);
     }
 
-    // update cookie jar from Set-Cookie
+    // decode Set-Cookie header
     p.decode_setcookies();
     
-    List{Cookie} raw_cookies;
+    r.cookies = cookiejar_new();
     for (usz i = 0; i < p.n_set_cookies; i++) {
         http::SetCookie* sc = &p.set_cookies[i];
-        raw_cookies.push((Cookie){
+        r.cookies.add((Cookie){
             .name = sc.name,
             .value = sc.value,
             .domain = sc.domain,
             .path = sc.path,
-            .expires = 0,
+            .expires = sc.expires,
+            .max_age = sc.max_age.to_int() ?? 0,
             .secure = sc.secure,
             .http_only = sc.http_only, 
             .same_site = sc.same_site,
         });
     }
-    if (raw_cookies.len() > 0) {
-        jar.update(raw_cookies.to_array(tmem), req_url);
-    }
-    r.cookies = jar;
 
     r.is_chunked = p.chunked;
     r.content_length = p.content_length;
@@ -701,9 +690,9 @@ fn bool is_redirect_status(int s) @private @inline
 
 fn ClientResponse*? session_do_request(
     ClientSession* s, HttpMethod method, String url_str,
-    Headers* params, Headers* req_headers,
+    Params* params, Headers* req_headers,
     char* data, usz data_len, String json_str, FormData* form,
-    TlsConfig* tls, Headers* cookies, BasicAuth* auth, ClientTimeout* timeout, String proxy_url,
+    TlsConfig* tls, Cookies* cookies, BasicAuth* auth, ClientTimeout* timeout, String proxy_url,
 ) @private
 {
     if (s.closed) return CONNECTION_FAILED~;
@@ -745,7 +734,7 @@ warn("-");
         if (catch err = stream) return CONNECTION_FAILED~;
         
         // inject cookies
-        if (cookies != null) {
+        if (cookies != null || s.cookies != null) {
             if (req_headers == null) {
                 req_headers = headers_new();
                 new_req_headers = true;
@@ -754,8 +743,16 @@ warn("-");
             char[4096] ck;
             OBuf o = { &ck[0], 4096, 0 };
             
-            for (usz i = 0; i < cookies.len(); i++) {
-                Header h = cookies.get_at(i);
+            for (usz i = 0; cookies != null && i < cookies.len(); i++) {
+                KeyVal h = cookies.get_at(i);
+                o.put(h.name);
+                o.putc('=');
+                o.put(h.value);
+                o.put("; ");
+            }
+
+            for (usz i = 0; s.cookies != null && i < s.cookies.len(); i++) {
+                KeyVal h = s.cookies.get_at(i);
                 o.put(h.name);
                 o.putc('=');
                 o.put(h.value);
@@ -781,7 +778,7 @@ warn("-");
         
         usz body_len = filled - (usz)(body_ptr-&hdr_scratch[0]);
         
-        ClientResponse*? resp = build_response(&parsed, &url, method, stream, s.connector, s.cookie_jar, body_ptr, body_len, localmem);
+        ClientResponse*? resp = build_response(&parsed, &url, method, stream, s.connector, body_ptr, body_len, localmem);
         if (catch err = resp) {
             pool_discard_response_stream(&s.connector.pool, stream, conn_host, conn_port);
             return RESPONSE_ERROR~;

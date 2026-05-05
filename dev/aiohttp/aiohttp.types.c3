@@ -18,6 +18,14 @@ import ext::mem;
 
 tlocal LocalAllocator localmem = {};
 
+fn void init() @init
+{
+    if (localmem == (LocalAllocator){}) {
+        localmem = tmem;
+    }
+}
+
+
 //  faults 
 
 faultdef NONE,
@@ -119,6 +127,7 @@ alias Param = KeyVal;
 alias Cookies = KeyVals;
 alias Headers = KeyVals;
 alias Params = KeyVals;
+alias Query = KeyVals;
 
 // Case-insensitive header name comparison.
 fn bool str_iequals(String a, String b) @private @inline
@@ -147,6 +156,8 @@ fn Cookies* cookies_new() => (Cookies*)keyvals_new();
 fn Headers* headers_new() => (Headers*)keyvals_new();
 
 fn Params* params_new() => (Params*)keyvals_new();
+
+fn Query* query_new() => (Query*)keyvals_new();
 
 fn void KeyVals.free(&self)
 {
@@ -219,7 +230,8 @@ struct Cookie {
     String value;
     String domain;    // "" = any domain
     String path;      // "" = any path (treated as "/")
-    long   expires;   // Unix timestamp. 0 = session cookie
+    String expires; // Expires=Wed, 21 Oct 2025 07:28:00 GMT
+    uint max_age; // Max-Age=3600 (1 hour)
     bool   secure;
     bool   http_only;
     String same_site; // "Strict" | "Lax" | "None" | ""
@@ -248,6 +260,11 @@ fn void CookieJar.free(&self)
 {
     self.cookies.free();
     localmem.free(self);
+}
+
+fn void CookieJar.add(&self, Cookie c)
+{
+    self.cookies.push(c);
 }
 
 // True if host looks like a bare IP address (simplified: no dots-in-label check).

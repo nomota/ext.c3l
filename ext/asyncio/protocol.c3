@@ -26,7 +26,7 @@ on_con_lost.await()
 transport.close()
 */
 
-struct Context {
+struct Context @private {
     Transport* transport;
     union {
         Protocol protocol;
@@ -34,7 +34,7 @@ struct Context {
     }
 }
 
-fn void _open_stream()
+fn void _open_stream() @private
 {
     EventLoop* loop = get_running_loop();
     Task* task = loop.current;
@@ -98,7 +98,7 @@ fn Transport* EventLoop.create_connection(&self, Protocol proto, String host, us
 }
 
 tlocal Context ctx;
-fn void _client_handler(Stream *stream)
+fn void _client_handler(Stream *stream) @private
 {
     Transport* trans = ctx.transport;
     Protocol proto = ctx.protocol;
@@ -148,7 +148,7 @@ fn Server*? EventLoop.create_server(&self, Protocol proto, String host, ushort p
     return server; // must be free'd at caller
 }
 
-fn void _drive_datagram()
+fn void _drive_datagram() @private
 {
     EventLoop* loop = get_running_loop();
     Task* task = loop.current;

@@ -10,6 +10,7 @@ import ext::aiofiles::os;
 import ext::mem;
 import ext::debug;
 import ext::thread::fiber;
+import std::collections::list;
 
 // HTTP/1.1 server implementation.
 //
@@ -53,6 +54,18 @@ faultdef
 
 
 tlocal LocalAllocator localmem = {};
+fn void init() @init
+{
+    if (localmem == (LocalAllocator){}) {
+        if (aiohttp::localmem == (LocalAllocator){}) {
+            aiohttp::localmem = tmem;
+        }
+        
+        localmem = aiohttp::localmem;;
+    }
+    @assert(localmem != null, "error");
+ }
+
 
 //  Application 
 
@@ -63,38 +76,17 @@ struct AppStateEntry {
 
 struct Application {
     Router*       router;
-    MiddlewareFn[APP_MAX_MW] middlewares;
-    usz           middleware_count;
-    usz           client_max_size;
-    AppHook[APP_MAX_HOOKS] startup_hooks;
-    usz           startup_count;
-    AppHook[APP_MAX_HOOKS] shutdown_hooks;
-    usz           shutdown_count;
-    AppHook[APP_MAX_HOOKS] cleanup_hooks;
-    usz           cleanup_count;
-    AppStateEntry[APP_MAX_STATE] state;
-    usz           state_count;
+    List{MiddlewareFn} middlewares;
+    List{AppHook} startup_hooks;
+    List{AppHook} shutdown_hooks;
+    List{AppHook} cleanup_hooks;
+    List{AppStateEntry} state;
 }
 
 fn Application* app_new(usz client_max_size = 1024 * 1024)
 {
-    if (localmem == (LocalAllocator){}) {
-        if (aiohttp::localmem == (LocalAllocator){}) {
-            aiohttp::localmem = tmem;
-        }
-        
-        localmem = aiohttp::localmem;;
-    }
-    @assert(localmem != null, "error");
-    
     Application* app = localmem.alloc(Application);
     app.router = localmem.alloc(Router);
-    app.middleware_count = 0;
-    app.client_max_size = client_max_size;
-    app.startup_count = 0;
-    app.shutdown_count = 0;
-    app.cleanup_count = 0;
-    app.state_count = 0;
     router_init(&app.router.inner);
 
     return app;
@@ -108,44 +100,35 @@ fn void Application.free(&self)
 
 fn void Application.add_middleware(&self, MiddlewareFn mw)
 {
-    if (self.middleware_count < APP_MAX_MW) {
-        self.middlewares[self.middleware_count++] = mw;
-    }
+    self.middlewares.push(mw);
 }
 
 fn void Application.on_startup(&self, AppHook hook)
 {
-    if (self.startup_count < APP_MAX_HOOKS) {
-        self.startup_hooks[self.startup_count++] = hook;
-    }
+    self.startup_hooks.push(hook);
 }
 
 fn void Application.on_shutdown(&self, AppHook hook)
 {
-    if (self.shutdown_count < APP_MAX_HOOKS) {
-        self.shutdown_hooks[self.shutdown_count++] = hook;
-    }
+    self.shutdown_hooks.push(hook);
 }
 
 fn void Application.on_cleanup(&self, AppHook hook)
 {
-    if (self.cleanup_count < APP_MAX_HOOKS) {
-        self.cleanup_hooks[self.cleanup_count++] = hook;
-    }
+    self.cleanup_hooks.push(hook);
 }
 
 fn void? Application.set_state(&self, String key, void* value) @maydiscard
 {
-    for (usz i = 0; i < self.state_count; i++) {
+    for (usz i = 0; i < self.state.len(); i++) {
         if (self.state[i].key == key) { self.state[i].value = value; return; }
     }
-    if (self.state_count >= APP_MAX_STATE) return INTERNAL_SERVER_ERROR~;
-    self.state[self.state_count++] = (AppStateEntry){ key, value };
+    self.state.push((AppStateEntry){ key, value });
 }
 
 fn void* Application.get_state(&self, String key)
 {
-    for (usz i = 0; i < self.state_count; i++) {
+    for (usz i = 0; i < self.state.len(); i++) {
         if (self.state[i].key == key) return self.state[i].value;
     }
     return null;
@@ -153,7 +136,7 @@ fn void* Application.get_state(&self, String key)
 
 fn void? Application.add_routes(&self, RouteTable* rt) @maydiscard
 {
-    for (usz i = 0; i < rt.count; i++) {
+    for (usz i = 0; i < rt.routes.len(); i++) {
         Route* r = &rt.routes[i];
         if (r.is_ws) {
             router_add_ws(&self.router.inner, r.pattern, r.ws_handler, r.name)!;
@@ -177,9 +160,7 @@ struct Route {
 }
 
 struct RouteTable {
-    Route* routes;
-    usz    count;
-    usz    capacity;
+    List{Route} routes;
 }
 
 struct Router {
@@ -190,36 +171,23 @@ struct Router {
 fn RouteTable* routetable_new()
 {
     RouteTable* rt = localmem.alloc(RouteTable);
-    rt.routes = localmem.malloc(ROUTETABLE_INIT_CAP * Route.sizeof);
-    rt.count = 0;
-    rt.capacity = ROUTETABLE_INIT_CAP;
+    rt.routes.init(localmem);
     return rt;
 }
 
 fn void RouteTable.free(&self)
 {
-    localmem.free(self.routes);
+    self.routes.free();
     localmem.free(self);
 }
 
-fn void RouteTable.grow(&self)
-{
-    usz nc = self.capacity * 2;
-    Route* nb = localmem.malloc(nc * Route.sizeof);
-    for (usz i = 0; i < self.count; i++) { nb[i] = self.routes[i];
-    }
-    localmem.free(self.routes);
-    self.routes = nb;
-    self.capacity = nc;
-}
 
 fn void RouteTable.add(&self, HttpMethod m, bool is_ws, String pattern, RequestHandler h, WsHandler wh, String name)
 {
-    if (self.count >= self.capacity) self.grow();
-    self.routes[self.count++] = (Route){
+    self.routes.push((Route){
         .method = m, .pattern = pattern, .handler = h,
         .ws_handler = wh, .is_ws = is_ws, .name = name,
-    };
+    });
 }
 
 fn void RouteTable.get(&self, String p, RequestHandler h, String name = "") => self.add(HttpMethod.GET, false, p, h, null, name);
@@ -229,17 +197,17 @@ fn void RouteTable.patch(&self, String p, RequestHandler h, String name = "") =>
 fn void RouteTable.delete(&self, String p, RequestHandler h, String name = "") => self.add(HttpMethod.DELETE, false, p, h, null, name);
 fn void RouteTable.head(&self, String p, RequestHandler h, String name = "") => self.add(HttpMethod.HEAD, false, p, h, null, name);
 fn void RouteTable.options(&self, String p, RequestHandler h, String name = "") => self.add(HttpMethod.OPTIONS, false, p, h, null, name);
-fn void RouteTable.ws(&self, String p, WsHandler wh, String name = "") => self.add(HttpMethod.GET, true,  p, null, wh, name);
+fn void RouteTable.ws(&self, String p, WsHandler wh, String name = "") => self.add(HttpMethod.GET, true, p, null, wh, name);
 // fn void RouteTable.add(&self, HttpMethod m, String p, RequestHandler h, String name = "") => self.add(m, false, p, h, null, name);
 
-fn void Router.add_get    (&self, String p, RequestHandler h, String name = "") => router_add(&self.inner, HttpMethod.GET,     p, h, name)!!;
-fn void Router.add_post   (&self, String p, RequestHandler h, String name = "") => router_add(&self.inner, HttpMethod.POST,    p, h, name)!!;
-fn void Router.add_put    (&self, String p, RequestHandler h, String name = "") => router_add(&self.inner, HttpMethod.PUT,     p, h, name)!!;
-fn void Router.add_patch  (&self, String p, RequestHandler h, String name = "") => router_add(&self.inner, HttpMethod.PATCH,   p, h, name)!!;
-fn void Router.add_delete (&self, String p, RequestHandler h, String name = "") => router_add(&self.inner, HttpMethod.DELETE,  p, h, name)!!;
-fn void Router.add_head   (&self, String p, RequestHandler h, String name = "") => router_add(&self.inner, HttpMethod.HEAD,    p, h, name)!!;
+fn void Router.add_get(&self, String p, RequestHandler h, String name = "") => router_add(&self.inner, HttpMethod.GET, p, h, name)!!;
+fn void Router.add_post(&self, String p, RequestHandler h, String name = "") => router_add(&self.inner, HttpMethod.POST, p, h, name)!!;
+fn void Router.add_put(&self, String p, RequestHandler h, String name = "") => router_add(&self.inner, HttpMethod.PUT, p, h, name)!!;
+fn void Router.add_patch(&self, String p, RequestHandler h, String name = "") => router_add(&self.inner, HttpMethod.PATCH, p, h, name)!!;
+fn void Router.add_delete(&self, String p, RequestHandler h, String name = "") => router_add(&self.inner, HttpMethod.DELETE, p, h, name)!!;
+fn void Router.add_head(&self, String p, RequestHandler h, String name = "") => router_add(&self.inner, HttpMethod.HEAD, p, h, name)!!;
 fn void Router.add_options(&self, String p, RequestHandler h, String name = "") => router_add(&self.inner, HttpMethod.OPTIONS, p, h, name)!!;
-fn void Router.add_ws     (&self, String p, WsHandler wh, String name = "") => router_add_ws(&self.inner, p, wh, name)!!;
+fn void Router.add_ws(&self, String p, WsHandler wh, String name = "") => router_add_ws(&self.inner, p, wh, name)!!;
 
 fn void? Router.add_static(&self, String url_prefix, String fs_path) @maydiscard
 {
@@ -406,9 +374,9 @@ struct Request {
     aiohttp::Url          url;
     String       path;
     Headers*     headers;
-    Headers*     query;
+    Query*     query;
     Headers*     match_info;
-    Headers*     cookies;
+    Cookies*     cookies;
     bool         can_read_body;
     Application* app;
     
@@ -607,7 +575,7 @@ warn("-");
     }
 warn("-");
     // query params
-    req.query = aiohttp::headers_new();
+    req.query = aiohttp::query_new();
     p.decode_query();
     for (usz i = 0; i < p.n_queries; i++) {
         String dk = aiohttp::pct_decode(localmem, p.queries[i].key, true);
@@ -616,7 +584,7 @@ warn("-");
     }
 warn("-");
     // cookies
-    req.cookies = aiohttp::headers_new();
+    req.cookies = aiohttp::cookies_new();
     p.decode_cookies();
     for (uint i = 0; i < p.n_cookies; i++) {
         req.cookies.add(p.cookies[i].key, p.cookies[i].value);
@@ -764,7 +732,7 @@ warn("-");
         // run middleware chain
         MwTable mw_table;
         mw_table_init(&mw_table);
-        for (usz i = 0; i < app.middleware_count; i++) {
+        for (usz i = 0; i < app.middlewares.len(); i++) {
             mw_table_add(&mw_table, app.middlewares[i]);
         }
 
@@ -806,7 +774,7 @@ fn AppRunner* runner_new(Application* app)
 
 fn void? AppRunner.setup(&self)
 {
-    for (usz i = 0; i < self.app.startup_count; i++) {
+    for (usz i = 0; i < self.app.startup_hooks.len(); i++) {
         self.app.startup_hooks[i](self.app)!;
     }
     self.running = true;
@@ -815,10 +783,10 @@ fn void? AppRunner.setup(&self)
 fn void? AppRunner.cleanup(&self) @maydiscard
 {
     self.running = false;
-    for (usz i = 0; i < self.app.cleanup_count; i++) {
+    for (usz i = 0; i < self.app.cleanup_hooks.len(); i++) {
         self.app.cleanup_hooks[i](self.app)!;
     }
-    for (usz i = 0; i < self.app.shutdown_count; i++) {
+    for (usz i = 0; i < self.app.shutdown_hooks.len(); i++) {
         self.app.shutdown_hooks[i](self.app)!;
     }
 }

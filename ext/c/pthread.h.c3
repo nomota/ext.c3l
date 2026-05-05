@@ -234,6 +234,13 @@ extern fn void pthread_cleanup_push(CleanupFn routine, void* arg);
 // Pop and execute cleanup handler
 extern fn void pthread_cleanup_pop(CInt execute);
 
+// Non-Portable Extensions (Linux/glibc)
+
+// Get thread attributes of an existing thread
+// Note: Caller must destroy the returned attr with pthread_attr_destroy()
+extern fn CInt pthread_getattr_np(Pthread thread, PthreadAttr* attr) @if(env::LINUX);
+
+
 // Type Definitions
 
 alias CSize = usz;

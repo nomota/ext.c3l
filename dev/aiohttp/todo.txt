@@ -1,12 +1,12 @@
-client cookie => server cookie
 
-server set-cookie
+Todo:
 
 client path option => server path option
 
 client query => server query resp
 
 client form => server form
+json input / output
 
 client multipart upload
 
@@ -19,9 +19,15 @@ client chunk upload file
 
 gzip/deflate
 
+access log/error log
+
 Tls/SSL
 
-Done
 
+
+Done:
+
+20260501 client cookie => server cookie
+         server set-cookie
 20260430 server config servername
 

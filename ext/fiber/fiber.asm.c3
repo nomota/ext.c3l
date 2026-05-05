@@ -2,7 +2,7 @@
 
 // Fast context switching by assembly code
 
-// Nomota <hiongun@gmail.com>; MIT Licensd
+// Nomota <hiongun@gmail.com>; MIT License
 
 module ext::thread::fiber @if(env::X86_64 || env::AARCH64);
 
@@ -142,18 +142,19 @@ fn Fiber* create(uint stack_size, Coroutine coroutine)
     char* block;
 
     if (debug::debug) {
-        block = localmem.malloc(stack_size + CANARY.len);
-        string::memset(&block[0], 'Z', stack_size);
-        string::memcpy(&block[stack_size], CANARY.ptr, CANARY.len);
+        block = localmem.malloc(stack_size + CANARY.len*2);
+        string::memset(&block[0], 'Z', stack_size+CANARY.len*2);
+        string::memcpy(&block[0], CANARY.ptr, CANARY.len);
+        string::memcpy(&block[stack_size+CANARY.len], CANARY.ptr, CANARY.len);
     } else {
         block = localmem.malloc(stack_size);
     }
 
-    fiber.block = block;
+    fiber.block = block; // == canary+stack+canary
     @assert(fiber.block != null, "error");
     
-    void *handle = block;
-    fiber.handle = handle;
+    void *handle = block+CANARY.len;
+    fiber.handle = handle; // stack
 
     // Build the initial stack layout:
     //
@@ -188,7 +189,12 @@ fn void check_canary(Fiber* fiber) @inline @private
     
     usz stack_size = fiber.stack_size;
 
-    if (string::strncmp(fiber.block + stack_size, CANARY.ptr, CANARY.len) != 0) {
+    if (string::strncmp(fiber.block, CANARY.ptr, CANARY.len) != 0) {
+        warn("Prefix canary breached, fiber stack size is too small. current stack_size:%d", stack_size);
+        stdlib::exit(0);
+    }
+
+    if (string::strncmp(fiber.block + stack_size+CANARY.len, CANARY.ptr, CANARY.len) != 0) {
         warn("Postfix canary breached, fiber stack size is too small. current stack_size:%d", stack_size);
         stdlib::exit(0);
     }
@@ -207,18 +213,18 @@ fn void diag()
         warn("it's primary fiber");
         return; // primary has no block
     }
-    warn("%p %p", fiber, fiber.handle);
-    @assert(fiber.block != null, "error");
     
+    @assert(fiber.block != null);
+
     usz stack_size = fiber.stack_size;
 
-    if (string::strncmp(fiber.block + stack_size, CANARY.ptr, CANARY.len) != 0) {
-        warn("Postfix canary breached, fiber stack size is too small. current stack_size:%d", stack_size);
-    }
+    warn("stack low:%p, high:%p", fiber.handle, fiber.handle+stack_size);
     
     usz used = stack_used(fiber);
     float usage = (float)used/(float)stack_size;
     warn("stack_size:%d, used:%d, usage:%.1f%%", stack_size, used, usage*100);
+    
+    check_canary(fiber);
 }
 
 fn usz stack_used(Fiber* fiber)
@@ -230,7 +236,7 @@ fn usz stack_used(Fiber* fiber)
     usz stack_size = fiber.stack_size;
     usz untouched = 0;
     for (isz i = 0; i < stack_size; i++) {
-        usz idx = i;
+        usz idx = CANARY.len+i;
         if (fiber.block[idx] == 'Z') {
             untouched += 1;
         }

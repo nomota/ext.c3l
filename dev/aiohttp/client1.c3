@@ -13,9 +13,14 @@ import ext::debug;
 
 fn void client_main()
 {
-    ClientSession* session = aiohttp::session_new();
+    Cookies* c1 = aiohttp::cookies_new(); defer c1;
+    c1.set("a", "a-val");
+    c1.set("b", "b-val");
+    ClientSession* session = aiohttp::session_new(cookies:c1);
 warn("-");
-    ClientResponse*? resp = session.get("http://127.0.0.1:8080/");
+    Cookies* c2 = aiohttp::cookies_new(); defer c2;
+    c2.set("c", "c-val");
+    ClientResponse*? resp = session.get("http://127.0.0.1:8080/", cookies:c2);
     if (catch err = resp) {
         io::printfn("[client] request failed: %s", err);
         session.close();
@@ -35,6 +40,10 @@ warn("-");
         io::printfn("[client] Content-Length: %s", clen);
     }
 
+    for (usz i = 0; i < resp.headers.len(); i++) {
+        Header h = resp.headers.get_at(i);
+        warn("%s %s", h.name, h.value);
+    }
 
     String? text = resp.text();
     if (catch err = text) {

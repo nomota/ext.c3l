@@ -20,14 +20,14 @@ import ext::debug;
 import ext::mem;
 import std::collections::map;
 
-tlocal HashMap{int,String} ips; // IP addr cache
+tlocal HashMap{int,String} ips @private; // IP addr cache
 
 fn String? socket_ip(int fd)
 {
     return ips[fd]!;
 }
 
-fn char* str2cptr(String str, char[] buf) @inline
+fn char* str2cptr(String str, char[] buf) @inline @private
 {
     usz len = (str.len <= buf.len-1)? str.len: buf.len-1;
     string::memcpy(&buf[0], &str[0], len);
@@ -36,7 +36,7 @@ fn char* str2cptr(String str, char[] buf) @inline
 }
 
 // _resolve_and_bind_win, _resolve_and_datagram, socket()
-fn void _disable_conn_reset(winsock2::Socket sock)
+fn void _disable_conn_reset(winsock2::Socket sock) @private
 {
     int off = 0;
     winbase::DWord dummy;
@@ -91,7 +91,7 @@ fn int socket(String ipversion, String proto)
 
 alias ClientHandler = fn void(Stream*);
 
-fn void store_ip_addr(int sock, netdb::AddrInfo* res)
+fn void store_ip_addr(int sock, netdb::AddrInfo* res) @private
 {
     void *addr;
     if (res.ai_family == winsock2::AF_INET) { // IPv4
@@ -120,7 +120,7 @@ alias ConnectExFn = fn winbase::Bool(
 
 tlocal ConnectExFn _connectEx;
 
-fn void _load_connectex(winsock2::Socket s)
+fn void _load_connectex(winsock2::Socket s) @private
 {
     if (_connectEx != null) return;
     guiddef::Guid guid = mswsock::WSAID_CONNECTEX;
@@ -142,7 +142,7 @@ fn int? _resolve_and_connect_win(char* host, ushort port)
     stdio::snprintf(&port_str[0], 16, "%d", (int)port);
 
     ws2tcpip::AddrInfo hints = {};
-    // string::memset(&hints, 0, $sizeof(hints));
+
     hints.ai_family = winsock2::AF_UNSPEC;
     hints.ai_socktype = winsock2::SOCK_STREAM;
 
@@ -260,7 +260,7 @@ fn Stream*? open_connection(String host_str, ushort port)
     return stream_new(fd); // close() must be done at caller
 }
 
-fn int? _resolve_and_datagram(char* host, ushort port) 
+fn int? _resolve_and_datagram(char* host, ushort port) @private
 {
     char[16] port_str;
     stdio::snprintf(&port_str[0], 16, "%d", (int)port);
@@ -309,7 +309,7 @@ fn Datagram*? open_datagram(String host_str, ushort port)
     return datagram_new(fd); // close() must be call at caller
 }
 
-fn int? _resolve_and_bind_win(char* host, ushort port) 
+fn int? _resolve_and_bind_win(char* host, ushort port) @private
 {
     char[16] port_str;
     stdio::snprintf(&port_str[0], 16, "%d", (int)port);
@@ -358,7 +358,7 @@ fn int? _resolve_and_bind_win(char* host, ushort port)
     return result;
 }
 
-fn Datagram*? bind_endpoint(String host_str, ushort port)
+fn Datagram*? bind_endpoint(String host_str, ushort port) 
 {
     char[256] buf;
     char* host = str2cptr(host_str, &buf);
@@ -394,12 +394,12 @@ fn void Server.free(&self)
     localmem.free(self);
 }
 
-struct ClientCtx {
+struct ClientCtx @private {
     int fd;
     ClientHandler handler;
 }
 
-fn void _client_task() 
+fn void _client_task() @private
 {
     EventLoop* loop = asyncio::get_running_loop();
     Task* self = loop.current;
@@ -442,6 +442,24 @@ fn void _load_acceptex(winsock2::Socket s)
     winbase::DWord bytes = 0;
     int rr = winsock2::wsaIoctl(s, winsock2::SIO_GET_EXTENSION_FUNCTION_POINTER, &guid, $sizeof(guid), &_acceptEx, $sizeof(_acceptEx), &bytes, null, null);
     if (rr != 0) _acceptEx = null;
+}
+
+fn String get_ip(winsock2::SockAddrStorage* ss)
+{
+    char[47] ip_buf = {};
+    usz ip_len = 0;
+
+    ushort family = ((winsock2::SockAddrIn*)ss).sin_family;
+    if (family == (ushort)winsock2::AF_INET6) {
+        winsock2::SockAddrIn6* a6 = (winsock2::SockAddrIn6*)ss;
+        winsock2::inet_ntop(winsock2::AF_INET6, &a6.sin6_addr, &ip_buf[0], 46);
+    } else {
+        winsock2::SockAddrIn* a4 = (winsock2::SockAddrIn*)ss;
+        winsock2::inet_ntop(winsock2::AF_INET, &a4.sin_addr, &ip_buf[0], 16);
+    }
+    ip_len = (usz)string::strlen(&ip_buf[0]);
+
+    return ((String)ip_buf[0:ip_len]).copy(localmem);
 }
 
 fn void _accept_loop_win(Server* self)
@@ -508,15 +526,18 @@ fn void _accept_loop_win(Server* self)
             winsock2::closesocket(accept_sock);
             continue;
         }
+        
+        winsock2::SockAddrStorage peer;
+        int peer_len = $sizeof(peer);
+        if (winsock2::getpeername(accept_sock, (winsock2::SockAddr*)&peer, &peer_len) == 0) {
+            ips[(int)accept_sock] = get_ip(&peer);
+        }
 
         // @assert(_client_ctx_count < 256, "asyncio::net: client pool overflow");
         ClientCtx* ctx = localmem.alloc(ClientCtx);
         *ctx = { (int)accept_sock, self.handler };
 
         loop.create_task(&_client_task, "tcp_client", 128_000, true, ctx);
-        // asyncio::sleep_zero(); // need this to transfer _client_ctx to _client_task
-        // task.defer_free();
-
     }
 }
 

@@ -18,14 +18,6 @@ import c::sys::stat;
 import ext::debug;
 import ext::mem;
 
-/*
-//  syscall wrappers 
-
-extern fn long syscall(long nr, ...) @extern("syscall");
-
-const long SYS_IO_URING_SETUP = 425;
-const long SYS_IO_URING_ENTER = 426;
-*/
 
 fn int _uring_setup(uint entries, IoUringParams* p) @inline @private 
 {
@@ -125,17 +117,15 @@ struct UringMsgHdr {
 }
 
 //  op pool (used by async_read / async_write only)
+//  Buffers are caller-provided; ops carry no inline storage.
 
 const usz URING_ENTRIES  = 512;     // SQ / CQ size (power of 2)
-const usz URING_OP_POOL  = 256;     // max simultaneous async ops
-const usz URING_BUF_SIZE = 64 * 1024; // per-op inline buffer (64 KiB)
+const usz URING_OP_POOL  = 64;      // max simultaneous async ops
 
 struct UringOp {
     bool    active;
     int     result;    // filled by io_poll from CQE.res  (default -1)
     Future* future;
-    // inline buffer for async_read / async_write
-    char[URING_BUF_SIZE] buf;
 }
 
 tlocal UringOp[URING_OP_POOL] _op_pool;
@@ -487,8 +477,13 @@ fn bool _would_block() @inline @private
 }
 
 //  async_read 
-// Submits IORING_OP_RECV (socket) or IORING_OP_READ (file) and awaits
-// the CQE; no EAGAIN retry loop needed.
+// Submits IORING_OP_RECV (socket) or IORING_OP_READ (file) targeting the
+// caller-provided buffer directly (zero-copy).  No EAGAIN retry loop needed:
+// io_uring delivers the completion when data is ready.
+//
+// The caller's buf must remain valid until this call returns.  Since the
+// fiber awaits the future here, the buffer (typically on the caller's
+// fiber stack or heap) is naturally pinned for the duration of the op.
 
 fn usz? async_read(int fd, void* buf, usz len)
 {
@@ -501,7 +496,6 @@ fn usz? async_read(int fd, void* buf, usz len)
     Future* fut = loop.create_future();
     op.future = fut;
 
-    usz rlen = len < URING_BUF_SIZE ? len : URING_BUF_SIZE;
     IoUringSqe* sqe = _get_sqe();
     if (_is_socket(fd)) {
         sqe.opcode   = IORING_OP_RECV;
@@ -511,8 +505,8 @@ fn usz? async_read(int fd, void* buf, usz len)
         sqe.off    = (ulong)-1; // use current file position (kernel ≥ 5.6)
     }
     sqe.fd        = fd;
-    sqe.addr      = (ulong)(iptr)&op.buf[0];
-    sqe.len       = (uint)rlen;
+    sqe.addr      = (ulong)(iptr)buf;
+    sqe.len       = (uint)len;
     sqe.user_data = (ulong)slot;
     _flush_submit();
 
@@ -520,40 +514,32 @@ fn usz? async_read(int fd, void* buf, usz len)
     fault   ferr = fut.error;
     int     res  = op.result;
     fut.free();
+    _op_free(slot);
 
     if (catch err = raw) {
-        _op_free(slot);
         if (ferr == IO_ERROR) return IO_ERROR~;
         return err~;
     }
-
-    if (res > 0) {
-        usz n = (usz)res < len ? (usz)res : len;
-        string::memcpy(buf, &op.buf[0], n);
-    }
-    _op_free(slot);
     if (res < 0) return IO_ERROR~;
     return (usz)res;
 }
 
 //  async_write 
-// Submits IORING_OP_SEND (socket) or IORING_OP_WRITE (file).
-// Loops when len > URING_BUF_SIZE.
+// Submits IORING_OP_SEND (socket) or IORING_OP_WRITE (file) directly
+// from the caller-provided buffer (zero-copy).  Loops only on partial
+// writes (the kernel may return fewer bytes than requested), advancing
+// the offset into the caller buffer each iteration.
 
 fn usz? async_write(int fd, void* buf, usz len)
 {
     EventLoop* loop = asyncio::get_running_loop();
-    usz total = 0;
     bool is_sock = _is_socket(fd);
+    usz total = 0;
 
     while (total < len) {
-        usz chunk = len - total;
-        if (chunk > URING_BUF_SIZE) chunk = URING_BUF_SIZE;
-
         usz slot = _op_alloc();
         if (slot == usz.max) return total > 0 ? total : IO_ERROR~;
         UringOp* op = &_op_pool[slot];
-        string::memcpy(&op.buf[0], (char*)buf + total, chunk);
 
         Future* fut = loop.create_future();
         op.future = fut;
@@ -567,8 +553,8 @@ fn usz? async_write(int fd, void* buf, usz len)
             sqe.off    = (ulong)-1;
         }
         sqe.fd        = fd;
-        sqe.addr      = (ulong)(iptr)&op.buf[0];
-        sqe.len       = (uint)chunk;
+        sqe.addr      = (ulong)(iptr)((char*)buf + total);
+        sqe.len       = (uint)(len - total);
         sqe.user_data = (ulong)slot;
         _flush_submit();
 

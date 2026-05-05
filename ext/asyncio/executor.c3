@@ -13,11 +13,21 @@ import ext::mem;
 import ext::thread::fiber;
 import c::pthread;
 import c::errno;
+import c::stdio;
+import c::stdlib;
+
+ThreadPool{4} pool;
+bool pool_initialized = false;
+
+fn void pool_init() @init
+{
+    if (! pool_initialized) {
+        pool.init()!!;
+        pool_initialized = true;
+    }
+}
 
 alias ExecutorFn = fn void*(void*);
-
-tlocal ThreadPool{4} pool;
-tlocal bool pool_initialized = false;
 
 struct ExecutorWork {
     ExecutorFn func;
@@ -27,24 +37,38 @@ struct ExecutorWork {
     EventLoop* loop;
 }
 
-fn void _executor_wakeup(void* work)
+macro void warn_stack(String tag) @private
 {
-    ExecutorWork* w = (ExecutorWork*)work;
+    PthreadAttr attr;
+    pthread::pthread_getattr_np(pthread::pthread_self(), &attr);
 
-    if (! w.future.done()) {
-        w.future.set_result(null); // notify finish
-    }
+    void* stack_addr;
+    usz stack_size;
+    pthread::pthread_attr_getstack(&attr, &stack_addr, &stack_size);
+
+    char marker;
+
+    stdio::printf(
+        "%s,%d: %s: stack low=%p high=%p size=%zu marker=%p\n(low.%d.marker.%d.high)\n",
+        $$FILE, $$LINE, tag,
+        stack_addr,
+        (char*)stack_addr + stack_size,
+        stack_size,
+        &marker, (int)(&marker-stack_addr), (int)(((char*)stack_addr + stack_size) - &marker)
+    );
+
+    pthread::pthread_attr_destroy(&attr);
 }
 
 fn int _executor_thread(void* work)
 {
     ExecutorWork* w = (ExecutorWork*)work;
-
+    
   @pool_init(mem, 16_000) { // Temp allocator needs init at each thread
     w.result = w.func(w.arg); // blocking operation runs on OS thread
   };
   
-    w.loop.call_soon_threadsafe(&_executor_wakeup, w); // safe cross-thread wakeup
+    w.future.set_result(null); // notify finish
 
     return 0;
 }
@@ -56,17 +80,11 @@ fn int _executor_thread(void* work)
 
 fn void*? EventLoop.run_in_executor(&self, ExecutorFn func, void* arg = null)
 {
-    if (! pool_initialized) {
-        pool.init()!;
-        pool_initialized = true;
-    }
 
     Future* fut = self.create_future();
     fut.defer_free();
     
-    ExecutorWork* w = localmem.alloc(ExecutorWork); defer localmem.free(w);
-
-    *w = {
+    ExecutorWork w = {
         .func = func, 
         .arg = arg, 
         .result = null,
@@ -75,16 +93,13 @@ fn void*? EventLoop.run_in_executor(&self, ExecutorFn func, void* arg = null)
     };
 
     self.executor_count++;
- 
-    pool.push(&_executor_thread, w)!;
     
+    pool.push(&_executor_thread, &w)!;
     void* r = fut.await()!; // resumes in _executor_wakeup
 
     self.executor_count--;
 
-    void* result = w.result;
-
-    return result;
+    return w.result;
 }
 
 // Module-level shorthand — uses the currently running loop.

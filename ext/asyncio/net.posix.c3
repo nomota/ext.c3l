@@ -22,7 +22,7 @@ import ext::mem;
 import std::collections::map;
 import ext::thread::fiber;
 
-tlocal HashMap{int,String} ips; // IP addr cache
+tlocal HashMap{int,String} ips @private; // IP addr cache
 
 fn String? socket_ip(int fd)
 {
@@ -73,7 +73,7 @@ fn int socket(String ipversion, String proto)
 
 alias ClientHandler = fn void(Stream*);
 
-fn void store_ip_addr(int sock, netdb::AddrInfo* res)
+fn void store_ip_addr(int sock, netdb::AddrInfo* res) @private
 {
     void *addr;
     if (res.ai_family == socket::AF_INET) { // IPv4
@@ -90,7 +90,7 @@ fn void store_ip_addr(int sock, netdb::AddrInfo* res)
     ips[sock] = ((String)ipstr[0:string::strlen(&ipstr[0])]).copy(localmem);
 }
 
-fn int? _resolve_and_connect(char* host, ushort port) 
+fn int? _resolve_and_connect(char* host, ushort port) @private
 {
     char[16] port_str;
     stdio::snprintf(&port_str[0], 16, "%d", (int)port);
@@ -160,7 +160,7 @@ fn Stream*? open_connection(String host_str, ushort port)
     return stream_new(fd); // close() must be done at caller
 }
 
-fn int? _resolve_and_datagram(char* host, ushort port)
+fn int? _resolve_and_datagram(char* host, ushort port) @private
 {
     char[16] port_str;
     stdio::snprintf(&port_str[0], 16, "%d", (int)port);
@@ -206,7 +206,7 @@ fn Datagram*? open_datagram(String host_str, ushort port)
 }
 
 
-fn int? _resolve_and_bind(char* host, ushort port)
+fn int? _resolve_and_bind(char* host, ushort port) @private
 {
     char[16] port_str;
     stdio::snprintf(&port_str[0], 16, "%d", (int)port);
@@ -284,12 +284,12 @@ fn void Server.free(&self)
     localmem.free(self);
 }
 
-struct ClientCtx {
+struct ClientCtx @private {
     int fd;
     ClientHandler handler;
 }
 
-fn void _client_task()
+fn void _client_task() @private
 {
     EventLoop* loop = asyncio::get_running_loop();
     Task* self = loop.current;
@@ -306,8 +306,24 @@ fn void _client_task()
     handler(conn); // close() must be called in handler
 }
 
+fn String get_ip(socket::SockAddrStorage* ss)
+{
+    char[47] ip_buf = {};
+    usz ip_len = 0;
+    if (ss.ss_family == (ushort)socket::AF_INET6) {
+        in::SockAddrIn6* a6 = (in::SockAddrIn6*)ss;
+        in::inet_ntop(socket::AF_INET6, &a6.sin6_addr, &ip_buf[0], 46);
+        ip_len = (usz)string::strlen(&ip_buf[0]);
+    } else {
+        in::SockAddrIn* a4 = (in::SockAddrIn*)ss;
+        in::inet_ntop(socket::AF_INET, &a4.sin_addr, &ip_buf[0], 16);
+        ip_len = (usz)string::strlen(&ip_buf[0]);
+    }
+    return ((String)ip_buf[0:ip_len]).copy(localmem);
+}
+    
 
-fn void? _accept_loop(Server* self) 
+fn void? _accept_loop(Server* self) @private
 {
     EventLoop* loop = asyncio::get_running_loop();
 
@@ -341,21 +357,16 @@ fn void? _accept_loop(Server* self)
                 break;
             }
             set_nonblocking(cfd);
+            ips[cfd] = get_ip(&addr);
 
             ClientCtx* ctx = localmem.alloc(ClientCtx);
             *ctx = { cfd, self.handler };
 
-            // warn("create_task tcp_client");
             loop.create_task(&_client_task, "tcp_client", 256_000, true, ctx);
-            // No need to defer_free(), autofree == true
-            // task.defer_free();
-            // asyncio::sleep_zero(); // need this to transfer _client_ctx to _client_task
         }
     }
 }
 
-
-// tlocal Server* _server_instance;
 
 fn void serv_fn() @private
 {
@@ -370,6 +381,8 @@ fn void serv_fn() @private
         }
     }
 }
+
+faultdef INET_PTON_ERROR, BIND_ERROR;
 
 fn Server*? start_server(ClientHandler handler, String host_str, ushort port) 
 {
@@ -393,7 +406,6 @@ fn Server*? start_server(ClientHandler handler, String host_str, ushort port)
     int b = 0;
     if (family == socket::AF_INET6) {
         in::SockAddrIn6 addr6 = {};
-        // string::memset(&addr6, 0, $sizeof(addr6));
         addr6.sin6_family = family;
         addr6.sin6_port = in::htons(port);
         
@@ -402,15 +414,13 @@ fn Server*? start_server(ClientHandler handler, String host_str, ushort port)
         } else {
             if (in::inet_pton(family, host, &addr6.sin6_addr) != 1) {
                 unistd::close(fd);
-                return IO_ERROR~;
+                return INET_PTON_ERROR~;
             }
         }
-        // in::inet_pton(family, host, &addr6.sin6_addr);
 
         b = socket::bind(fd, (socket::SockAddr*)&addr6, $sizeof(addr6));
     } else {
         in::SockAddrIn addr4 = {};
-        // string::memset(&addr4, 0, $sizeof(addr4));
         addr4.sin_family = family;
         addr4.sin_port = in::htons(port);
 
@@ -419,32 +429,30 @@ fn Server*? start_server(ClientHandler handler, String host_str, ushort port)
         } else {
             if (in::inet_pton(family, host, &addr4.sin_addr) != 1) {
                 unistd::close(fd);
-                return IO_ERROR~;
+                return INET_PTON_ERROR~;
             }
         }
-        // in::inet_pton(family, host, &addr4.sin_addr);
         
         b = socket::bind(fd, (socket::SockAddr*)&addr4, $sizeof(addr4));
     }
     
     if (b != 0) {
         unistd::close(fd);
-        return IO_ERROR~;
+        return BIND_ERROR~;
     }
 
     @assert(socket::listen(fd, 128) == 0, "asyncio::net: listen() failed");
 
     Server* server = server_new();
     
-    // *server = { fd, true, port, handler, null, null };
-    
-    *server = {};
-    server.listen_fd = fd;
-    server.running = true;
-    server.port = port;
-    server.handler = handler;
-    server.accept_task = null;
-    server.transport = null;
+    *server = {
+        .listen_fd = fd,
+        .running = true,
+        .port = port,
+        .handler = handler,
+        .accept_task = null,
+        .transport = null,
+    };
 
     return server; // free() at caller
 }
@@ -452,13 +460,8 @@ fn Server*? start_server(ClientHandler handler, String host_str, ushort port)
 fn void? Server.serve_forever(&self) @maydiscard
 {
     EventLoop* loop = asyncio::get_running_loop();
-
-    // _server_instance = self;
-    // warn("create_task tcp_accept_loop");    
+   
     Task* t = loop.create_task(&serv_fn, "tcp_accept_loop", 64_000, false, self);
-    // No need to defer_free(), autofree == true
-    //asyncio::sleep_zero();
-    //task.defer_free();
     
     self.accept_task = t;
     void*? res = t.await();

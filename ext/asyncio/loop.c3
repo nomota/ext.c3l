@@ -93,7 +93,7 @@ fn void _shield_relay()
 
 // Protect fut from external cancellation; returns a new proxy Future
 fn Future* shield(Future* fut)
-    {
+{
     @assert(_shield_src == null, "shield() is running, no two shield() at the same time");
     Future* outer = fut.loop.create_future();
     outer.add_done_callback(&_cancel_free_future, outer);

@@ -54,7 +54,7 @@ fn String Stream.get_ip(&self)
 }
 
 // close() calls _free()
-fn void Stream._free(&self) 
+fn void Stream._free(&self) // private
 {
     localmem.free(self);
 }
@@ -103,31 +103,48 @@ fn usz? Stream.read(&self, char[] buf)
 {
     usz got = 0;
     char* dst = buf.ptr;
-    while (got < buf.len) {
-        while (self.available() == 0) {
-            if (self.eof) return got;
-            if (!self.fill()!) return got;
-        }
-        usz take = buf.len - got;
-        if (take > self.available()) take = self.available();
-        string::memcpy(dst + got, &self.rbuf[self.rbuf_start], take);
+
+    // 1. consume rbuf first
+    if (self.available() > 0) {
+        usz take = self.available();
+        if (take > buf.len) take = buf.len;
+        string::memcpy(dst, &self.rbuf[self.rbuf_start], take);
         self.rbuf_start += take;
         got += take;
+    }
+
+    // 2. directly to buf
+    while (got < buf.len) {
+        if (self.eof) return got;
+        usz? n = async_read(self.fd, dst + got, buf.len - got);
+        if (catch err = n) {
+            self.error = err;
+            return err~;
+        }
+        if (n == 0) { self.eof = true; return got; }
+        got += n;
     }
     return got;
 }
 
 fn usz? Stream.read_any(&self, char[] buf) 
 {
-    if (self.available() == 0) {
-        if (self.eof) return 0;
-        self.fill()!;
-        if (self.available() == 0) return 0;
+    if (self.available() > 0) {
+        usz take = buf.len < self.available() ? buf.len : self.available();
+        string::memcpy(buf.ptr, &self.rbuf[self.rbuf_start], take);
+        self.rbuf_start += take;
+        return take;
     }
-    usz take = buf.len < self.available() ? buf.len : self.available();
-    string::memcpy(buf.ptr, &self.rbuf[self.rbuf_start], take);
-    self.rbuf_start += take;
-    return take;
+
+    if (self.eof) return 0;
+
+    usz? n = async_read(self.fd, buf.ptr, buf.len);
+    if (catch err = n) {
+        self.error = err;
+        return err~;
+    }
+    if (n == 0) { self.eof = true; }
+    return n;
 }
 
 fn usz? Stream.read_until(&self, char delim, char[] buf) 
@@ -135,13 +152,29 @@ fn usz? Stream.read_until(&self, char delim, char[] buf)
     usz total = 0;
     char* dst = buf.ptr;
     while (total < buf.len) {
-        while (self.available() == 0) {
+        if (self.available() == 0) {
             if (self.eof) return total;
             if (!self.fill()!) return total;
         }
-        char c = self.rbuf[self.rbuf_start++];
-        dst[total++] = c;
-        if (c == delim) return total;
+
+        // in rbuf, scan until delim, memcpy
+        usz avail = self.available();
+        usz space = buf.len - total;
+        usz scan  = avail < space ? avail : space;
+
+        usz take = scan;
+        bool found = false;
+        for (usz i = 0; i < scan; i++) {
+            if (self.rbuf[self.rbuf_start + i] == delim) {
+                take = i + 1; // include delim
+                found = true;
+                break;
+            }
+        }
+        string::memcpy(dst + total, &self.rbuf[self.rbuf_start], take);
+        self.rbuf_start += take;
+        total += take;
+        if (found) return total;
     }
     return total;
 }

@@ -11,7 +11,7 @@ macro void warn(String fmt, args...) @builtin
     io::printfn(fmt, ...args);
 }
 
-macro @assert(#expr, String msg) @builtin
+macro @assert(#expr, String msg = "assert failed") @builtin
 {
   if (debug) {
     if (!(#expr)) {

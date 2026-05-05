@@ -18,7 +18,7 @@ import ext::debug;
 import ext::mem;
 
 const usz MAX_EVENTS = 1024;
-const usz MAX_FD_WATCH  = 4096;
+const usz MAX_FD_WATCH  = 2048;
 
 struct FdWatch {
     int fd;
@@ -357,7 +357,6 @@ fn usz? async_write(int fd, void* buf, usz len)
         
         void*? res = fut.await();
         fault ferror = fut.error;
-        // fut.free();
         
         if (catch err = res) {
             FdWatch* w = _find(fd);

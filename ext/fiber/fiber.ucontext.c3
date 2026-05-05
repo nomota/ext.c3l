@@ -18,6 +18,7 @@ struct Fiber {
 
 tlocal Fiber* running = null;
 tlocal Fiber primary;
+tlocal LocalAllocator localmem = {};
 
 alias Coroutine = fn void();
 
@@ -25,7 +26,7 @@ fn void init(Allocator allocx = mem, bool debug = true) @private
 {
     if (running != null) return;
     running = &primary;
-    mem::set_allocator(allocx);
+    localmem = allocx;
     debug::set_debug(debug);
 }
 
@@ -47,7 +48,7 @@ fn Fiber* create(uint stack_size, Coroutine coroutine)
 {
     if (running == null) init();
  
-    Fiber* fiber = mem_alloc(Fiber);
+    Fiber* fiber = localmem.alloc(Fiber);
    
     ucontext::getcontext(&fiber.context);
     UContext* ctx = &fiber.context;
@@ -55,15 +56,15 @@ fn Fiber* create(uint stack_size, Coroutine coroutine)
     ctx.uc_link = null;
 
     char* block;
-    if (debug) {
-        block = mem_malloc(stack_size+CANARY.len*2);
+    if (debug::debug) {
+        block = localmem.malloc(stack_size+CANARY.len*2);
         // warn("#### malloc block=%p", block);
         string::memcpy(&block[0], CANARY.ptr, CANARY.len);
         string::memset(&block[CANARY.len], 'Z', stack_size);
         string::memcpy(&block[CANARY.len+stack_size], CANARY.ptr, CANARY.len);
         ctx.uc_stack.ss_sp = block+CANARY.len;
     } else {
-        block = mem_malloc(stack_size);
+        block = localmem.malloc(stack_size);
         ctx.uc_stack.ss_sp = block;
     }
     
@@ -80,15 +81,16 @@ fn Fiber* create(uint stack_size, Coroutine coroutine)
 fn void delete(Fiber* fiber) 
 {
     if (fiber == null || fiber == &primary) return;
-    check_canary();
+    check_canary(fiber);
     // warn("@@@  free block=%p,stack_size:%dKB,stack_filled:%dKB", fiber.block, fiber.stack_size/1024, stack_filled(fiber)/1024);
-    mem_free(fiber.block);
-    mem_free(fiber);
+    localmem.free(fiber.block);
+    localmem.free(fiber);
 }
 
-fn void check_canary(fiber) @inline @private
+fn void check_canary(Fiber* fiber) @inline @private
 {
-    if (! debug) return;
+    if (! debug::debug) return;
+    
     usz stack_size = fiber.stack_size;
 
     if (string::strncmp(fiber.block, CANARY.ptr, CANARY.len) != 0) {
@@ -102,9 +104,37 @@ fn void check_canary(fiber) @inline @private
     }
 }
 
+fn void diag()
+{
+    Fiber* fiber = active();
+    if (fiber == &primary) {
+        warn("it's primary fiber");
+        return; // primary has no block
+    }
+    
+    @assert(fiber.block != null, "error");
+    
+    usz stack_size = fiber.stack_size;
+
+    if (string::strncmp(fiber.block, CANARY.ptr, CANARY.len) != 0) {
+        warn("Prefix canary breached");
+        stdlib::exit(0);
+    }
+    
+    if (string::strncmp(fiber.block+CANARY.len+stack_size, CANARY.ptr, CANARY.len) != 0) {
+        warn("Postfix canary breached");
+        stdlib::exit(0);
+    }
+    
+    usz used = stack_used(fiber);
+    float usage = (float)used/(float)stack_size;
+    warn("stack_size:%d, used:%d, usage:%.1f%%", stack_size, used, usage*100);
+}
+
+
 fn usz stack_used(Fiber* fiber)
 {
-    if (! debug) return 0;
+    if (! debug::debug) return 0;
     
     usz stack_size = fiber.context.uc_stack.ss_size;
     // warn("%d %c%c%c", stack_size, fiber.block[CANARY.len+stack_size-3],fiber.block[CANARY.len+stack_size-2],fiber.block[CANARY.len+stack_size-1]);
