@@ -4,7 +4,7 @@
 
 // Nomota <hiongun@gmail.com>; MIT License
 
-module ext::thread::fiber @if(env::WIN32 && !(env::X86_64 || env::AARCH64));
+module ext::thread::fiber @if(env::WIN32);
 
 import c::winbase;
 import ext::mem;

@@ -4,7 +4,7 @@
 
 // Nomota <hiongun@gmail.com>; MIT License
 
-module ext::thread::fiber @if(env::X86_64 || env::AARCH64);
+module ext::thread::fiber @if(!env::WIN32 && (env::X86_64 || env::AARCH64));
 
 import c::unistd;
 import c::sys::mman;
@@ -37,7 +37,7 @@ char[4096] asmblock @align(4096);
 
 const char[] CANARY = "CANARYCANARYCANARYCANARY"; // 24 bytes
 
-tlocal LocalAllocator localmem = {};
+LocalAllocator localmem = {};
 
 fn void init(Allocator allocx = mem, bool debug = true) @private
 {

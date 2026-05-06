@@ -233,7 +233,7 @@ struct EventLoopConfig {
 }
 
 tlocal EventLoopConfig cfg;
-tlocal LocalAllocator localmem = {};
+local LocalAllocator localmem = {};
 
 fn void set_eventloop_config(usz taskq=1024, usz timerq=512, usz soonq=512)
 {

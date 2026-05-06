@@ -65,15 +65,15 @@ fn int socket_new(int family, int type)
     return (int)sock;
 }
 
-fn void socket_close(int fd)
+fn void socket_close(int sock)
 {
     String? ip = ips[sock];
     if (try ip) {
         ip.free(localmem);
         ips.remove(sock);
     }
-    unregister(fd);
-    winsock2::closesocket((winsock2::Socket)(iptr)fd);
+    unregister(sock);
+    winsock2::closesocket((winsock2::Socket)(iptr)sock);
 }
 
 fn int socket(String ipversion, String proto)
@@ -91,7 +91,7 @@ fn int socket(String ipversion, String proto)
 
 alias ClientHandler = fn void(Stream*);
 
-fn void store_ip_addr(int sock, netdb::AddrInfo* res) @private
+fn void store_ip_addr(int sock, ws2tcpip::AddrInfo* res) @private
 {
     void *addr;
     if (res.ai_family == winsock2::AF_INET) { // IPv4

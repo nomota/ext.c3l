@@ -11,16 +11,18 @@ build:
 	@make test_response
 	@make test_url
 	@make test_form_cookie
+	@make test_application
 
 clean:
-	-@rm -f x y
+	-@rm -f x y *.exe *.pdb
 	-@rm -f server1
 	-@rm -f server2
 	-@rm -f test_router
 	-@rm -f test_request
 	-@rm -f test_response
-	-@rm -f tesy_url
+	-@rm -f test_url
 	-@rm -f test_form_cookie
+	-@rm -f test_application
 	# -@rm -f client1
 	
 
