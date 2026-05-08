@@ -35,7 +35,7 @@ fn void deinit()
 fn usz page_size() @private
 {
     SystemInfo info = {};
-    windows::GetSystemInfo(&info);
+    windows::getSystemInfo(&info);
 
     if (info.dwPageSize == 0) return 4096;
 
@@ -76,7 +76,7 @@ fn char* stack_alloc(
     //
     //     [ reserved/no-access guard page ][ committed RW stack ]
     //
-    void* p = memoryapi::VirtualAlloc(
+    void* p = memoryapi::virtualAlloc(
         null,
         total_size,
         winnt::MEM_RESERVE,
@@ -89,7 +89,7 @@ fn char* stack_alloc(
     char* stack_low = block + ps;
     char* stack_high = stack_low + usable_size;
 
-    void* committed = memoryapi::VirtualAlloc(
+    void* committed = memoryapi::virtualAlloc(
         stack_low,
         usable_size,
         winnt::MEM_COMMIT,
@@ -98,7 +98,7 @@ fn char* stack_alloc(
 
     if (committed == null)
     {
-        memoryapi::VirtualFree(block, 0, winnt::MEM_RELEASE);
+        memoryapi::virtualFree(block, 0, winnt::MEM_RELEASE);
         return null;
     }
 
@@ -114,5 +114,5 @@ fn void stack_free(char* block, usz block_size)
 {
     if (block == null || block_size == 0) return;
 
-    memoryapi::VirtualFree(block, 0, winnt::MEM_RELEASE);
+    memoryapi::virtualFree(block, 0, winnt::MEM_RELEASE);
 }

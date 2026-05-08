@@ -249,6 +249,12 @@ extern fn Bool writeProcessMemory(
     Size* numberOfBytesWritten
 ) @cname("WriteProcessMemory");
 
+extern fn Bool flushInstructionCache(
+    Handle process,
+    PVoid baseAddress,
+    Size size
+) @cname("FlushInstructionCache");
+
 // File mapping functions
 extern fn Handle createFileMappingA(
     Handle file,

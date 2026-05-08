@@ -123,16 +123,16 @@ fn void make_asm_executable(char[] block, char[] asm_bytes) @private
 
     block[0:asm_bytes.len] = asm_bytes[0:asm_bytes.len];
 
-    DWord old_protect = 0;
+    windows::DWord old_protect = 0;
 
-    bool ok = memoryapi::VirtualProtect(
+    windows::Bool ok = memoryapi::virtualProtect(
         (void*)&block[0],
         block.len,
         winnt::PAGE_EXECUTE_READ,
         &old_protect
     );
 
-    if (!ok)
+    if (ok != windows::TRUE)
     {
         warn("VirtualProtect failed for asmblock");
         stdlib::exit(1);
@@ -140,8 +140,8 @@ fn void make_asm_executable(char[] block, char[] asm_bytes) @private
 
     // If your bindings expose FlushInstructionCache, keep this.
     // It is harmless and correct for generated code.
-    memoryapi::FlushInstructionCache(
-        windows::GetCurrentProcess(),
+    memoryapi::flushInstructionCache(
+        windows::getCurrentProcess(),
         (void*)&block[0],
         asm_bytes.len
     );
