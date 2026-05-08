@@ -1,80 +1,249 @@
-# Fiber - a lightweight coroutine in C3
+# Fiber - Lightweight coroutines for C3
 
-This is a co-operative non-preemptive coroutine in C3. 
+`ext::fiber` provides lightweight, cooperative, non-preemptive coroutines for C3.
 
-Inspired by [libco](https://github.com/higan-emu/libco)
+It is inspired by [libco](https://github.com/higan-emu/libco) and provides a small execution-context abstraction that lets you create, switch, yield, and delete fibers within a single thread.
 
-It provides a lightweight cooperative multitasking system, allowing you to create and switch between multiple execution contexts (fibers) within a single thread.
+This module is part of the extended C3 library.
 
-### Based on
-* X86_64, AARCH64: Assembly code, fast switching
-* Windows: Native Fiber interface
-* Other Posix: based on ucontext
-* Added: other implementation using sigsetjmp() /siglongjmp()
+Back to [ext.c3l](../../README.md).
 
-### Available module
+---
+
+## Overview
+
+A fiber is a manually scheduled execution context with its own stack.
+
+Unlike OS threads, fibers are not scheduled by the kernel. They run cooperatively: execution switches only when you explicitly call `fiber::switch_to()` or `fiber::yield()`.
+
+Typical use cases include:
+
+- cooperative schedulers
+- async runtimes
+- lightweight task systems
+- protocol parsers
+- generators/state machines that benefit from stackful execution
+
+---
+
+## Backends
+
+The implementation is selected at compile time.
+
+### Current backends
+
+| Platform | Backend |
+|---------|---------|
+| POSIX x86-64 | Assembly context switching, System V ABI |
+| Windows x86-64 | Assembly context switching, Win64 ABI |
+| POSIX AArch64 | Assembly context switching |
+| Windows | Native Windows Fiber API |
+| POSIX fallback | `ucontext` |
+| POSIX experimental | `sigsetjmp()` / `siglongjmp()` |
+
+The assembly backends are the preferred fast-switching backends where supported.
+
+---
+
+## Available module
 
 | Module | Description |
 |--------|-------------|
-| `ext::thread::fiber` | Fiber operations: create(), delete(), active(), switch_to(), yield(), done() |
+| `ext::fiber` | Fiber operations: `create()`, `delete()`, `active()`, `switch_to()`, `yield()`, `done()`, `stack_used()`, `deinit()` |
 
+---
 
-This is a part of extended C3 library.
-Back to [ext.c3l](../../README.md) library.
+## Files
 
+| File | Description |
+|------|-------------|
+| `fiber.config.c3` | Compile-time backend selection |
+| `fiber.vm.posix.c3` | POSIX virtual-memory stack allocator |
+| `fiber.vm.win32.c3` | Windows virtual-memory stack allocator |
+| `fiber.asm.c3` | POSIX assembly backend for x86-64 System V and AArch64 |
+| `fiber.asm.win32.c3` | Windows x86-64 assembly backend |
+| `fiber.asm.x86_64.c3` | x86-64 System V machine-code switch routine |
+| `fiber.asm.x86_64.win32.c3` | x86-64 Win64 machine-code switch routine |
+| `fiber.asm.aarch64.c3` | AArch64 machine-code switch routine |
+| `fiber.win32.c3` | Native Windows Fiber API backend |
+| `fiber.ucontext.c3` | POSIX `ucontext` backend |
+| `fiber.sjlj.c3` | POSIX `sigsetjmp()` / `siglongjmp()` backend |
+| `../../examples/fiber/fiber_test.c3` | Basic fiber example |
+| `../../examples/fiber/fiber_mem_test.c3` | Fiber memory usage test |
 
-Files:
-* [fiber.win32.c3](fiber.win32.c3): based on Windows Fiber
-* [fiber.asm.c3](fiber.posix.c3): Assembly based implementation (Only for X86_64 and AARCH64)
-* [fiber.asm_inc.c3](fiber.asm_inc.c3): Assembly code
-* [fiber.ucontext.c3](fiber.ucontext.c3): implementation based on ucontext, for posix
-* [fiber.sjlj.c3](fiber.sjlj.c3): implementation using sigsetjmp/siglongjmp (not used)
-* [../../examples/fiber/fiber_test.c3](../../examples/fiber/fiber_test.c3)
+---
 
+## How it works
 
-## How It Works
+1. `fiber::active()` returns the currently running fiber.
+2. `fiber::create()` creates a new fiber with its own stack.
+3. The coroutine function has a plain `fn void()` signature.
+4. `fiber::switch_to(fib)` transfers execution to the target fiber.
+5. `fiber::yield()` switches back to the primary fiber.
+6. At the end of a coroutine, call `fiber::done()`.
+7. Release a completed fiber with `fiber::delete()`.
 
-1. `fiber::active()` returns currently active fiber.
-2. `fiber::create()` allocates a new fiber with its own stack. The coroutine function has plain `fn void()` signature. Minimum stack size is 64k.
-3. `fiber::switch_to(fiber)` hands execution over to the target fiber. Control returns to the caller only when that fiber calls `fiber::yield()` or `fiber::switch_to()` back.
-4. `fiber::yield()` is a convenience wrapper that always returns control to the primary fiber, making it behave like a standard coroutine suspend point.
-5. At the end of a coroutine, you need to call `fiber::done()`
-6. Cleanup is done by calling `fiber::delete()`
+Fibers are stackful. If a fiber yields from deep inside a call chain, execution later resumes from exactly that point.
 
-### API functions
+---
 
-```c3 
-import ext::thread::fiber;
+## API
+
+```c3
+import ext::fiber;
 
 alias Coroutine = fn void();
 
-Fiber* fib = fiber::create(usz stack_size, Coroutine coro); // stack_size must be larger than 64KB, this cannot be called in other coroutine
-Fiber* fib = fiber::active(); // get current fiber
-void fiber::switch_to(fib); // context switch
-void fiber::yield(); // within a coroutine, suspend and goto main coroutine
-void fiber::done(); // you need to call this at the end of your coroutine function
-void fiber::delete(fib);
+Fiber* fiber::create(Coroutine entry, uint stack_size = 128_000, void* arg = null);
+Fiber* fiber::active();
 
-void fiber::set_debug(false); // default is true
-void fiber::set_allocator(Allocator allocx); // default is mem
+void fiber::switch_to(Fiber* fib);
+void fiber::yield();
+void fiber::done();
 
-fn usz fiber::stack_used(); // in bytes, you can call this to determine proper stack size, not available on Windows
+void fiber::delete(Fiber* fib);
+void fiber::deinit();
+
+usz fiber::stack_used(Fiber* fib);
+void fiber::diag();
 ```
 
-## Important Notes
+### `fiber::create()`
 
-- **Cooperative only.** Fibers never preempt each other. You must call `fiber::yield()` or `fiber::switch_to()` explicitly to transfer control. 
-- At the end of a `Coroutine` function, **you must call `fiber::done()`**
+```c3
+Fiber* fib = fiber::create(&my_coroutine, 128_000, arg);
+```
+
+Creates a new fiber.
+
+Arguments:
+
+| Argument | Description |
+|----------|-------------|
+| `entry` | Coroutine entry function. Must be `fn void()` |
+| `stack_size` | Requested stack size in bytes |
+| `arg` | Optional user pointer attached to the fiber |
+
+Inside a coroutine, the argument can be accessed through the active fiber:
+
+```c3
+void* arg = fiber::active().arg;
+```
+
+The minimum stack size is 64 KB. Smaller values are rounded up internally.
+
+### `fiber::active()`
+
+```c3
+Fiber* current = fiber::active();
+```
+
+Returns the currently running fiber.
+
+### `fiber::switch_to()`
+
+```c3
+fiber::switch_to(fib);
+```
+
+Switches execution to another fiber.
+
+Control returns when the target fiber yields, switches back, or finishes.
+
+### `fiber::yield()`
+
+```c3
+fiber::yield();
+```
+
+Switches execution back to the primary fiber.
+
+This is the usual coroutine suspend point.
+
+### `fiber::done()`
+
+```c3
+fiber::done();
+```
+
+Marks the current fiber as finished and yields back to the primary fiber.
+
+A coroutine should call this before returning.
+
+### `fiber::delete()`
+
+```c3
+fiber::delete(fib);
+```
+
+Releases a fiber.
+
+Do not delete the currently running fiber.
+
+### `fiber::stack_used()`
+
+```c3
+usz used = fiber::stack_used(fib);
+```
+
+Returns an approximate stack usage value where supported.
+
+Availability and accuracy depend on the backend.
+
+### `fiber::deinit()`
+
+```c3
+fiber::deinit();
+```
+
+Cleans up fiber module state.
+
+All non-primary fibers should be deleted before calling this.
+
+---
+
+## Important notes
+
+- Fibers are cooperative only.
+- Fibers are not OS threads.
 - Fibers must not be shared across threads.
-- **Stack size.** The `stack_size` parameter in `fiber::create()` sets the fiber's initial stack size in bytes. A value of `64 * 1024` (64 KB) is a reasonable minimum for lightweight coroutines.
-- **Cleanup.** Always call `fiber::delete()` on fibers that you no longer need, to avoid memory leaks. Do not free the currently running fiber.
+- A fiber only stops running when it calls `fiber::yield()`, `fiber::switch_to()`, or `fiber::done()`.
+- A coroutine should call `fiber::done()` before returning.
+- Do not delete the currently running fiber.
+- Always delete fibers you no longer need.
+- Stack size is fixed at creation time.
+- Large local arrays or deep call chains require larger stacks.
+- `fiber::active().arg` can be used to retrieve the user argument inside a coroutine.
 
-## Usage Example
+---
+
+## Stack allocation
+
+Assembly and POSIX backends use virtual-memory backed stacks.
+
+The default stack allocator uses guard-page mode.
+
+### Guard-page mode
+
+```text
+[ guard page ][ usable stack ]
+```
+
+The guard page is `PROT_NONE` or no-access.
+
+This catches stack overflow immediately, but each stack may consume additional virtual memory map entries.
+
+On Linux, large numbers of guarded stacks may be limited by `vm.max_map_count`.
+
+---
+
+## Usage example
 
 ```c3
 module example;
 
-import ext::thread::fiber;
+import std::io;
+import ext::fiber;
 
 int counter = 0;
 
@@ -83,45 +252,117 @@ fn void my_coroutine()
     for (int i = 0; i < 3; i++)
     {
         counter++;
-        io::printfn("Coroutine step %d", i);
-        fiber::yield(); // Suspend and return to scheduler
+        io::printfn("coroutine step %d", i);
+        fiber::yield();
     }
-    io::printfn("Coroutine done");
-    
-    fiber::done(); // you must call this at end
+
+    io::printfn("coroutine done");
+
+    fiber::done();
 }
 
 fn void main()
 {
-    // Initialize and create a fiber
-    Fiber* co = fiber::create(1024 * 64, &my_coroutine);
+    Fiber* co = fiber::create(&my_coroutine);
 
-    // Drive the coroutine by repeatedly switching to it
     for (int step = 0; step < 4; step++)
     {
-        io::printfn("Scheduler step %d", step);
+        io::printfn("scheduler step %d", step);
         fiber::switch_to(co);
     }
 
-    // Clean up
     fiber::delete(co);
-    io::printfn("All done. Counter = %d", counter);
+    fiber::deinit();
+
+    io::printfn("all done, counter = %d", counter);
 }
 ```
 
-**Expected output:**
+Expected output:
+
+```text
+scheduler step 0
+coroutine step 0
+scheduler step 1
+coroutine step 1
+scheduler step 2
+coroutine step 2
+scheduler step 3
+coroutine done
+all done, counter = 3
 ```
-Scheduler step 0
-Coroutine step 0
-Scheduler step 1
-Coroutine step 1
-Scheduler step 2
-Coroutine step 2
-Scheduler step 3
-Coroutine done
-All done. Counter = 3
+
+---
+
+## Example with argument
+
+```c3
+module example_arg;
+
+import std::io;
+import ext::fiber;
+
+struct TaskArg
+{
+    int id;
+    int count;
+}
+
+fn void worker()
+{
+    TaskArg* arg = (TaskArg*)fiber::active().arg;
+
+    for (int i = 0; i < arg.count; i++)
+    {
+        io::printfn("fiber %d step %d", arg.id, i);
+        fiber::yield();
+    }
+
+    fiber::done();
+}
+
+fn void main()
+{
+    TaskArg myarg = {
+        .id = 1,
+        .count = 3,
+    };
+
+    Fiber* fib = fiber::create(&worker, arg: &myarg);
+
+    while (!fib.done)
+    {
+        fiber::switch_to(fib);
+    }
+
+    fiber::delete(fib);
+    fiber::deinit();
+}
 ```
 
+---
 
-Back to [ext.c3l](../../README.md) library.
+## Backend selection
 
+Backend selection is configured in `fiber.config.c3`.
+
+Example:
+
+```c3
+// fiber.config.c3
+module ext::fiber;
+
+const bool ASM_X86_64_SYSV = env::POSIX && env::X86_64;
+const bool ASM_X86_64_WIN64 = env::WIN32 && env::X86_64;
+const bool ASM_AARCH64 = env::POSIX && env::AARCH64;
+
+const bool SJLJ = false;
+const bool UCONTEXT = false;
+const bool WINFIBER = false;
+```
+
+Only one backend should be active for a given target.
+
+---
+
+Back to [ext.c3l](../../README.md).

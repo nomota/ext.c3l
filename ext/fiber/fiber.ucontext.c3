@@ -1,177 +1,298 @@
 // fiber.ucontext.c3
 
-module ext::thread::fiber @if(env::POSIX && (!env::X86_64 && !env::AARCH64));
+// Coroutine implementation based on POSIX ucontext.
+// Virtual-memory stack version.
+//
+// Nomota <hiongun@gmail.com>; MIT License
 
-import std::io;
+module ext::fiber @if(UCONTEXT && env::POSIX);
+
 import c::ucontext;
-import c::string;
-import c::stdlib;
-import ext::debug;
 import ext::mem;
-
-struct Fiber {
-    UContext context;
-    char* block;
-    usz stack_size;
-    bool done;
-}
-
-tlocal Fiber* running = null;
-tlocal Fiber primary;
-tlocal LocalAllocator localmem = {};
+import ext::debug;
 
 alias Coroutine = fn void();
 
-fn void init(Allocator allocx = mem, bool debug = true) @private
+struct Fiber
 {
-    if (running != null) return;
-    running = &primary;
-    localmem = allocx;
-    debug::set_debug(debug);
+    UContext context;
+    Coroutine entry;
+
+    // mmap() base address. This is what must be passed to munmap().
+    char* block;
+
+    // Total mmap() region size:
+    //
+    //     guard_page_size + usable_stack_size
+    //
+    usz block_size;
+
+    // First usable stack byte. The guard page is immediately below this.
+    char* stack_low;
+
+    // One-past-end of usable stack.
+    char* stack_high;
+
+    // Usable stack size, page-aligned.
+    usz stack_size;
+
+    bool done;
+
+    // Argument given to fiber.
+    // Fiber does not own this memory.
+    void* arg;
+}
+
+struct FiberContext @private
+{
+    Fiber primary;
+    Fiber* running;
+}
+
+tlocal FiberContext* ctx @private = null;
+
+LocalAllocator localmem @private = {};
+
+//
+// Init / deinit
+//
+
+fn void init(Allocator alloc = mem) @private
+{
+    if (localmem == (LocalAllocator){})
+    {
+        localmem = alloc;
+    }
+
+    if (ctx != null && ctx.running != null) return;
+
+    if (ctx == null)
+    {
+        ctx = localmem.alloc(FiberContext);
+        @assert(ctx != null);
+    }
+
+    *ctx = {
+        .primary = {
+            .context = {},
+            .entry = null,
+            .block = null,
+            .block_size = 0,
+            .stack_low = null,
+            .stack_high = null,
+            .stack_size = 0,
+            .done = false,
+            .arg = null,
+        },
+        .running = null,
+    };
+
+    // Capture primary context once. swapcontext() will update it later.
+    ucontext::getcontext(&ctx.primary.context);
+
+    ctx.running = &ctx.primary;
 }
 
 fn void deinit()
 {
-    if (running == null) return;
-    primary = {};
-    running = null;
+    if (ctx == null) return;
+
+    ctx.primary = {};
+    ctx.running = null;
+
+    localmem.free(ctx);
+    ctx = null;
 }
 
-fn Fiber* active() 
-{
-    if (running == null) init();
-    return running;
-}
+//
+// Fiber entry trampoline
+//
 
-const char[] CANARY = "CANARYCANARYCANARYCANARY"; // 24 bytes
-fn Fiber* create(uint stack_size, Coroutine coroutine)
+fn void fiber_entry() @private
 {
-    if (running == null) init();
- 
-    Fiber* fiber = localmem.alloc(Fiber);
-   
-    ucontext::getcontext(&fiber.context);
-    UContext* ctx = &fiber.context;
-    ctx.uc_stack.ss_size = stack_size;
-    ctx.uc_link = null;
+    if (ctx == null || ctx.running == null) return;
 
-    char* block;
-    if (debug::debug) {
-        block = localmem.malloc(stack_size+CANARY.len*2);
-        // warn("#### malloc block=%p", block);
-        string::memcpy(&block[0], CANARY.ptr, CANARY.len);
-        string::memset(&block[CANARY.len], 'Z', stack_size);
-        string::memcpy(&block[CANARY.len+stack_size], CANARY.ptr, CANARY.len);
-        ctx.uc_stack.ss_sp = block+CANARY.len;
-    } else {
-        block = localmem.malloc(stack_size);
-        ctx.uc_stack.ss_sp = block;
+    Fiber* fiber = ctx.running;
+
+    if (fiber == &ctx.primary) return;
+
+    if (fiber.entry != null)
+    {
+        fiber.entry();
     }
-    
-    ucontext::makecontext(&fiber.context, coroutine, 0);
-    fiber.block = block;
-    fiber.done = false;
-    fiber.stack_size = stack_size;
-    
-    // warn("### block=%p,stack_size:%dKB,stack_filled:%dKB", fiber.block, fiber.stack_size/1024, stack_filled(fiber)/1024);
 
-    return fiber;
+    fiber.done = true;
+
+    yield();
+
+    unreachable("dead fiber resumed");
 }
 
-fn void delete(Fiber* fiber) 
+//
+// Public API
+//
+
+fn Fiber* active()
 {
-    if (fiber == null || fiber == &primary) return;
-    check_canary(fiber);
-    // warn("@@@  free block=%p,stack_size:%dKB,stack_filled:%dKB", fiber.block, fiber.stack_size/1024, stack_filled(fiber)/1024);
-    localmem.free(fiber.block);
-    localmem.free(fiber);
+    if (ctx == null || ctx.running == null) init();
+    return ctx.running;
 }
 
-fn void check_canary(Fiber* fiber) @inline @private
+fn usz stack_used(Fiber* fiber)
 {
-    if (! debug::debug) return;
-    
-    usz stack_size = fiber.stack_size;
+    if (ctx == null) return 0;
+    if (fiber == null || fiber == &ctx.primary) return 0;
+    if (fiber.stack_low == null || fiber.stack_high == null) return 0;
 
-    if (string::strncmp(fiber.block, CANARY.ptr, CANARY.len) != 0) {
-        warn("Prefix canary breached");
-        stdlib::exit(0);
-    }
-    
-    if (string::strncmp(fiber.block+CANARY.len+stack_size, CANARY.ptr, CANARY.len) != 0) {
-        warn("Postfix canary breached");
-        stdlib::exit(0);
-    }
+    // ucontext_t is platform-specific, so saved SP is not read portably.
+    // We can only approximate usage for the currently running fiber.
+    if (fiber != ctx.running) return 0;
+
+    long marker = 0;
+    ulong sp = (ulong)(void*)&marker;
+
+    ulong low = (ulong)(void*)fiber.stack_low;
+    ulong high = (ulong)(void*)fiber.stack_high;
+
+    if (sp < low || sp >= high) return 0;
+
+    return (usz)(high - sp);
 }
 
 fn void diag()
 {
     Fiber* fiber = active();
-    if (fiber == &primary) {
+
+    if (fiber == &ctx.primary)
+    {
         warn("it's primary fiber");
-        return; // primary has no block
+        return;
     }
-    
-    @assert(fiber.block != null, "error");
-    
-    usz stack_size = fiber.stack_size;
 
-    if (string::strncmp(fiber.block, CANARY.ptr, CANARY.len) != 0) {
-        warn("Prefix canary breached");
-        stdlib::exit(0);
-    }
-    
-    if (string::strncmp(fiber.block+CANARY.len+stack_size, CANARY.ptr, CANARY.len) != 0) {
-        warn("Postfix canary breached");
-        stdlib::exit(0);
-    }
-    
+    @assert(fiber != null);
+    @assert(fiber.block != null);
+    @assert(fiber.stack_low != null);
+    @assert(fiber.stack_high != null);
+
+    warn("mmap block:%p, block_size:%d", fiber.block, fiber.block_size);
+    warn("stack low:%p, high:%p", fiber.stack_low, fiber.stack_high);
+
     usz used = stack_used(fiber);
-    float usage = (float)used/(float)stack_size;
-    warn("stack_size:%d, used:%d, usage:%.1f%%", stack_size, used, usage*100);
+    float usage = (float)used / (float)fiber.stack_size;
+
+    warn(
+        "stack_size:%d, used:%d, usage:%.1f%%",
+        fiber.stack_size,
+        used,
+        usage * 100
+    );
 }
 
-
-fn usz stack_used(Fiber* fiber)
+fn Fiber* create(Coroutine entry, uint stack_size = 256_000, void* arg = null)
 {
-    if (! debug::debug) return 0;
-    
-    usz stack_size = fiber.context.uc_stack.ss_size;
-    // warn("%d %c%c%c", stack_size, fiber.block[CANARY.len+stack_size-3],fiber.block[CANARY.len+stack_size-2],fiber.block[CANARY.len+stack_size-1]);
-    usz untouched;
-    for (isz i = 0; i < stack_size; i++) {
-        usz idx = i+CANARY.len;
-        if (fiber.block[idx] != 'Z') {
-            untouched = i;
-            break;
-        }
-    }
-    return stack_size-untouched;
+    if (ctx == null || ctx.running == null) init();
+    if (entry == null) return null;
+
+    usz block_size = 0;
+    char* stack_low = null;
+    char* stack_high = null;
+    usz usable_size = 0;
+
+    char* block = vm::stack_alloc(
+        (usz)stack_size,
+        &block_size,
+        &stack_low,
+        &stack_high,
+        &usable_size
+    );
+
+    if (block == null) return null;
+
+    Fiber* fiber = localmem.alloc(Fiber);
+    *fiber = {
+        .context = {},
+        .entry = entry,
+        .block = block,
+        .block_size = block_size,
+        .stack_low = stack_low,
+        .stack_high = stack_high,
+        .stack_size = usable_size,
+        .done = false,
+        .arg = arg,
+    };
+
+    ucontext::getcontext(&fiber.context);
+
+    fiber.context.uc_stack.ss_sp = stack_low;
+    fiber.context.uc_stack.ss_size = usable_size;
+    fiber.context.uc_stack.ss_flags = 0;
+
+    // Do not let returning from fiber_entry() fall through into an unknown
+    // context. fiber_entry() calls yield() and then unreachable().
+    fiber.context.uc_link = null;
+
+    ucontext::makecontext(&fiber.context, &fiber_entry, 0);
+
+    return fiber;
 }
-    
+
+fn void delete(Fiber* fiber)
+{
+    if (fiber == null) return;
+    if (ctx != null && fiber == &ctx.primary) return;
+
+    // Deleting the currently running fiber would unmap the active stack.
+    if (ctx != null && fiber == ctx.running) return;
+
+    fiber.done = true;
+    fiber.entry = null;
+    fiber.arg = null;
+
+    vm::stack_free(fiber.block, fiber.block_size);
+
+    fiber.block = null;
+    fiber.block_size = 0;
+    fiber.stack_low = null;
+    fiber.stack_high = null;
+    fiber.stack_size = 0;
+
+    localmem.free(fiber);
+}
+
 fn void switch_to(Fiber* fiber) @nosanitize("address")
 {
+    if (ctx == null || ctx.running == null) init();
+
     if (fiber == null || fiber.done) return;
-    if (running != &primary) check_canary(running);
-    if (fiber != &primary) check_canary(fiber);
-    if (ucontext::getcontext(&running.context) == 0) {
-        Fiber* prev = running;
-        running = fiber;
-        ucontext::swapcontext(&prev.context, &fiber.context);
+    if (fiber == ctx.running) return;
+
+    Fiber* prev = ctx.running;
+    ctx.running = fiber;
+
+    if (ucontext::swapcontext(&prev.context, &fiber.context) != 0)
+    {
+        ctx.running = prev;
     }
 }
 
 fn void yield() @nosanitize("address")
 {
-    if (running == &primary) return;
-    check_canary(running);
-    switch_to(&primary);
+    if (ctx == null || ctx.running == null) return;
+    if (ctx.running == &ctx.primary) return;
+
+    switch_to(&ctx.primary);
 }
 
 fn void done() @nosanitize("address")
 {
-    running.done = true;
-    check_canary(running);
-    yield();
-}
+    if (ctx == null || ctx.running == null) return;
+    if (ctx.running == &ctx.primary) return;
 
+    Fiber* fiber = ctx.running;
+
+    fiber.done = true;
+
+    yield();
+
+    unreachable("dead fiber resumed");
+}

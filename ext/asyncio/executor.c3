@@ -10,7 +10,7 @@ import std::thread;
 import std::atomic::types;
 import ext::debug;
 import ext::mem;
-import ext::thread::fiber;
+import ext::fiber;
 import c::pthread;
 import c::errno;
 import c::stdio;

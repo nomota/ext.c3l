@@ -20,7 +20,7 @@ import c::errno;
 import ext::debug;
 import ext::mem;
 import std::collections::map;
-import ext::thread::fiber;
+import ext::fiber;
 
 tlocal HashMap{int,String} ips @private; // IP addr cache
 

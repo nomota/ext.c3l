@@ -9,7 +9,9 @@ import c::stdlib;
 import c::errno;
 import ext::debug;
 import ext::mem;
-import ext::thread::fiber;
+import ext::fiber;
+
+LocalAllocator localmem = {};
 
 enum State : char {
     INIT,
@@ -225,7 +227,7 @@ struct CallbackTimerEntry {
 //  EventLoop
 // ---------------------------------------
 
-struct EventLoopConfig {
+struct EventLoopConfig @private {
     usz task_queue_size;
     usz timer_queue_size;
     usz soon_queue_size;
@@ -233,7 +235,6 @@ struct EventLoopConfig {
 }
 
 tlocal EventLoopConfig cfg;
-local LocalAllocator localmem = {};
 
 fn void set_eventloop_config(usz taskq=1024, usz timerq=512, usz soonq=512)
 {

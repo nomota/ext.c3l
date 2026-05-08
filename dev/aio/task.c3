@@ -3,10 +3,9 @@
 module ext::aio;
 
 import ext::mem;
+import ext::debug;
 import c::stdlib;
-import ext::thread::fiber;
-
-tlocal LocalAllocator localmem = {};
+import ext::fiber;
 
 enum TaskState : char {
     TASK_NEW,
@@ -36,35 +35,16 @@ struct Task {
     Waiter* join_waiter;
 
     Task* next_ready;
+    
+    bool queued;
 }
 
-fn Task* current_task()
-{
-    return current_loop().current;
-}
-
-tlocal EventLoop* cur_loop = null; // move to event.c3
-
-fn EventLoop* current_loop()
-{
-    return cur_loop;
-}
-
-struct EventLoop {
-    Task* current;
-    Fiber* fiber;
-}
-
-fn void EventLoop.call_soon(&self, Task* t)
-{
-}
-
-fn Task* EventLoop.new_task(&self, TaskFn entry)
+fn Task* EventLoop.task_new(&self, TaskFn entry)
 {
     Task* t = localmem.alloc(Task);
 
     *t = {
-        .stack_size = 64_000,
+        .stack_size = 256_000,
         .state = TASK_NEW,
         .loop = self,
         .fiber = null,
@@ -73,6 +53,7 @@ fn Task* EventLoop.new_task(&self, TaskFn entry)
         .waiting_on = null,
         .join_waiter = null,
         .next_ready = null,
+        .queued = false,
     };
 
     return t;
@@ -88,11 +69,11 @@ fn void Task.free(&self)
     localmem.free(self);
 }
 
-tlocal Task* trampoline_task = null;
-
 fn void fiber_trampoline()
 {
-    Task* t = trampoline_task;
+// warn("fiber_trampoline enter");
+
+    Task* t = (Task*)fiber::active().arg;
 
     t.loop.current = t;
     
@@ -100,37 +81,64 @@ fn void fiber_trampoline()
 
     t.entry(); // call fiber coruotine
 
-    t.state = TASK_DONE;
-    t.error = NONE;
+    if (t.error == ASYNC_CANCELLED) {
+        t.state = TASK_CANCELLED;
+    } else {
+        t.state = TASK_DONE;
+        t.error = NONE;
+    }
+
+    t.waiting_on = null;
+
+    if (t.join_waiter != null) {
+        t.join_waiter.wake();
+        t.join_waiter = null;
+    }
+
+    t.loop.current = null;
 
     fiber::done(); // return to the main loop
 }
 
 // Advance one step of a Task's execution
-fn void Task.step(&self)
+fn void Task.resume(&self)
 {
+// warn("resume %s", self.state);
+    if (self.state == TASK_DONE) return;
+    if (self.state == TASK_CANCELLED) return;
+    if (self.state == TASK_FAILED) return;
+
     if (self.state == TASK_NEW) {
+// warn("-");
         self.state = TASK_RUNNING;
-        trampoline_task = self;
-        self.fiber = fiber::create(self.stack_size, &fiber_trampoline);
+        self.fiber = fiber::create(self.stack_size, &fiber_trampoline , self);
+        self.state = TASK_READY;
     }
     
-    if (self.state == TASK_DONE) {
-        if (self.join_waiter != null) {
-            self.join_waiter.wake();
-            self.join_waiter = null;
-        }
-        self.loop.current = null;
-        return;
-    }
-    
+    if (self.fiber == null) return;
+
+    Task* prev = self.loop.current;
+
     self.loop.current = self;
+    self.state = TASK_RUNNING;
+// warn("-");
     fiber::switch_to(self.fiber);
 
+    // Returned from suspend() or fiber::done().
+    if (self.state == TASK_RUNNING) {
+// warn("-");
+        // Task yielded without setting WAITING/DONE.
+        // Keep it runnable.
+        self.state = TASK_READY;
+    }
+    
+    self.loop.current = prev;
 }
 
 fn void Task.suspend(&self, Waiter* waiter)
 {
+// warn("task suspend");
+
     self.waiting_on = waiter;
     
     self.state = TASK_WAITING;
@@ -145,26 +153,11 @@ fn void Task.mark_ready(&self)
     if (self.state == TASK_FAILED) return;
 
     self.waiting_on = null;
-    
+
+    if (self.state == TASK_NEW) return;
+
     self.state = TASK_READY;
 }
-
-fn void Task.resume(&self)
-{
-    if (self.state == TASK_DONE) return;
-    if (self.state == TASK_CANCELLED) return;
-    if (self.state == TASK_FAILED) return;
-
-    self.state = TASK_RUNNING;
-
-    Task* prev = current_task();
-
-    self.step();
-
-    self.loop.current = prev;
-}
-
-faultdef NONE, ASYNC_CANCELLED, ASYNC_FAILED, ASYNC_INVALID_STATE;
 
 fn void Task.cancel(&self)
 {
@@ -204,7 +197,13 @@ fn void? Task.join(&self)
 
     Task* current = self.loop.current;
 
-    if (current == null) {
+    if (current == null || current == self) {
+warn("-");
+        return ASYNC_INVALID_STATE~;
+    }
+
+    if (self.join_waiter != null) {
+warn("-");
         return ASYNC_INVALID_STATE~;
     }
 
@@ -221,3 +220,4 @@ fn void? Task.join(&self)
         return self.error~;
     }
 }
+

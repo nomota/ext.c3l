@@ -9,7 +9,7 @@ import c::stdlib;
 import c::errno;
 import ext::debug;
 import ext::mem;
-import ext::thread::fiber;
+import ext::fiber;
 
 // ----------------------------------------
 //  Configuration constants
@@ -469,7 +469,7 @@ fn void Task.step(&self)
         _init_task = self;
         _return_value = null;
         self.state = State.PENDING;
-        self.fiber = fiber::create((int)self.stack_size, &_trampoline);
+        self.fiber = fiber::create(&_trampoline);
     }
 
     // Switch into the fiber (runs until the coroutine yields or finishes)

@@ -1,0 +1,38 @@
+fiber memory test
+fiber_count=100000 stack_size=128000
+start  count=0 VmSize=3284 KB VmRSS=968 KB
+
+create count=10000 VmSize=1326708 KB VmRSS=44516 KB
+create count=20000 VmSize=2649348 KB VmRSS=87284 KB
+create count=30000 VmSize=3971988 KB VmRSS=130052 KB
+fiber create failed at 32753
+
+after create count=32753 VmSize=4336044 KB VmRSS=141844 KB
+run    count=10000 VmSize=4336044 KB VmRSS=141844 KB
+run    count=20000 VmSize=4336044 KB VmRSS=141844 KB
+run    count=30000 VmSize=4336044 KB VmRSS=141844 KB
+
+after run count=32753 VmSize=4336044 KB VmRSS=141844 KB
+
+delete count=10000 VmSize=3016044 KB VmRSS=101844 KB
+delete count=20000 VmSize=1696044 KB VmRSS=61844 KB
+delete count=30000 VmSize=376044 KB VmRSS=21844 KB
+after delete count=0 VmSize=12648 KB VmRSS=10832 KB
+end    count=0 VmSize=11864 KB VmRSS=10576 KB
+
+thread memory test
+thread_count=100000 stack_size=128000
+start  count=0 VmSize=3272 KB VmRSS=956 KB
+create count=1000 VmSize=136320 KB VmRSS=9760 KB
+create count=2000 VmSize=268584 KB VmRSS=18208 KB
+pthread_create failed at 2316 rc=11
+
+after create count=2316 VmSize=310560 KB VmRSS=20848 KB
+after sleep  count=2316 VmSize=310560 KB VmRSS=20848 KB
+
+cancel count=1000 VmSize=310688 KB VmRSS=24568 KB
+cancel count=2000 VmSize=310688 KB VmRSS=28604 KB
+join   count=1000 VmSize=220400 KB VmRSS=22604 KB
+join   count=2000 VmSize=88400 KB VmRSS=10604 KB
+after join count=0 VmSize=46688 KB VmRSS=6812 KB
+end    count=0 VmSize=45904 KB VmRSS=6792 KB

@@ -166,7 +166,7 @@ Based on:
 
 | Module | Description |
 |--------|-------------|
-| `ext::thread::fiber` | Fiber operations: create(), delete(), active(), switch_to(), yield() |
+| `ext::fiber` | Fiber operations: create(), delete(), active(), switch_to(), yield() |
 
 * [ext/fiber](ext/fiber)
 - More about [Fiber Coroutine](ext/fiber/README.md)

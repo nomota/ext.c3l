@@ -7,6 +7,7 @@ build:
 	@make aio_tempfile
 
 clean:
+	-@rm -f x y *.pdb *.exe
 	-@rm -f aio_sample
 	-@rm -f aio_tempfile
 

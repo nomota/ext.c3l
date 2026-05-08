@@ -4,7 +4,7 @@
 
 // Nomota <hiongun@gmail.com>; MIT License
 
-module ext::thread::fiber @if(env::WIN32);
+module ext::fiber @if(env::WIN32);
 
 import c::winbase;
 import ext::mem;
@@ -16,6 +16,7 @@ alias WinFiber = void*;
 struct Fiber {
     WinFiber wfiber;
     bool done;
+    void* arg;
 }
 
 tlocal Fiber* running = null;
@@ -50,13 +51,14 @@ fn Fiber* active()
     return running;
 }
 
-fn Fiber* create(uint stack_size, Coroutine coroutine)
+fn Fiber* create(uint stack_size, Coroutine coroutine, void* arg = null)
 {
     if (running == null) init();
     Fiber* fiber = mem_alloc(Fiber);
     fiber.wfiber = winbase::createFiber(stack_size, &thunk, (void*)coroutine);
     @assert(fiber.wfiber != null, "fiber::create(): CreateFiber failed");
     fiber.done = false;
+    fiber.arg = null;
     return fiber;
 }
 

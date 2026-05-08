@@ -9,7 +9,7 @@ import std::io;
 import ext::debug; // warn, @assert
 import ext::mem;
 import ext::asyncio;
-import ext::thread::fiber;
+import ext::fiber;
 
 // -----------------------------------------
 //  Shared counter state

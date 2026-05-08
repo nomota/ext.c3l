@@ -1,84 +1,126 @@
 // fiber.sjlj.c3
 
-module ext::thread::fiber @if(false); // not included @if(env::POSIX);
+// Coroutine implementation based on POSIX sigsetjmp/siglongjmp.
+// Virtual-memory stack version.
+//
+// Original:
+//   Based on ideas from a paper by Ralf Engelschall.
+//
+// Nomota <hiongun@gmail.com>; MIT License
 
-import std::io;
+module ext::fiber @if(SJLJ && env::POSIX);
+
 import c::signal;
 import c::setjmp;
-import c::string;
-import c::stdlib;
 import ext::mem;
 import ext::debug;
 
-// Coroutine implementation based on POSIX sigsetjmp/siglongjmp
-//  Original: Based on ideas from a paper by Ralf Engelschall
+//
+// Constants / types
+//
 
-
-// ========================================
-// Canary / stack debug
-// ========================================
-
-const int SIG_FIBER = signal::SIGRTMIN+7;
-const char[] CANARY = "CANARYCANARYCANARYCANARY"; // 24 bytes
+const int SIG_FIBER = signal::SIGRTMIN + 7;
+const usz MIN_STACK_SIZE = 65_536;
 
 alias Coroutine = fn void();
 
-struct Fiber {
+struct Fiber
+{
     SigJmpBuf context;
     Coroutine entry;
-    char* block;      // raw allocation base (canary prefix at block[0])
-    usz   stack_size; // usable stack size (excluding canary)
-    bool  done;
+
+    // mmap() base address. This is what must be passed to munmap().
+    char* block;
+
+    // Total mmap() region size:
+    //
+    //     guard_page_size + usable_stack_size
+    //
+    usz block_size;
+
+    // First usable stack byte. The guard page is immediately below this.
+    char* stack_low;
+
+    // One-past-end of usable stack.
+    char* stack_high;
+
+    // Usable stack size, page-aligned.
+    usz stack_size;
+
+    bool done;
+
+    // Argument given to fiber
+    // Fiber does not own this memory.
+    void* arg; // within coroutine, `fiber::active().arg` to get access of it
 }
 
-tlocal Fiber primary;
-tlocal Fiber* running = null;
-tlocal Volatile{Fiber*} creating;
-
-fn void init(Allocator allocx = mem, bool dbg = true) @private
+struct FiberContext @private
 {
-    if (running != null) return;
-    mem::set_allocator(allocx);
-    debug::set_debug(dbg);
-    running = &primary;
-    creating.set(null);
+    Fiber primary;
+    Fiber* running;
+    Fiber* creating;
 }
 
+tlocal FiberContext* ctx @private = null;
+
+LocalAllocator localmem @private = {};
+
+//
+// Init / deinit
+//
+
+fn void init(Allocator alloc = mem) @private
+{
+    if (localmem == (LocalAllocator){})
+    {
+        localmem = alloc;
+    }
+
+    if (ctx != null && ctx.running != null) return;
+
+    if (ctx == null)
+    {
+        ctx = localmem.alloc(FiberContext);
+        @assert(ctx != null, "fiber context allocation failed");
+    }
+
+    *ctx = {
+        .primary = {
+            .context = {},
+            .entry = null,
+            .block = null,
+            .block_size = 0,
+            .stack_low = null,
+            .stack_high = null,
+            .stack_size = 0,
+            .done = false,
+            .arg = null,
+        },
+        .running = null,
+        .creating = null,
+    };
+
+    ctx.running = &ctx.primary;
+}
+
+// All non-primary fibers must be deleted before deinit().
 fn void deinit()
 {
-    if (running == null) return;
-    primary = {};
-    running = null;
+    if (ctx == null) return;
+
+    ctx.primary = {};
+    ctx.running = null;
+    ctx.creating = null;
+
+    localmem.free(ctx);
+    ctx = null;
 }
 
-// ========================================
-// Canary helpers
-// ========================================
-
-fn void check_canary(Fiber* fiber) @inline @private
-{
-    if (!debug) return;
-    if (fiber.block == null) return; // primary has no block
-
-    usz stack_size = fiber.stack_size;
-
-    if (string::strncmp(fiber.block, CANARY.ptr, CANARY.len) != 0) {
-        warn("Prefix canary breached");
-        stdlib::exit(0);
-    }
-
-    if (string::strncmp(fiber.block + CANARY.len + stack_size, CANARY.ptr, CANARY.len) != 0) {
-        warn("Postfix canary breached");
-        stdlib::exit(0);
-    }
-}
-
-
-// ========================================
+//
 // Signal helpers
-// ========================================
+//
 
-fn void block_sig_fiber(SigSet* oldmask) @private
+fn void block_sig_fiber(SigSet* oldmask = null) @private
 {
     SigSet set = {};
     signal::sigemptyset(&set);
@@ -88,25 +130,34 @@ fn void block_sig_fiber(SigSet* oldmask) @private
 
 fn void restore_sigmask(SigSet* oldmask) @private
 {
+    if (oldmask == null) return;
     signal::sigprocmask(signal::SIG_SETMASK, oldmask, null);
 }
 
-// ========================================
+//
 // Springboard / init_common
-// ========================================
+//
 
 fn void springboard(CInt ignored) @private
 {
-    Fiber* f = creating.get();
-    if (f == null) return;
+    if (ctx == null) return;
 
-    if (setjmp::sigsetjmp(&f.context, 1) != 0) {
-        running = f;
-        check_canary(f);
-        f.entry();
-        f.done = true;
-        check_canary(f);
+    Fiber* fiber = ctx.creating;
+    if (fiber == null) return;
+
+    if (setjmp::sigsetjmp(&fiber.context, 1) != 0)
+    {
+        ctx.running = fiber;
+
+        @assert(fiber.entry != null);
+        
+        fiber.entry();
+
+        fiber.done = true;
+
         yield();
+
+        unreachable("dead fiber resumed");
     }
 }
 
@@ -117,13 +168,17 @@ fn bool init_common(Fiber* fiber, Coroutine entry, Stack* stack) @private
     Stack old_stack = {};
     SigSet saved_mask = {};
 
-    stack.ss_flags = 0;
+    if (ctx == null) init();
 
-    if (stack.ss_sp == null) return false;
+    if (fiber == null || entry == null || stack == null) return false;
+    if (stack.ss_sp == null || stack.ss_size == 0) return false;
+
+    stack.ss_flags = 0;
 
     block_sig_fiber(&saved_mask);
 
-    if (signal::sigaltstack(stack, &old_stack) != 0) {
+    if (signal::sigaltstack(stack, &old_stack) != 0)
+    {
         restore_sigmask(&saved_mask);
         return false;
     }
@@ -132,24 +187,33 @@ fn bool init_common(Fiber* fiber, Coroutine entry, Stack* stack) @private
     handler.sa_flags = signal::SA_ONSTACK;
     signal::sigemptyset(&handler.sa_mask);
 
-    creating.set(fiber);
+    ctx.creating = fiber;
 
-    if (signal::sigaction(SIG_FIBER, &handler, &old_handler) != 0) {
-        signal::sigaltstack(&old_stack, null);
-        creating.set(null);
+    if (signal::sigaction(SIG_FIBER, &handler, &old_handler) != 0)
+    {
+        ctx.creating = null;
+        if (signal::sigaltstack(&old_stack, null) != 0)
+        {
+            return false;
+        }
+        restore_sigmask(&saved_mask);
         return false;
     }
 
+    // Allow SIG_FIBER so raise() can run springboard on the alternate stack.
     restore_sigmask(&saved_mask);
 
     bool ok = signal::raise(SIG_FIBER) == 0;
-    if (ok) {
+
+    if (ok)
+    {
         fiber.entry = entry;
     }
 
+    // Block SIG_FIBER while restoring handler and alternate stack.
     block_sig_fiber(null);
 
-    creating.set(null);
+    ctx.creating = null;
     signal::sigaction(SIG_FIBER, &old_handler, null);
     signal::sigaltstack(&old_stack, null);
 
@@ -158,68 +222,78 @@ fn bool init_common(Fiber* fiber, Coroutine entry, Stack* stack) @private
     return ok;
 }
 
-// ========================================
+//
 // Public API
-// ========================================
-
-fn usz stack_used(Fiber* fiber)
-{
-    if (!debug) return 0;
-    if (fiber.block == null) return 0; // primary has no block
-
-    usz stack_size = fiber.stack_size;
-    usz untouched = 0;
-    for (isz i = 0; i < stack_size; i++) {
-        usz idx = i + CANARY.len;
-        if (fiber.block[idx] != 'Z') {
-            untouched = i;
-            break;
-        }
-    }
-    return stack_size - untouched;
-}
+//
 
 fn Fiber* active()
 {
-    if (running == null) init();
-    return running;
+    if (ctx == null || ctx.running == null) init();
+    return ctx.running;
 }
 
-fn Fiber* create(uint stack_size, Coroutine entry)
+fn usz stack_used(Fiber* fiber)
 {
-    if (running == null) init();
+    if (ctx == null) return 0;
+    if (fiber == null || fiber == &ctx.primary) return 0;
+    if (fiber.stack_low == null || fiber.stack_high == null) return 0;
 
-    if (stack_size < signal::SIGSTKSZ) stack_size = signal::SIGSTKSZ;
-    if (stack_size < 65_536)           stack_size = 65_536;
+    // sigjmp_buf is opaque, so saved SP cannot be read portably.
+    // We can only approximate usage for the currently running fiber.
+    if (fiber != ctx.running) return 0;
 
-    Fiber* fiber = mem_alloc(Fiber);
-    *fiber = {};
-    fiber.done = false;
-    fiber.stack_size = stack_size;
+    long marker = 0;
+    ulong sp = (ulong)(void*)&marker;
 
-    char* block;
-    void* ss_sp;
+    ulong low = (ulong)(void*)fiber.stack_low;
+    ulong high = (ulong)(void*)fiber.stack_high;
 
-    if (debug) {
-        block = mem_malloc(stack_size + CANARY.len * 2);
-        string::memcpy(&block[0], CANARY.ptr, CANARY.len);
-        string::memset(&block[CANARY.len], 'Z', stack_size);
-        string::memcpy(&block[CANARY.len + stack_size], CANARY.ptr, CANARY.len);
-        ss_sp = block + CANARY.len;
-    } else {
-        block = mem_malloc(stack_size);
-        ss_sp = block;
-    }
+    if (sp < low || sp >= high) return 0;
 
-    fiber.block = block;
+    return (usz)(high - sp);
+}
+
+fn Fiber* create(Coroutine entry, uint stack_size = 256_000, void* arg = null)
+{
+    if (ctx == null || ctx.running == null) init();
+    if (entry == null) return null;
+
+    usz block_size = 0;
+    char* stack_low = null;
+    char* stack_high = null;
+    usz usable_size = 0;
+
+    char* block = vm::stack_alloc(
+        (usz)stack_size,
+        &block_size,
+        &stack_low,
+        &stack_high,
+        &usable_size
+    );
+
+    if (block == null) return null;
+
+    Fiber* fiber = localmem.alloc(Fiber);
+    *fiber = {
+        .context = {},
+        .entry = null,
+        .block = block,
+        .block_size = block_size,
+        .stack_low = stack_low,
+        .stack_high = stack_high,
+        .stack_size = usable_size,
+        .done = false,
+        .arg = arg,
+    };
 
     Stack stack = {};
-    stack.ss_size = stack_size;
-    stack.ss_sp   = ss_sp;
+    stack.ss_size = usable_size;
+    stack.ss_sp = stack_low;
 
-    if (!init_common(fiber, entry, &stack)) {
-        mem_free(block);
-        mem_free(fiber);
+    if (!init_common(fiber, entry, &stack))
+    {
+        vm::stack_free(fiber.block, fiber.block_size);
+        localmem.free(fiber);
         return null;
     }
 
@@ -228,38 +302,72 @@ fn Fiber* create(uint stack_size, Coroutine entry)
 
 fn void delete(Fiber* fiber)
 {
-    if (fiber == null || fiber == &primary) return;
-    check_canary(fiber);
-    // warn("@@@  free block=%p,stack_size:%dKB,stack_filled:%dKB", fiber.block, fiber.stack_size/1024, stack_used(fiber)/1024);
-    mem_free(fiber.block);
-    mem_free(fiber);
+    if (fiber == null) return;
+    if (ctx != null && fiber == &ctx.primary) return;
+
+    // Deleting the currently running fiber would unmap the active stack.
+    if (ctx != null && fiber == ctx.running)
+    {
+        warn("cannot delete running fiber");
+        return;
+    }
+    
+    fiber.done = true;
+    fiber.entry = null;
+    fiber.arg = null;
+
+    vm::stack_free(fiber.block, fiber.block_size);
+
+    fiber.block = null;
+    fiber.block_size = 0;
+    fiber.stack_low = null;
+    fiber.stack_high = null;
+    fiber.stack_size = 0;
+
+    localmem.free(fiber);
 }
 
 fn void switch_to(Fiber* fiber) @nosanitize("address")
 {
+    if (ctx == null || ctx.running == null) init();
+
     if (fiber == null || fiber.done) return;
-    if (running != &primary) check_canary(running);
-    if (fiber   != &primary) check_canary(fiber);
-    if (setjmp::sigsetjmp(&running.context, 1) == 0) {
-        running = fiber;
-        setjmp::siglongjmp(&running.context, 1);
+    if (fiber == ctx.running) return;
+
+    Fiber* prev = ctx.running;
+
+    if (setjmp::sigsetjmp(&prev.context, 1) == 0)
+    {
+        ctx.running = fiber;
+        setjmp::siglongjmp(&fiber.context, 1);
     }
 }
 
 fn void yield() @nosanitize("address")
 {
-    if (running == &primary) return;
-    check_canary(running);
-    if (setjmp::sigsetjmp(&running.context, 1) == 0) {
-        running = &primary;
-        setjmp::siglongjmp(&running.context, 1);
+    if (ctx == null || ctx.running == null) return;
+    if (ctx.running == &ctx.primary) return;
+
+    Fiber* fiber = ctx.running;
+
+    if (setjmp::sigsetjmp(&fiber.context, 1) == 0)
+    {
+        ctx.running = &ctx.primary;
+        setjmp::siglongjmp(&ctx.primary.context, 1);
     }
 }
 
 fn void done() @nosanitize("address")
 {
-    if (running == &primary) return;
-    running.done = true;
-    check_canary(running);
+    if (ctx == null || ctx.running == null) return;
+    if (ctx.running == &ctx.primary) return;
+
+    Fiber* fiber = ctx.running;
+
+    fiber.done = true;
+
     yield();
+
+    unreachable("dead fiber resumed");
 }
+

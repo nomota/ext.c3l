@@ -42,29 +42,29 @@ extern fn char* asctime_r(Tm* timeptr, char* buf);
 extern fn char* ctime_r(Time_t* timer, char* buf);
 
 // POSIX functions
-extern fn int clock_gettime(int clk_id, Time_tSpec* tp);
-extern fn int clock_settime(int clk_id, Time_tSpec* tp);
-extern fn int clock_getres(int clk_id, Time_tSpec* res);
-extern fn int nanosleep(Time_tSpec* req, Time_tSpec* rem);
+extern fn int clock_gettime(int clk_id, TimeSpec* tp);
+extern fn int clock_settime(int clk_id, TimeSpec* tp);
+extern fn int clock_getres(int clk_id, TimeSpec* res);
+extern fn int nanosleep(TimeSpec* req, TimeSpec* rem);
 extern fn char* strptime(char* s, char* format, Tm* tm);
 extern fn void tzset();
 extern fn Time_t timegm(Tm* tm);
 extern fn Time_t timelocal(Tm* tm);
 
 // Additional structures
-struct Time_tSpec {
+struct TimeSpec {
     long tv_sec;   // Seconds
     long tv_nsec;  // Nanoseconds
 }
 
-struct Time_tVal {
+struct TimeVal {
     long tv_sec;   // Seconds
     long tv_usec;  // Microseconds
 }
 
-struct ITime_trSpec {
-    Time_tSpec it_interval;
-    Time_tSpec it_value;
+struct ITimerSpec {
+    TimeSpec it_interval;
+    TimeSpec it_value;
 }
 
 // Clock_t IDs
@@ -112,20 +112,20 @@ extern fn char* asctime_r(Tm* timeptr, char* buf);
 extern fn char* ctime_r(Time_t* timer, char* buf);
 
 // POSIX functions
-extern fn int clock_gettime(int clk_id, Time_tSpec* tp);
-extern fn int clock_getres(int clk_id, Time_tSpec* res);
-extern fn int nanosleep(Time_tSpec* req, Time_tSpec* rem);
+extern fn int clock_gettime(int clk_id, TimeSpec* tp);
+extern fn int clock_getres(int clk_id, TimeSpec* res);
+extern fn int nanosleep(TimeSpec* req, TimeSpec* rem);
 extern fn char* strptime(char* s, char* format, Tm* tm);
 extern fn void tzset();
 extern fn Time_t timegm(Tm* tm);
 
 // Additional structures
-struct Time_tSpec {
+struct TimeSpec {
     long tv_sec;
     long tv_nsec;
 }
 
-struct Time_tVal {
+struct TimeVal {
     long tv_sec;
     int tv_usec;
 }
@@ -173,21 +173,21 @@ extern fn char* asctime_r(Tm* timeptr, char* buf);
 extern fn char* ctime_r(Time_t* timer, char* buf);
 
 // POSIX functions
-extern fn int clock_gettime(int clk_id, Time_tSpec* tp);
-extern fn int clock_settime(int clk_id, Time_tSpec* tp);
-extern fn int clock_getres(int clk_id, Time_tSpec* res);
-extern fn int nanosleep(Time_tSpec* req, Time_tSpec* rem);
+extern fn int clock_gettime(int clk_id, TimeSpec* tp);
+extern fn int clock_settime(int clk_id, TimeSpec* tp);
+extern fn int clock_getres(int clk_id, TimeSpec* res);
+extern fn int nanosleep(TimeSpec* req, TimeSpec* rem);
 extern fn char* strptime(char* s, char* format, Tm* tm);
 extern fn void tzset();
 extern fn Time_t timegm(Tm* tm);
 
 // Additional structures
-struct Time_tSpec {
+struct TimeSpec {
     long tv_sec;
     long tv_nsec;
 }
 
-struct Time_tVal {
+struct TimeVal {
     long tv_sec;
     long tv_usec;
 }
@@ -211,11 +211,11 @@ const int CLOCK_PROCESS_CPUTIME_ID = 15;
 // Constants
 const long CLOCKS_PER_SEC = 128;
 
-// Time_tr constants
+// Timer constants
 const int TIMER_RELTIME = 0;
 const int TIMER_ABSTIME = 1;
 
-// Time_tzone
+// Timezone
 extern long timezone;
 extern int daylight;
 extern char** tzname;
@@ -242,21 +242,21 @@ extern fn char* asctime_r(Tm* timeptr, char* buf);
 extern fn char* ctime_r(Time_t* timer, char* buf);
 
 // POSIX functions
-extern fn int clock_gettime(int clk_id, Time_tSpec* tp);
-extern fn int clock_settime(int clk_id, Time_tSpec* tp);
-extern fn int clock_getres(int clk_id, Time_tSpec* res);
-extern fn int nanosleep(Time_tSpec* req, Time_tSpec* rem);
+extern fn int clock_gettime(int clk_id, TimeSpec* tp);
+extern fn int clock_settime(int clk_id, TimeSpec* tp);
+extern fn int clock_getres(int clk_id, TimeSpec* res);
+extern fn int nanosleep(TimeSpec* req, TimeSpec* rem);
 extern fn char* strptime(char* s, char* format, Tm* tm);
 extern fn void tzset();
 extern fn Time_t timegm(Tm* tm);
 
 // Additional structures
-struct Time_tSpec {
+struct TimeSpec {
     long tv_sec;
     long tv_nsec;
 }
 
-struct Time_tVal {
+struct TimeVal {
     long tv_sec;
     int tv_usec;
 }
@@ -272,11 +272,11 @@ const int CLOCK_PROCESS_CPUTIME_ID = 0x40000000;
 // Constants
 const long CLOCKS_PER_SEC = 100;
 
-// Time_tr constants
+// Timer constants
 const int TIMER_RELTIME = 0;
 const int TIMER_ABSTIME = 1;
 
-// Time_tzone
+// Timezone
 extern long timezone;
 extern int daylight;
 extern char** tzname;
@@ -303,20 +303,20 @@ extern fn char* asctime_r(Tm* timeptr, char* buf);
 extern fn char* ctime_r(Time_t* timer, char* buf);
 
 // POSIX functions
-extern fn int clock_gettime(int clk_id, Time_tSpec* tp);
-extern fn int clock_getres(int clk_id, Time_tSpec* res);
-extern fn int nanosleep(Time_tSpec* req, Time_tSpec* rem);
+extern fn int clock_gettime(int clk_id, TimeSpec* tp);
+extern fn int clock_getres(int clk_id, TimeSpec* res);
+extern fn int nanosleep(TimeSpec* req, TimeSpec* rem);
 extern fn char* strptime(char* s, char* format, Tm* tm);
 extern fn void tzset();
 extern fn Time_t timegm(Tm* tm);
 
 // Additional structures
-struct Time_tSpec {
+struct TimeSpec {
     long tv_sec;
     long tv_nsec;
 }
 
-struct Time_tVal {
+struct TimeVal {
     long tv_sec;
     long tv_usec;
 }
@@ -332,11 +332,11 @@ const int CLOCK_BOOTTIME = 6;
 // Constants
 const long CLOCKS_PER_SEC = 100;
 
-// Time_tr constants
+// Timer constants
 const int TIMER_RELTIME = 0;
 const int TIMER_ABSTIME = 1;
 
-// Time_tzone
+// Timezone
 extern long timezone;
 extern int daylight;
 extern char** tzname;
@@ -373,22 +373,22 @@ extern fn char* _ctime64(long* timer);
 extern fn int _ctime64_s(char* buf, usz size, long* timer);
 
 // Windows timespec (available from Windows 8+)
-extern fn int timespec_get(Time_tSpec* ts, int base);
+extern fn int timespec_get(TimeSpec* ts, int base);
 
 // Windows time structures
-struct Time_tSpec {
+struct TimeSpec {
     long tv_sec;
     long tv_nsec;
 }
 
-struct Time_tb {
+struct Timeb {
     long time;
     ushort millitm;
     short timezone;
     short dstflag;
 }
 
-struct Time_tb64 {
+struct Timeb64 {
     long time;
     ushort millitm;
     short timezone;
@@ -396,8 +396,8 @@ struct Time_tb64 {
 }
 
 // Windows time functions
-extern fn void _ftime(Time_tb* timeptr);
-extern fn void _ftime64(Time_tb64* timeptr);
+extern fn void _ftime(Timeb* timeptr);
+extern fn void _ftime64(Timeb64* timeptr);
 
 // Windows does not have these POSIX functions
 // Use QueryPerformanceCounter/QueryPerformanceFrequency instead of clock_gettime
@@ -409,7 +409,7 @@ const long CLOCKS_PER_SEC = 1000;
 // timespec_get base
 const int TIME_UTC = 1;
 
-// Time_tzone (Windows uses _timezone, _daylight, _tzname)
+// Timezone (Windows uses _timezone, _daylight, _tzname)
 extern long _timezone;
 extern int _daylight;
 extern char** _tzname;

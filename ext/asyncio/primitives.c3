@@ -6,7 +6,7 @@ import std::io;
 import c::stdlib;
 import ext::debug;
 import ext::mem;
-import ext::thread::fiber;
+import ext::fiber;
 
 const usz LOCK_WAITER_MAX = 64;
 
