@@ -104,11 +104,13 @@ fn usz page_size() @private
     return (usz)p;
 }
 
-fn void make_asm_executable(char[] block, char[] asm_bytes) @private
+faultdef MAKE_EXECUTABLE_FAIL;
+
+fn void? make_asm_executable(char[] block, char[] asm_bytes) @private
 {
     if (asm_bytes.len > block.len)
     {
-        stdlib::exit(1);
+        return MAKE_EXECUTABLE_FAIL~;
     }
 
     block[0:asm_bytes.len] = asm_bytes[0:asm_bytes.len];
@@ -128,17 +130,17 @@ fn void make_asm_executable(char[] block, char[] asm_bytes) @private
     if (rc != 0)
     {
         warn("mprotect failed for asmblock");
-        stdlib::exit(1);
+        return MAKE_EXECUTABLE_FAIL~;
     }
 
     asm_switch = (SwitchFn)(void*)&block[0];
 }
 
-fn void ensure_asm_executable() @private
+fn void? ensure_asm_executable() @private
 {
     if (asm_inited) return;
 
-    make_asm_executable(asmblock[..], ASM[..]);
+    make_asm_executable(asmblock[..], ASM[..])!;
 
     asm_inited = true;
 }
@@ -147,21 +149,20 @@ fn void ensure_asm_executable() @private
 // Init / deinit
 //
 
-fn void init(Allocator alloc = mem) @private
+fn void? init(Allocator alloc = mem) @maydiscard @private
 {
     if (localmem == (LocalAllocator){})
     {
         localmem = alloc;
     }
 
-    ensure_asm_executable();
+    ensure_asm_executable()!;
 
     if (ctx != null && ctx.running != null) return;
 
     if (ctx == null)
     {
-        ctx = localmem.alloc(FiberContext);
-        @assert(ctx != null, "fiber context allocation failed");
+        ctx = localmem.alloc(FiberContext)!;
     }
 
     *ctx = {
@@ -298,10 +299,12 @@ fn Fiber* active()
     return ctx.running;
 }
 
-fn Fiber* create(Coroutine entry, uint stack_size = 256_000, void* arg = null)
+faultdef NULL_ENTRY;
+
+fn Fiber*? create(Coroutine entry, uint stack_size = 256_000, void* arg = null)
 {
     if (ctx == null || ctx.running == null) init();
-    if (entry == null) return null;
+    if (entry == null) return NULL_ENTRY~;
 
     usz block_size = 0;
     char* stack_low = null;
@@ -314,11 +317,9 @@ fn Fiber* create(Coroutine entry, uint stack_size = 256_000, void* arg = null)
         &stack_low,
         &stack_high,
         &usable_size
-    );
+    )!;
 
-    if (block == null) return null;
-
-    Fiber* fiber = localmem.alloc(Fiber);
+    Fiber* fiber = localmem.alloc(Fiber)!;
     *fiber = {
         .context = {},
         .handle = null,

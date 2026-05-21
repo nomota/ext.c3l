@@ -69,7 +69,7 @@ LocalAllocator localmem @private = {};
 // Init / deinit
 //
 
-fn void init(Allocator alloc = mem) @private
+fn void? init(Allocator alloc = mem) @private @maydiscard
 {
     if (localmem == (LocalAllocator){})
     {
@@ -80,8 +80,7 @@ fn void init(Allocator alloc = mem) @private
 
     if (ctx == null)
     {
-        ctx = localmem.alloc(FiberContext);
-        @assert(ctx != null, "fiber context allocation failed");
+        ctx = localmem.alloc(FiberContext)!;
     }
 
     *ctx = {
@@ -253,10 +252,12 @@ fn usz stack_used(Fiber* fiber)
     return (usz)(high - sp);
 }
 
-fn Fiber* create(Coroutine entry, uint stack_size = 256_000, void* arg = null)
+faultdef INIT_FAIL, NULL_ENTRY;
+
+fn Fiber*? create(Coroutine entry, uint stack_size = 256_000, void* arg = null)
 {
     if (ctx == null || ctx.running == null) init();
-    if (entry == null) return null;
+    if (entry == null) return NULL_ENTRY~;
 
     usz block_size = 0;
     char* stack_low = null;
@@ -269,11 +270,9 @@ fn Fiber* create(Coroutine entry, uint stack_size = 256_000, void* arg = null)
         &stack_low,
         &stack_high,
         &usable_size
-    );
+    )!;
 
-    if (block == null) return null;
-
-    Fiber* fiber = localmem.alloc(Fiber);
+    Fiber* fiber = localmem.alloc(Fiber)!;
     *fiber = {
         .context = {},
         .entry = null,
@@ -294,7 +293,7 @@ fn Fiber* create(Coroutine entry, uint stack_size = 256_000, void* arg = null)
     {
         vm::stack_free(fiber.block, fiber.block_size);
         localmem.free(fiber);
-        return null;
+        return INIT_FAIL~;
     }
 
     return fiber;

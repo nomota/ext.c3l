@@ -20,6 +20,7 @@ alias ULongPtr = ulong*;
 // Socket types
 alias Socket = uptr;
 alias Group = uint;
+alias SockLen = uint;
 
 // Address family constants
 const int AF_UNSPEC = 0;
@@ -562,6 +563,8 @@ extern fn int setsockopt(
 ) @cname("setsockopt");
 
 extern fn int _assertname(Socket s, SockAddr* name, int* namelen) @cname("_assertname");
+
+extern fn int getsockname(Socket s, SockAddr* name, int* namelen) @cname("getsockname");
 
 extern fn int getpeername(Socket s, SockAddr* name, int* namelen) @cname("getpeername");
 

@@ -1,92 +1,87 @@
+// test_pipe.c3
+
+// test reader/writer task through pipe
+
 module test_pipe;
 
 import ext::aio;
+import ext::aio::io;
 import ext::debug;
 
-import c::unistd;
-import c::fcntl;
-import c::errno;
-import c::string;
-import c::stdio;
+const String TEST_MSG = "hello";
 
-int pipe_r = -1;
-int pipe_w = -1;
-
-fn void set_nonblocking(int fd)
+struct PipeTest
 {
-    int flags = fcntl::fcntl(fd, fcntl::F_GETFL, 0);
-    if (flags < 0) return;
-
-    fcntl::fcntl(fd, fcntl::F_SETFL, flags | fcntl::O_NONBLOCK);
+    Fd rfd;
+    Fd wfd;
+    char[128] buf;
+    usz read_n;
+    usz write_n;
 }
 
-fn void reader_task()
+fn void? reader_task(void* arg)
 {
+    PipeTest* test = (PipeTest*)arg;
+    @assert(test != null, "reader_task: null arg");
+
     warn("reader: wait readable");
 
-    aio::wait_readable(pipe_r)!!;
+    usz n = io::async_read(test.rfd, &test.buf[0], test.buf.len)!;
 
-    char[128] buf;
+    test.read_n = n;
 
-    isz n = unistd::read(pipe_r, &buf[0], 128);
+    @assert(n == TEST_MSG.len, "reader: read length mismatch");
+    @assert((String)test.buf[0:n] == TEST_MSG, "reader: read content mismatch");
 
-    if (n < 0) {
-        warn("reader: read failed errno=%d", errno::errno());
-        return;
-    }
-
-    buf[(usz)n] = 0;
-
-    warn("reader: got '%s'", (String)buf[0
-    :n]);
+    warn("reader: got '%s'", (String)test.buf[0:n]);
 }
 
-fn void writer_task()
+fn void? writer_task(void* arg)
 {
+    PipeTest* test = (PipeTest*)arg;
+    @assert(test != null, "writer_task: null arg");
+
     warn("writer: sleep");
 
-    aio::sleep(100)!!;
+    aio::sleep(100)!;
 
-    char* msg = "hello";
+    usz n = io::async_write(test.wfd, TEST_MSG.ptr, TEST_MSG.len)!;
 
-    isz n = unistd::write(pipe_w, msg, 5);
+    test.write_n = n;
 
-    warn("writer: wrote %d '%s'", n, (String)msg[0:5]);
+    @assert(n == TEST_MSG.len, "writer: write length mismatch");
+
+    warn("writer: wrote %d '%s'", n, TEST_MSG);
 }
 
-fn void main_task()
+fn void? main_task(void* arg)
 {
-    int[2] fds;
+    Fd[2] fds = io::pipe_open()!;
 
-    int rc = unistd::pipe((CInt[2]*)&fds[0]);
+    PipeTest test = {
+        .rfd = fds[0],
+        .wfd = fds[1],
+        .read_n = 0,
+        .write_n = 0,
+    };
 
-    if (rc < 0) {
-        warn("pipe failed errno=%d", errno::errno());
-        return;
-    }
+    Task* r = aio::spawn_joinable(&reader_task, &test)!;
+    Task* w = aio::spawn_joinable(&writer_task, &test)!;
 
-    pipe_r = fds[0];
-    pipe_w = fds[1];
+    r.join()!;
+    w.join()!;
 
-    set_nonblocking(pipe_r);
-    set_nonblocking(pipe_w);
+    @assert(test.write_n == TEST_MSG.len, "main: write_n mismatch");
+    @assert(test.read_n == TEST_MSG.len, "main: read_n mismatch");
+    @assert((String)test.buf[0:test.read_n] == TEST_MSG, "main: final buffer mismatch");
 
-    EventLoop* loop = aio::current_loop();
+    io::fd_close(fds[0]);
+    io::fd_close(fds[1]);
 
-    Task* r = loop.spawn(&reader_task);
-    Task* w = loop.spawn(&writer_task);
-
-    r.join()!!;
-    w.join()!!;
-
-    unistd::close(pipe_r);
-    unistd::close(pipe_w);
-
-    warn("main done");
+    warn("OK");
 }
 
 fn void main()
 {
     aio::run(&main_task);
 }
-

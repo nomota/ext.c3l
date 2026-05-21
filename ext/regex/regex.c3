@@ -1,4 +1,6 @@
-// regex.win32.c3
+// regex.c3
+
+// Nomota <hiongun@gmail.com>; MIT License
 
 module ext::regex;
 

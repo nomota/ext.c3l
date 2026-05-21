@@ -51,7 +51,9 @@ fn usz align_up(usz n, usz a) @inline @private
 // Stack allocation
 //
 
-fn char* stack_alloc(
+faultdef VIRTUALALLOC_FAILED;
+
+fn char*? stack_alloc(
     usz requested_stack_size,
     usz* out_block_size,
     char** out_stack_low,
@@ -83,7 +85,7 @@ fn char* stack_alloc(
         winnt::PAGE_NOACCESS
     );
 
-    if (p == null) return null;
+    if (p == null) return VIRTUALALLOC_FAILED~;;
 
     char* block = (char*)p;
     char* stack_low = block + ps;
@@ -99,7 +101,7 @@ fn char* stack_alloc(
     if (committed == null)
     {
         memoryapi::virtualFree(block, 0, winnt::MEM_RELEASE);
-        return null;
+        return VIRTUALALLOC_FAILED~;
     }
 
     *out_block_size = total_size;

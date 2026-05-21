@@ -196,7 +196,7 @@ fn char[]? load(Allocator allocx, String file)
     
     long n = size(file)!;
     
-    char[] buf = localmem.alloc_array(char, n);
+    char[] buf = localmem.alloc_array(char, n)!;
     defer (catch err) { free(buf); }
     
     File fp = open(file, "r")!;

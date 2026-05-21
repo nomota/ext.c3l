@@ -57,7 +57,7 @@ LocalAllocator localmem @private = {};
 // Init / deinit
 //
 
-fn void init(Allocator alloc = mem) @private
+fn void? init(Allocator alloc = mem) @private @maydiscard
 {
     if (localmem == (LocalAllocator){})
     {
@@ -68,8 +68,7 @@ fn void init(Allocator alloc = mem) @private
 
     if (ctx == null)
     {
-        ctx = localmem.alloc(FiberContext);
-        @assert(ctx != null);
+        ctx = localmem.alloc(FiberContext)!;
     }
 
     *ctx = {
@@ -188,10 +187,12 @@ fn void diag()
     );
 }
 
-fn Fiber* create(Coroutine entry, uint stack_size = 256_000, void* arg = null)
+faultdef NULL_ENTRY;
+
+fn Fiber*? create(Coroutine entry, uint stack_size = 256_000, void* arg = null)
 {
     if (ctx == null || ctx.running == null) init();
-    if (entry == null) return null;
+    if (entry == null) return NULL_ENTRY~;
 
     usz block_size = 0;
     char* stack_low = null;
@@ -204,11 +205,9 @@ fn Fiber* create(Coroutine entry, uint stack_size = 256_000, void* arg = null)
         &stack_low,
         &stack_high,
         &usable_size
-    );
+    )!;
 
-    if (block == null) return null;
-
-    Fiber* fiber = localmem.alloc(Fiber);
+    Fiber* fiber = localmem.alloc(Fiber)!;
     *fiber = {
         .context = {},
         .entry = entry,

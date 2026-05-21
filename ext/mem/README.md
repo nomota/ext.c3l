@@ -48,13 +48,13 @@ import ext::mem;
 tlocal LocalAllocator* mem = mem::localallocator_new(Allocator allocx);
 
 // Allocate raw bytes. Returns null on failure.
-void* p = mem.malloc(usz size);
+void*? p = mem.malloc(usz size);
 
 // Allocate a single value of Type. Returns null on failure.
-Type* p = mem.alloc(Type);
+Type*? p = mem.alloc(Type);
 
 // Allocate an array of n elements of Type. Returns null on failure.
-Type[] arr = mem.alloc_array(Type, n);
+Type[]? arr = mem.alloc_array(Type, n);
 
 // Free a previously allocated pointer.
 void mem.free(void* p);

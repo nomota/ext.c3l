@@ -112,21 +112,20 @@ macro temp_free(x) @builtin
 
 alias LocalAllocator = Allocator;
 
-fn void* LocalAllocator.malloc(&self, usz size) @inline
+fn void*? LocalAllocator.malloc(&self, usz size) @inline
 {
-    void*? a = self.acquire(size, ZERO, 0);
-    if (catch a) return null;
+    void* a = self.acquire(size, ZERO, 0)!;
     return a;
 }
 
 macro LocalAllocator.alloc(&self, $Type)
 {
-    return ($Type*) self.malloc($Type.sizeof);
+    return ($Type*) self.malloc($Type.sizeof)!;
 }
 
 macro LocalAllocator.alloc_array(&self, $Type, n)
 {
-    void* p = self.malloc($Type.sizeof*n);
+    void* p = self.malloc($Type.sizeof*n)!;
     return (($Type*)p)[0:n];
 }
 

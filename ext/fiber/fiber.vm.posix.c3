@@ -49,7 +49,8 @@ fn usz align_up(usz n, usz a) @inline @private
     return (n + a - 1) & ~(a - 1);
 }
 
-fn char* stack_alloc(
+faultdef MMAP_FAILED, MPROTECT_FAILED;
+fn char*? stack_alloc(
     usz requested_stack_size,
     usz* out_block_size,
     char** out_stack_low,
@@ -78,7 +79,7 @@ fn char* stack_alloc(
 
     if ((iptr)p == mman::MAP_FAILED || p == null)
     {
-        return null;
+        return MMAP_FAILED~;
     }
 
     char* block = (char*)p;
@@ -94,7 +95,7 @@ fn char* stack_alloc(
     if (rc != 0)
     {
         mman::munmap(block, total_size);
-        return null;
+        return MPROTECT_FAILED~;
     }
 
     *out_block_size = total_size;

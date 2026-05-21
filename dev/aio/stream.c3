@@ -4,23 +4,24 @@
 
 module ext::aio;
 
-import c::unistd;
 import c::errno;
 import c::string;
 import ext::mem;
 import ext::debug;
+import ext::aio::io;
+import ext::aio::net;
 
-faultdef ASYNC_CLOSED;
+faultdef CLOSED;
 
-struct Stream {
-    int fd;
+struct Stream
+{
+    Fd fd;
     bool closed;
 }
 
-fn Stream* stream_new(int fd)
+fn Stream*? stream_new(Fd fd)
 {
-    Stream* s = localmem.alloc(Stream);
-
+    Stream* s = localmem.alloc(Stream)!;
     *s = {
         .fd = fd,
         .closed = false,
@@ -29,11 +30,27 @@ fn Stream* stream_new(int fd)
     return s;
 }
 
+fn Stream*? stream_listen(String host, ushort port, int backlog = DEFAULT_BACKLOG)
+{
+    Fd sock = net::tcp_listen_host(host, port, backlog)!;
+    return stream_new(sock)!;
+}
+
+fn Stream*? stream_connect(String host, ushort port)
+{
+    Fd sock = net::tcp_connect_host(host, port)!;
+    return stream_new(sock)!;
+}
+
+fn Stream*? Stream.accept(&self)
+{
+    Fd sock = net::tcp_accept(self.fd)!;
+    return stream_new(sock)!;
+}
+
 fn void Stream.free(&self)
 {
-    if (!self.closed) {
-        self.close();
-    }
+    if (!self.closed) self.close();
 
     localmem.free(self);
 }
@@ -42,161 +59,107 @@ fn void Stream.close(&self)
 {
     if (self.closed) return;
 
-    if (self.fd >= 0) {
-        unistd::close(self.fd);
-        self.fd = -1;
-        socket_forget_ip(self.fd);
+    if (!io::fd_invalid(self.fd))
+    {
+        net::socket_close(self.fd);
+        self.fd = io::fd_null();
     }
 
     self.closed = true;
 }
 
+fn String? Stream.peer_ip(&self)
+{
+    if (io::fd_invalid(self.fd)) return CLOSED~;
+
+    return net::peer_ip(self.fd)!;
+}
+
 fn bool Stream.is_closed(&self) @inline
 {
-    return self.closed || self.fd < 0;
+    return self.closed || io::fd_invalid(self.fd);
 }
 
 fn usz? Stream.read(&self, char[] buf)
 {
-    if (self.is_closed()) {
-        return ASYNC_CLOSED~;
-    }
+    if (self.is_closed()) return CLOSED~;
 
-    if (buf.len == 0) {
-        return 0;
-    }
-
-    while (true) {
-        isz n = unistd::read(self.fd, buf.ptr, buf.len);
-
-        if (n >= 0) {
-            return (usz)n;
-        }
-
-        int err = errno::errno();
-
-        if (err == errno::EINTR) {
-            continue;
-        }
-
-        if (err == errno::EAGAIN || err == errno::EWOULDBLOCK) {
-            wait_readable(self.fd)!;
-            continue;
-        }
-
-        return ASYNC_IO_ERROR~;
-    }
-
-    // return ASYNC_IO_ERROR~;
+    return io::async_read(self.fd, buf);
 }
 
-fn usz? Stream.write(&self, char[] data) @maydiscard
+fn usz? Stream.read_timeout(&self, char[] buf, ulong timeout_ms)
 {
-    if (self.is_closed()) {
-        return ASYNC_CLOSED~;
-    }
+    Timer* timer = start_timer(timeout_ms)!;
+    defer timer.cancel();
 
-    if (data.len == 0) {
-        return 0;
-    }
+    return self.read(buf[..]);
+}
 
-    while (true) {
-        isz n = unistd::write(self.fd, data.ptr, data.len);
+fn usz? Stream.write(&self, char[] buf) @maydiscard
+{
+    if (self.is_closed()) return CLOSED~;
 
-        if (n >= 0) {
-            return (usz)n;
-        }
-
-        int err = errno::errno();
-
-        if (err == errno::EINTR) {
-            continue;
-        }
-
-        if (err == errno::EAGAIN || err == errno::EWOULDBLOCK) {
-            wait_writable(self.fd)!;
-            continue;
-        }
-
-        return ASYNC_IO_ERROR~;
-    }
-
-    // return ASYNC_IO_ERROR~;
+    return io::async_write(self.fd, buf);
 }
 
 fn void? Stream.write_all(&self, char[] data) @maydiscard
 {
-    if (self.is_closed()) {
-        return ASYNC_CLOSED~;
-    }
+    if (self.is_closed()) return CLOSED~;
 
     usz sent = 0;
 
-    while (sent < data.len) {
+    while (sent < data.len)
+    {
         char[] part = data[sent..];
 
-        isz n = self.write(part)!;
+        usz n = self.write(part)!;
 
-        if (n < 0) {
-            return ASYNC_IO_ERROR~;
-        }
+        if (n == 0) return CLOSED~;
 
-        if (n == 0) {
-            return ASYNC_CLOSED~;
-        }
-
-        sent += (usz)n;
+        sent += n;
     }
+}
 
-    return;
+fn void? Stream.write_all_timeout(&self, char[] data, ulong timeout_ms)
+{
+    Timer* timer = start_timer(timeout_ms)!;
+    defer timer.cancel();
+
+    self.write_all(data[..])!;
 }
 
 fn void? Stream.read_exact(&self, char[] buf)
 {
     usz got = 0;
 
-    while (got < buf.len) {
+    while (got < buf.len)
+    {
         char[] part = buf[got..];
 
-        isz n = self.read(part)!;
+        usz n = self.read(part)!;
 
-        if (n < 0) {
-            return ASYNC_IO_ERROR~;
-        }
+        if (n == 0) return CLOSED~;
 
-        if (n == 0) {
-            return ASYNC_CLOSED~;
-        }
-
-        got += (usz)n;
+        got += n;
     }
-
-    return;
 }
 
 fn usz? Stream.read_until(&self, char[] buf, char delim)
 {
     usz pos = 0;
 
-    while (pos < buf.len) {
+    while (pos < buf.len)
+    {
         char[1] ch;
 
-        isz n = self.read(ch[..])!;
+        usz n = self.read(ch[..])!;
 
-        if (n < 0) {
-            return ASYNC_IO_ERROR~;
-        }
-
-        if (n == 0) {
-            break;
-        }
+        if (n == 0) break;
 
         buf[pos] = ch[0];
         pos += 1;
 
-        if (ch[0] == delim) {
-            break;
-        }
+        if (ch[0] == delim) break;
     }
 
     return pos;
@@ -207,3 +170,25 @@ fn usz? Stream.read_line(&self, char[] buf)
     return self.read_until(buf, '\n');
 }
 
+fn Stream*? open_connection(String host, ushort port)
+{
+    Fd fd = net::tcp_socket()!;
+
+    if (catch err = net::tcp_connect(fd, host, port))
+    {
+        net::socket_close(fd);
+        return err~;
+    }
+
+    return stream_new(fd);
+}
+
+fn Stream*? open_connection_timeout(String host, ushort port, ulong timeout_ms)
+{
+    Timer* timer = start_timer(timeout_ms)!;
+    defer timer.cancel();
+
+    return open_connection(host, port);
+}
+
+// eof

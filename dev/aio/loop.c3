@@ -1,96 +1,146 @@
 // loop.c3
 
+// Nomota <hiongun@gmail.com>; MIT License
+
 module ext::aio;
 
-import c::unistd;
+import std::thread;
+import std::collections::linkedlist;
 import ext::mem;
 import ext::debug;
 import ext::fiber;
 
 LocalAllocator localmem = {};
 
-faultdef NONE, ASYNC_CANCELLED, ASYNC_FAILED, ASYNC_INVALID_STATE;
+bool initialized = false;
 
-struct EventLoop {
-    Fiber* fiber; // event-loop/main fiber
+fn void init() @init
+{
+    if (initialized) return;
+    initialized = true;
+    
+    if (localmem == (LocalAllocator){}) localmem = tmem;
+    
+    io::init();
+    net::init();
+}
+
+fn void deinit() @finalizer
+{
+    net::deinit();
+    io::deinit();
+    localmem = null;
+    initialized = false;
+}
+
+faultdef NONE, CANCELLED, FAILED, INVALID_STATE, TIMEOUT, NO_LOOP;
+faultdef IO_ERROR, POLL_ERROR, ADDR_ERROR, OUT_OF_MEMORY, EMPTY_QUEUE, FIBER_ERROR, INVALID_ARG;
+faultdef SOCKET_ERROR, CONNECT_ERROR, BIND_ERROR, SENDTO_ERROR, LISTEN_ERROR, ACCEPT_ERROR;
+
+struct EventLoop
+{
+    Fiber* fiber; // Event-loop/main fiber.
     Task* current;
 
-    Task* ready_head;
-    Task* ready_tail;
+    LinkedList{Task*} ready;
+    LinkedList{Task*} tasks;
 
-    TimerWaiter* timer_head;
+    Sleep* sleep_head;
 
-    Poller* poller;
-
+    ThreadSafe threadsafe;
+    
     bool running;
     bool stopping;
 }
 
-tlocal EventLoop* cur_loop = null;
+tlocal EventLoop* cur_loop @private = null;
 
-fn EventLoop* current_loop()
+fn EventLoop*? current_loop() @maydiscard
 {
+    if (cur_loop == null) return NO_LOOP~;
     return cur_loop;
 }
 
-fn Task* current_task()
+fn Task*? current_task() @maydiscard
 {
-    EventLoop* loop = current_loop();
-    if (loop == null) return null;
+    EventLoop* loop = current_loop()!;
+    if (loop == null) return NO_LOOP~;
+
     return loop.current;
 }
 
-fn EventLoop* loop_new()
+fn EventLoop*? loop_new()
 {
-    if (localmem == (LocalAllocator){}) {
-        localmem = tmem;
-    }
-    
-    EventLoop* loop = localmem.alloc(EventLoop);
-
+    EventLoop* loop = localmem.alloc(EventLoop)!;
     *loop = {
         .fiber = null,
         .current = null,
-        .ready_head = null,
-        .ready_tail = null,
-        .timer_head = null,
-        .poller = null,
+        .sleep_head = null,
         .running = false,
         .stopping = false,
     };
 
+    loop.ready.init(localmem);
+    loop.tasks.init(localmem);
+    
     loop.fiber = fiber::active();
-    loop.poller = poller_new();
+    
+    defer (catch err) {
+        loop.tasks.free();
+        loop.ready.free();
+        localmem.free(loop);
+    }
+    
+    loop.threadsafe.init(loop)!;
     
     return loop;
 }
 
 fn void EventLoop.free(&self)
 {
-    // drain tasks in ready queue
-    Task* t = self.ready_head;
+    self.cancel_all_tasks();
+    self.threadsafe.process();
 
-    while (t != null) {
-        Task* next = t.next_ready;
-        t.next_ready = null;
-        t.free();
-        t = next;
+    foreach(task: self.tasks.array_view())
+    {
+        task.free();
     }
-
-    self.ready_head = null;
-    self.ready_tail = null;
+    self.tasks.free();
     
-    if (self.poller != null) {
-        self.poller.free();
-        self.poller = null;
-    }
+    self.ready.free();
+    
+    self.threadsafe.deinit();
     
     localmem.free(self);
 }
 
+fn bool EventLoop.has_live_tasks(&self)
+{
+    foreach (task: self.tasks.array_view())
+    {
+        if (task == null) continue;
+
+        if (task.state != TASK_DONE &&
+            task.state != TASK_CANCELLED &&
+            task.state != TASK_FAILED)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+fn bool EventLoop.has_work(&self)
+{
+    return self.has_ready() ||
+        self.has_sleeps() ||
+        self.has_live_tasks();
+}
+
 fn bool EventLoop.has_ready(&self) @inline
 {
-    return self.ready_head != null;
+    return !self.ready.is_empty();
 }
 
 fn void EventLoop.push_ready(&self, Task* task)
@@ -99,35 +149,31 @@ fn void EventLoop.push_ready(&self, Task* task)
     if (task.queued) return;
 
     task.queued = true;
-
-    task.next_ready = null;
-
-    if (self.ready_tail == null) {
-        self.ready_head = task;
-        self.ready_tail = task;
-        return;
-    }
-
-    self.ready_tail.next_ready = task;
-    self.ready_tail = task;
+    
+    self.ready.push(task);
 }
 
-fn Task* EventLoop.pop_ready(&self)
+fn Task*? EventLoop.pop_ready(&self)
 {
-    Task* task = self.ready_head;
-    if (task == null) return null;
-
-    self.ready_head = task.next_ready;
-
-    if (self.ready_head == null) {
-        self.ready_tail = null;
-    }
-
-    task.next_ready = null;
-
+    if (self.ready.is_empty()) return EMPTY_QUEUE~;
+    
+    Task* task = self.ready.pop_front()!;
     task.queued = false;
 
     return task;
+}
+
+fn void EventLoop.drain_ready(&self)
+{
+    while (true)
+    {
+        self.threadsafe.process();
+        self.process_sleeps();
+
+        if (!self.has_ready()) break;
+
+        self.run_once();
+    }
 }
 
 fn void EventLoop.call_soon(&self, Task* task)
@@ -137,87 +183,162 @@ fn void EventLoop.call_soon(&self, Task* task)
     if (task.state == TASK_DONE) return;
     if (task.state == TASK_CANCELLED) return;
     if (task.state == TASK_FAILED) return;
-// warn(".mark_ready()");
+
     task.mark_ready();
     self.push_ready(task);
 }
 
-fn Task* EventLoop.spawn(&self, TaskFn entry)
+fn Task*? EventLoop.spawn(&self, TaskFn entry, void* arg = null, bool detached = true)
 {
-    Task* task = self.task_new(entry);
-// warn(".call_soon()");
+    Task* task = self.task_new(entry, arg)!;
+
+    task.detached = detached;
+    
+    self.tasks.push(task);
+    
     self.call_soon(task);
+
     return task;
+}
+
+fn Task*? spawn(TaskFn task, void* arg = null, bool detached = true)
+{
+    EventLoop* loop = current_loop()!;
+    return loop.spawn(task, arg, detached)!;
+}
+
+fn Task*? EventLoop.spawn_joinable(&self, TaskFn task, void* arg = null)
+{
+    return self.spawn(task, arg, detached: false)!;
+}
+
+fn Task*? spawn_joinable(TaskFn task, void* arg = null)
+{
+    EventLoop* loop = current_loop()!;
+    return loop.spawn_joinable(task, arg)!;
+}
+
+fn void EventLoop.reap_task(&self, Task* task)
+{
+    if (task == null) return;
+
+    self.ready.remove_first_match(task);
+    self.tasks.remove_first_match(task);
+
+    task.queued = false;
+    task.free();
+}
+
+fn void EventLoop.cancel_all_tasks(&self)
+{
+    foreach (task: self.tasks.array_view())
+    {
+        if (task == null) continue;
+
+        if (task.state == TASK_DONE) continue;
+        if (task.state == TASK_CANCELLED) continue;
+        if (task.state == TASK_FAILED) continue;
+
+        task.cancel();
+    }
+
+    for (usz i = 0; i < self.tasks.len(); i++)
+    {
+        Task* task = self.tasks.get(i);
+        if (task == null) continue;
+        if (!task.detached) continue;
+
+        if (task.state == TASK_DONE ||
+            task.state == TASK_CANCELLED ||
+            task.state == TASK_FAILED)
+        {
+            self.reap_task(task);
+            i--;
+        }
+    }
 }
 
 fn void EventLoop.stop(&self)
 {
+    if (self.stopping) return;
+
+    self.cancel_all_tasks();
+
     self.stopping = true;
 }
 
-fn bool EventLoop.has_timers(&self) @inline
+fn void? stop() @maydiscard
 {
-    return self.timer_head != null;
+    EventLoop* loop = current_loop()!;
+    loop.stop();
+}
+
+fn bool EventLoop.has_sleeps(&self) @inline
+{
+    return self.sleep_head != null;
 }
 
 fn int EventLoop.compute_poll_timeout(&self)
 {
     if (self.has_ready()) return 0;
 
-    if (self.has_timers()) {
-        ulong delay = self.next_timer_delay_ms();
+    self.threadsafe.lock.lock();
+    bool has_threadsafe = self.threadsafe.head != null;
+    self.threadsafe.lock.unlock();
 
-        if (delay > 1000) delay = 1000;
+    if (has_threadsafe) return 0;
+
+    if (self.has_sleeps())
+    {
+        ulong delay = self.next_sleep_delay_us();
+
+        if (delay > 2_147_483_647) return 2_147_483_647;
 
         return (int)delay;
     }
 
-    return -1; // infinite
+    return -1; // Wait indefinitely.
 }
 
-fn void EventLoop.run_once(&self)
+fn void? EventLoop.run_once(&self) @maydiscard
 {
-    Task* task = self.pop_ready();
+    Task* task = self.pop_ready()!;
 
-    if (task == null) return;
-
-    if (task.state == TASK_DONE) return;
-    if (task.state == TASK_CANCELLED) return;
-    if (task.state == TASK_FAILED)return;
     if (task.state == TASK_WAITING) return;
+
+    if (task.state == TASK_DONE ||
+        task.state == TASK_CANCELLED ||
+        task.state == TASK_FAILED)
+    {
+        if (task.detached) self.reap_task(task);
+        return;
+    }
     
     task.resume();
 
-    switch (task.state) {
+    switch (task.state)
+    {
         case TASK_READY:
             self.push_ready(task);
 
         case TASK_RUNNING:
-            // 보통 step()에서 loop로 돌아오면 RUNNING으로 남으면 안 됨.
-            // 그래도 안전하게 다시 ready로 보낸다.
             task.state = TASK_READY;
             self.push_ready(task);
 
         case TASK_WAITING:
-            // Waiter.wake()가 나중에 call_soon()으로 다시 넣는다.
             break;
+
         case TASK_DONE:
-            // join_waiter가 있을 수 있으므로 바로 free하면 위험할 수 있다.
-            // 1차 구현에서는 join 대상 task는 사용자가 free하거나,
-            // run_until_complete에서 처리하게 둔다.
-            break;
         case TASK_CANCELLED:
-            break;
-
         case TASK_FAILED:
+            if (task.detached) self.reap_task(task);
             break;
 
-        default:
-            // TASK_NEW는 step() 안에서 처리됨.
+        default: // Nothing
     }
 }
 
-fn void EventLoop.run_forever(&self)
+fn void? EventLoop.run_forever(&self) @maydiscard
 {
     EventLoop* prev_loop = cur_loop;
     cur_loop = self;
@@ -225,43 +346,30 @@ fn void EventLoop.run_forever(&self)
     self.running = true;
     self.stopping = false;
 
-    while (!self.stopping) {
-        self.process_timers();
+    while (!self.stopping)
+    {
+        self.threadsafe.process();
+        self.process_sleeps();
 
-        if (self.has_ready()) {
-            self.run_once();
+        if (self.has_ready())
+        {
+            self.run_once()!;
             continue;
         }
 
         int timeout = self.compute_poll_timeout();
-    
-        if (self.poller != null) {
-            if (catch err = self.poller.poll(timeout)) {
-                self.stopping = true;
-            }
-            continue;
-        }
-
-        if (self.has_timers()) {
-            ulong delay = self.next_timer_delay_ms();
-
-            if (delay > 10) delay = 10;
-
-            if (delay > 0) {
-                unistd::usleep((uint)(delay * 1000));
-            }
-
-            continue;
-        }
-
-        self.run_once();
+        if (io::pending()) io::poll(timeout);
+        // if (catch err = io::poll(timeout)) self.stopping = true;
     }
+
+    self.threadsafe.process();
+    self.drain_ready();
 
     self.running = false;
     cur_loop = prev_loop;
 }
 
-fn void EventLoop.run_until_complete(&self, Task* main_task)
+fn void? EventLoop.run_until_complete(&self, Task* main_task) @maydiscard
 {
     if (main_task == null) return;
 
@@ -270,74 +378,102 @@ fn void EventLoop.run_until_complete(&self, Task* main_task)
 
     self.running = true;
     self.stopping = false;
-// warn("-");
+
     self.call_soon(main_task);
 
     while (!self.stopping)
     {
-        // 반드시 매 loop마다 먼저 만료 timer를 ready queue로 옮긴다.
-        self.process_timers();
+        self.threadsafe.process();
+        self.process_sleeps();
 
         if (main_task.state == TASK_DONE ||
             main_task.state == TASK_CANCELLED ||
-            main_task.state == TASK_FAILED) {
-            break;
-        }
+            main_task.state == TASK_FAILED) break;
 
-        if (self.has_ready()) {
-            self.run_once();
+        if (self.has_ready())
+        {
+            self.run_once()!;
             continue;
         }
 
         int timeout = self.compute_poll_timeout();
-    
-        if (self.poller != null) {
-            if (catch err = self.poller.poll(timeout)) {
-                self.stopping = true;
-            }
-            continue;
-        }
-
-        if (self.has_timers()) {
-            ulong delay = self.next_timer_delay_ms();
-
-            if (delay > 10) delay = 10;
-
-            if (delay > 0) {
-                c::unistd::usleep((uint)(delay * 1000));
-            }
-
-            continue;
-        }
-
-        // ready도 timer도 없으면 deadlock/idle.
-        break;
+        if (io::pending()) io::poll(timeout);
+        // if (catch err = io::poll(timeout)) self.stopping = true;
     }
 
+    self.threadsafe.process();
+    self.drain_ready();
+    
     self.running = false;
     cur_loop = prev_loop;
 }
 
-fn void run(TaskFn main)
+fn void? EventLoop.run_main(&self, Task* main_task) @maydiscard
 {
-    EventLoop* loop = loop_new();
+    if (main_task == null) return;
 
-    Task* main_task = loop.task_new(main);
-    loop.run_until_complete(main_task);
+    EventLoop* prev_loop = cur_loop;
+    cur_loop = self;
 
-    if (main_task.state == TASK_DONE ||
-        main_task.state == TASK_CANCELLED ||
-        main_task.state == TASK_FAILED) {
-        main_task.free();
+    self.running = true;
+    self.stopping = false;
+
+    self.call_soon(main_task);
+
+    while (!self.stopping)
+    {
+        self.threadsafe.process();
+        self.process_sleeps();
+
+        if (self.has_ready())
+        {
+            self.run_once()!;
+            continue;
+        }
+
+        if (main_task.state == TASK_DONE ||
+            main_task.state == TASK_CANCELLED ||
+            main_task.state == TASK_FAILED)
+        {
+            if (!self.has_work()) break;
+        }
+
+        if (!self.has_work()) break;
+
+        int timeout = self.compute_poll_timeout();
+        if (io::pending()) io::poll(timeout);
+        // if (catch err = io::poll(timeout)) self.stopping = true;
+    }
+    
+    self.threadsafe.process();
+    self.drain_ready();
+    
+    self.running = false;
+    cur_loop = prev_loop;
+}
+
+fn void? run(TaskFn main, void* arg = null) @maydiscard
+{
+    EventLoop* loop = loop_new()!;
+
+    Task* main_task = loop.task_new(main, arg)!;
+
+    main_task.detached = false;
+    loop.tasks.push(main_task);
+
+    loop.run_main(main_task)!;
+
+    if (main_task.state == TASK_DONE || main_task.state == TASK_CANCELLED || main_task.state == TASK_FAILED)
+    {
+        loop.reap_task(main_task);
     }
 
     loop.free();
 }
 
-fn void yield()
+fn void? yield() @maydiscard
 {
-    Task* task = current_task();
-    if (task == null) return;
+    Task* task = current_task()!;
 
     EventLoop* loop = task.loop;
     if (loop == null) return;
@@ -347,3 +483,5 @@ fn void yield()
 
     fiber::switch_to(loop.fiber);
 }
+
+// eof

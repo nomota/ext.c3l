@@ -1,5 +1,7 @@
 // task.c3
 
+// Nomota <hiongun@gmail.com>; MIT License
+
 module ext::aio;
 
 import ext::mem;
@@ -7,7 +9,8 @@ import ext::debug;
 import c::stdlib;
 import ext::fiber;
 
-enum TaskState : char {
+enum TaskState : char
+{
     TASK_NEW,
     TASK_READY,
     TASK_RUNNING,
@@ -17,51 +20,65 @@ enum TaskState : char {
     TASK_FAILED,
 }
 
-alias TaskFn = fn void();
+alias TaskFn = fn void?(void*);
 
-struct Task {
-    uint stack_size;
-    
+struct Task
+{
     TaskState state;
 
     EventLoop* loop;
     Fiber* fiber;
 
     TaskFn entry;
-
+    void* arg;
+    
     fault error;
 
     Waiter* waiting_on;
     Waiter* join_waiter;
 
-    Task* next_ready;
-    
     bool queued;
+    bool detached;
+
+    bool cancel_requested;
+    bool timeout_requested;
 }
 
-fn Task* EventLoop.task_new(&self, TaskFn entry)
+fn Task*? EventLoop.task_new(&self, TaskFn entry, void* arg = null)
 {
-    Task* t = localmem.alloc(Task);
-
+    if (entry == null) return INVALID_ARG~;
+    
+    Task* t = localmem.alloc(Task)!;
     *t = {
-        .stack_size = 256_000,
         .state = TASK_NEW,
         .loop = self,
         .fiber = null,
         .entry = entry,
+        .arg = arg,
         .error = NONE,
         .waiting_on = null,
         .join_waiter = null,
-        .next_ready = null,
+        .detached = false,
         .queued = false,
+        .cancel_requested = false,
+        .timeout_requested = false,
     };
+    
+    t.fiber = fiber::create(&fiber_trampoline, arg:t)!;
+    if (t.fiber == null)
+    {
+        localmem.free(t);
+        return FIBER_ERROR~;
+    }
+    t.state = TASK_READY;
 
     return t;
 }
 
 fn void Task.free(&self)
 {
-    if (self.fiber != null) {
+    if (self.fiber != null)
+    {
         fiber::delete(self.fiber);
         self.fiber = null;
     }
@@ -71,62 +88,63 @@ fn void Task.free(&self)
 
 fn void fiber_trampoline()
 {
-// warn("fiber_trampoline enter");
-
     Task* t = (Task*)fiber::active().arg;
 
     t.loop.current = t;
-    
     t.state = TASK_RUNNING;
 
-    t.entry(); // call fiber coruotine
-
-    if (t.error == ASYNC_CANCELLED) {
-        t.state = TASK_CANCELLED;
-    } else {
-        t.state = TASK_DONE;
+    if (catch err = t.entry(t.arg))
+    {
+        t.error = err;
+        warn("task aborted: %s", err);
+        
+        if (err == CANCELLED || err == TIMEOUT)
+        {
+            t.state = TASK_CANCELLED;
+        }
+        else
+        {
+            t.state = TASK_FAILED;
+        }
+    }
+    else
+    {
         t.error = NONE;
+        t.state = TASK_DONE;
     }
 
     t.waiting_on = null;
 
-    if (t.join_waiter != null) {
+    if (t.join_waiter != null)
+    {
         t.join_waiter.wake();
         t.join_waiter = null;
     }
 
     t.loop.current = null;
 
-    fiber::done(); // return to the main loop
+    fiber::done();
 }
 
 // Advance one step of a Task's execution
 fn void Task.resume(&self)
 {
-// warn("resume %s", self.state);
     if (self.state == TASK_DONE) return;
     if (self.state == TASK_CANCELLED) return;
     if (self.state == TASK_FAILED) return;
 
-    if (self.state == TASK_NEW) {
-// warn("-");
-        self.state = TASK_RUNNING;
-        self.fiber = fiber::create(self.stack_size, &fiber_trampoline , self);
-        self.state = TASK_READY;
-    }
-    
     if (self.fiber == null) return;
 
     Task* prev = self.loop.current;
 
     self.loop.current = self;
     self.state = TASK_RUNNING;
-// warn("-");
+
     fiber::switch_to(self.fiber);
 
     // Returned from suspend() or fiber::done().
-    if (self.state == TASK_RUNNING) {
-// warn("-");
+    if (self.state == TASK_RUNNING)
+    {
         // Task yielded without setting WAITING/DONE.
         // Keep it runnable.
         self.state = TASK_READY;
@@ -137,13 +155,17 @@ fn void Task.resume(&self)
 
 fn void Task.suspend(&self, Waiter* waiter)
 {
-// warn("task suspend");
-
     self.waiting_on = waiter;
-    
     self.state = TASK_WAITING;
 
-    fiber::switch_to(self.loop.fiber); // to main fiber
+    fiber::switch_to(self.loop.fiber);
+}
+
+fn void Task.yield(&self)
+{
+    self.state = TASK_WAITING;
+
+    fiber::switch_to(self.loop.fiber);
 }
 
 fn void Task.mark_ready(&self)
@@ -154,8 +176,6 @@ fn void Task.mark_ready(&self)
 
     self.waiting_on = null;
 
-    if (self.state == TASK_NEW) return;
-
     self.state = TASK_READY;
 }
 
@@ -164,60 +184,102 @@ fn void Task.cancel(&self)
     if (self.state == TASK_DONE) return;
     if (self.state == TASK_CANCELLED) return;
 
-    self.error = ASYNC_CANCELLED;
+    self.cancel_requested = true;
+    self.error = CANCELLED;
 
-    if (self.waiting_on != null) {
+    if (self.waiting_on != null)
+    {
         self.waiting_on.cancel();
         return;
     }
 
     self.state = TASK_CANCELLED;
 
-    if (self.join_waiter != null) {
+    if (self.join_waiter != null)
+    {
         self.join_waiter.cancel();
         self.join_waiter = null;
     }
 }
 
-fn void? Task.join(&self)
+fn void Task.cancel_timeout(&self)
 {
-    if (self.state == TASK_DONE) {
-        if (self.error != NONE) return self.error~;
+    if (self.state == TASK_DONE) return;
+    if (self.state == TASK_CANCELLED) return;
+
+    self.cancel_requested = true;
+    self.timeout_requested = true;
+    self.error = TIMEOUT;
+
+    if (self.waiting_on != null)
+    {
+        self.waiting_on.cancel(TIMEOUT);
         return;
     }
 
-    if (self.state == TASK_CANCELLED) {
-        return ASYNC_CANCELLED~;
-    }
+    self.state = TASK_CANCELLED;
 
-    if (self.state == TASK_FAILED) {
-        if (self.error != NONE) return self.error~;
-        return ASYNC_FAILED~;
-    }
-
-    Task* current = self.loop.current;
-
-    if (current == null || current == self) {
-warn("-");
-        return ASYNC_INVALID_STATE~;
-    }
-
-    if (self.join_waiter != null) {
-warn("-");
-        return ASYNC_INVALID_STATE~;
-    }
-
-    Waiter waiter;
-    waiter.init(current);
-
-    self.join_waiter = &waiter;
-
-    current.suspend(&waiter);
-
-    waiter.check()!;
-
-    if (self.error != NONE) {
-        return self.error~;
+    if (self.join_waiter != null)
+    {
+        self.join_waiter.cancel(TIMEOUT);
+        self.join_waiter = null;
     }
 }
 
+fn void? Task.check(&self)
+{
+    if (self.error != NONE) return self.error~;
+
+    if (self.state == TASK_CANCELLED) return CANCELLED~;
+}
+
+faultdef JOIN_DETACHED, JOIN_NO_TASK, JOIN_NO_WAITER, JOIN_TASK_CANCELLED, JOIN_TASK_FAILED;
+
+fn void? Task.join(&self)
+{
+    if (self.detached) return JOIN_DETACHED~;
+
+    if (self.state != TASK_DONE &&
+        self.state != TASK_CANCELLED &&
+        self.state != TASK_FAILED)
+    {
+        Task* current = self.loop.current;
+
+        if (current == null || current == self) return JOIN_NO_TASK~;
+
+        if (self.join_waiter != null) return JOIN_NO_WAITER~;
+
+        Waiter waiter;
+        waiter.init(current);
+
+        self.join_waiter = &waiter;
+
+        current.suspend(&waiter);
+
+        waiter.check()!;
+    }
+
+    fault err = self.error;
+    TaskState state = self.state;
+    EventLoop* loop = self.loop;
+
+    if (loop != null) loop.reap_task(self);
+
+    if (state == TASK_CANCELLED)
+    {
+        if (err != NONE) return err~;
+        return JOIN_TASK_CANCELLED~;
+    }
+    
+    if (state == TASK_FAILED)
+    {
+        if (err != NONE) return err~;
+        return JOIN_TASK_FAILED~;
+    }
+
+    if (err != NONE) return err~;
+
+    return;
+}
+
+// eof

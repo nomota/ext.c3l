@@ -1,135 +1,81 @@
 // timer.c3
 
+// Nomota <hiongun@gmail.com>; MIT License
+
 module ext::aio;
 
-import std::time::clock;
-import c::time;
-import c::unistd;
-import ext::debug;
+import ext::mem;
 
-struct TimerWaiter @private {
-    Waiter base;
-
-    ulong deadline_ms;
-
-    TimerWaiter* next;
-}
-
-fn ulong clock_now() @inline // micro second
+struct Timer
 {
-    return (ulong) clock::now()/1_000_000; // nano to milli
+    Task* target;
+    Task* timer_task;
+
+    ulong timeout_ms;
+    bool active;
 }
 
-/* only on posix
-fn ulong monotonic_ms()
+fn void? timer_task_entry(void* arg) @private
 {
-    time::TimeSpec ts;
+    Timer* t = (Timer*)arg;
+    if (t == null) return INVALID_ARG~;
 
-    time::clock_gettime(time::CLOCK_MONOTONIC, &ts);
+    sleep(t.timeout_ms)!;
 
-    return (ulong)ts.tv_sec * 1000 + (ulong)ts.tv_nsec / 1_000_000;
+    if (!t.active) return;
+
+    Task* target = t.target;
+
+    if (target != null &&
+        target.state != TASK_DONE &&
+        target.state != TASK_CANCELLED &&
+        target.state != TASK_FAILED)
+    {
+        target.cancel_timeout();
+    }
 }
-*/
 
-fn void TimerWaiter.init(&self, Task* task, ulong deadline_ms)
+fn Timer*? Task.start_timer(&self, ulong timeout_ms)
 {
-    self.base.init(task);
-    self.deadline_ms = deadline_ms;
-    self.next = null;
+    if (timeout_ms == 0) return INVALID_ARG~;
+
+    EventLoop* loop = self.loop;
+    if (loop == null) return INVALID_STATE~;
+
+    Timer* timer = localmem.alloc(Timer)!;
+    *timer = {
+        .target = self,
+        .timer_task = null,
+        .timeout_ms = timeout_ms,
+        .active = true,
+    };
+    defer catch localmem.free(timer);
+    
+    Task* timer_task = loop.spawn(&timer_task_entry, timer)!;
+
+    timer.timer_task = timer_task;
+    
+    return timer;
 }
 
-fn void EventLoop.add_timer(&self, TimerWaiter* timer)
+fn Timer*? start_timer(ulong timeout_ms)
 {
-    if (timer == null) return;
+    Task* task = current_task()!;
 
-    timer.next = null;
-
-    if (self.timer_head == null) {
-        self.timer_head = timer;
-        return;
-    }
-
-    if (timer.deadline_ms < self.timer_head.deadline_ms) {
-        timer.next = self.timer_head;
-        self.timer_head = timer;
-        return;
-    }
-
-    TimerWaiter* prev = self.timer_head;
-    TimerWaiter* cur = self.timer_head.next;
-
-    while (cur != null && cur.deadline_ms <= timer.deadline_ms) {
-        prev = cur;
-        cur = cur.next;
-    }
-
-    timer.next = cur;
-    prev.next = timer;
+    return task.start_timer(timeout_ms)!;
 }
 
-fn void EventLoop.process_timers(&self)
+
+fn void Timer.cancel(&self)
 {
-//warn("-");
-    ulong now = clock_now();
-
-    while (self.timer_head != null) {
-        TimerWaiter* timer = self.timer_head;
-
-        if (timer.deadline_ms > now) {
-//warn("-");
-            break;
-        }
-
-        self.timer_head = timer.next;
-        timer.next = null;
-//warn("-");
-        timer.base.wake();
+    self.active = false;
+    self.target = null;
+    
+    if (self.timer_task != null)
+    {
+        self.timer_task.cancel();
+        self.timer_task = null;
     }
+    
+    localmem.free(self);
 }
-
-fn ulong EventLoop.next_timer_delay_ms(&self)
-{
-    if (self.timer_head == null) {
- //warn("-");
-        return 0;
-    }
-
-    ulong now = clock_now();
-//warn("%d %d", now, self.timer_head.deadline_ms);
-    if (self.timer_head.deadline_ms <= now) {
-//warn("%d %d", now, self.timer_head.deadline_ms);
-//warn("-");
-        return 0;
-    }
-
-    ulong delay = self.timer_head.deadline_ms - now;
-//warn("delay %d", delay);
-    return delay;
-}
-
-fn void? sleep(ulong ms)
-{
-    Task* task = current_task();
-
-    if (task == null) {
-        return ASYNC_INVALID_STATE~;
-    }
-
-    EventLoop* loop = task.loop;
-
-    if (loop == null) {
-        return ASYNC_INVALID_STATE~;
-    }
-
-    TimerWaiter timer;
-    timer.init(task, clock_now() + ms);
-
-    loop.add_timer(&timer);
-
-    task.suspend(&timer.base);
-
-    timer.base.check()!;
-
-    return;
-}
-

@@ -94,7 +94,7 @@ import ext::fiber;
 
 alias Coroutine = fn void();
 
-Fiber* fiber::create(Coroutine entry, uint stack_size = 128_000, void* arg = null);
+Fiber*? fiber::create(Coroutine entry, uint stack_size = 128_000, void* arg = null);
 Fiber* fiber::active();
 
 void fiber::switch_to(Fiber* fib);
@@ -111,7 +111,7 @@ void fiber::diag();
 ### `fiber::create()`
 
 ```c3
-Fiber* fib = fiber::create(&my_coroutine, 128_000, arg);
+Fiber*? fib = fiber::create(&my_coroutine, 128_000, arg);
 ```
 
 Creates a new fiber.
