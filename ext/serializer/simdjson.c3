@@ -518,8 +518,8 @@ fn ParseResult? parse(Allocator alloc, char[] input, bool allow_comma=true, bool
     usz max_tape = s1.len + 4;
     usz max_depth = s1.len / 2 + 2;
 
-    TapeEntry* tape_ptr = (TapeEntry*)alloc.malloc(TapeEntry.sizeof * max_tape);
-    usz* scope_ptr = (usz*)alloc.malloc(usz.sizeof * max_depth);
+    TapeEntry* tape_ptr = (TapeEntry*)alloc.malloc(TapeEntry.sizeof * max_tape)!;
+    usz* scope_ptr = (usz*)alloc.malloc(usz.sizeof * max_depth)!;
     defer alloc.free(scope_ptr);
     
     Parser p = {

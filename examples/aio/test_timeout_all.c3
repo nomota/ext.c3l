@@ -61,10 +61,7 @@ fn void? read_timeout_server_task(void* arg)
 
     warn("[server] listening for read-timeout test");
 
-    if (catch err = g_read_server.serve_forever())
-    {
-        if (!expected_server_close_error(err)) return err~;
-    }
+    g_read_server.serve_forever();
 
     g_read_server.wait_closed()!;
 

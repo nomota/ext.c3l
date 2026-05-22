@@ -61,10 +61,10 @@ fn fault err_fault(int err) @private
     return GENERAL_ERROR;
 }
 
-fn String brace(Allocator alloc, String expr) @private
+fn String? brace(Allocator alloc, String expr) @private
 {
     allocx = alloc;
-    String x = (String)allocx.alloc_array(char, expr.len+2);
+    String x = (String)allocx.alloc_array(char, expr.len+2)!;
     x[0] = '(';
     x[expr.len+1] = ')';
     x[1:expr.len] = expr[0:expr.len];
@@ -77,9 +77,9 @@ fn RegEx*? new_compile(Allocator alloc, String expr, bool ignore_case = false)
         return EMPTY_EXPR~;
     }
     allocx = alloc;
-    RegEx* reg = allocx.alloc(RegEx);
+    RegEx* reg = allocx.alloc(RegEx)!;
 
-    reg.expr = brace(alloc, expr);
+    reg.expr = brace(alloc, expr)!;
     
     // Initialize RegexInfo
     reg.info.flags = ignore_case ? slre::IGNORE_CASE: 0;

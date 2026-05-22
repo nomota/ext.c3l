@@ -107,7 +107,7 @@ fn void main()
     int fiber_count = 0;
     for (int i = 0; i < FIBER_COUNT; i++)
     {
-        fibers[i] = fiber::create(&noop, STACK_SIZE, null);
+        fibers[i] = fiber::create(&noop, STACK_SIZE, null)!!;
 
         if (fibers[i] == null)
         {

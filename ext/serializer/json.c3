@@ -9,7 +9,7 @@ import ext::mem;
 import ext::debug;
 import c::string;
 
-tlocal LocalAllocator localmem = {};
+LocalAllocator localmem = null;
 
 alias JsonValue = any; // void* that remembers the type, of which it's pointing to
 alias JsonArray = List{JsonValue};
@@ -42,10 +42,10 @@ struct JsonDecoder {
     bool allow_comments;
 }
 
-fn JsonDecoder* decoder_new(Allocator allocx, String text, bool allow_comma, bool allow_comment)
+fn JsonDecoder*? decoder_new(Allocator allocx, String text, bool allow_comma, bool allow_comment)
 {
     localmem = allocx;
-    JsonDecoder* d = localmem.alloc(JsonDecoder);
+    JsonDecoder* d = localmem.alloc(JsonDecoder)!;
     *d = {
         .input = text,
         .begin = &text[0],
@@ -117,7 +117,7 @@ fn void JsonDecoder.skip_space(&self)
 
 fn JsonValue? decode(Allocator allocx, String text, bool allow_comma=true, bool allow_comment=true)
 {
-    JsonDecoder* d = decoder_new(allocx, text, allow_comma, allow_comment);
+    JsonDecoder* d = decoder_new(allocx, text, allow_comma, allow_comment)!;
     defer d.free();
 
     JsonValue obj = d.parse()!; // any
@@ -223,7 +223,7 @@ fn JsonValue? JsonDecoder.parse_string(&self)
         p = q+1;
     } while (p < self.end);
     
-    String* s = localmem.alloc(String);
+    String* s = localmem.alloc(String)!;
 
     *s = unescape_str((String) p[0:q-p]);
 
@@ -322,7 +322,7 @@ fn JsonValue? JsonDecoder.parse_number(&self)
         }
         q++;
     }
-    JsonNumber* num = localmem.alloc(JsonNumber);
+    JsonNumber* num = localmem.alloc(JsonNumber)!;
     *num = p[0:q-p];
     self.pos = q-self.begin;
     any a = any_make(num, JsonNumber.typeid);
@@ -331,7 +331,7 @@ fn JsonValue? JsonDecoder.parse_number(&self)
 
 fn JsonValue? JsonDecoder.parse_array(&self)
 {
-    List{any}* l = localmem.alloc(List{any});
+    List{any}* l = localmem.alloc(List{any})!;
     *l = {};
     l.init(localmem);
     defer (catch err) { l.free(); localmem.free(l); }
@@ -383,7 +383,7 @@ fn JsonValue? JsonDecoder.parse_array(&self)
 fn JsonValue? JsonDecoder.parse_object(&self)
 {
 
-    HashMap{String,any}* m = localmem.alloc(HashMap{String,any});
+    HashMap{String,any}* m = localmem.alloc(HashMap{String,any})!;
     *m = {};
     m.init(localmem);
 

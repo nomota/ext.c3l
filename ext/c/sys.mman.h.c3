@@ -1,7 +1,5 @@
 // sys.mman.h.c3
 
-module c::sys::mman;
-
 // ========== Linux ==========
 
 module c::sys::mman @if(env::LINUX);
@@ -377,3 +375,5 @@ const int MAP_INHERIT_NONE = 2;
 const int MAP_INHERIT_ZERO = 3;
 
 const int PSHMNAMLEN = 31;
+
+// eof

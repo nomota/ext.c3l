@@ -50,8 +50,8 @@ fn void main()
   warn("Fiber parameterized function example");
 
   coro[0] = fiber::active();
-  coro[1] = fiber::create(&coroutine);
-  coro[2] = fiber::create(&coroutine);
+  coro[1] = fiber::create(&coroutine)!!;
+  coro[2] = fiber::create(&coroutine)!!;
 
   _init(coro[1], 1, 2);
   _init(coro[2], 4, 8);
