@@ -131,6 +131,8 @@ extern fn int wsa_startup(ushort version_required, WSAData* wsa_data) @cname("WS
 | `c::unistd` | POSIX operating system API |
 | `c::errno` | provides `errno()` and `get_fault()` |
 
+And find [more header mappings](./)
+
 ### Windows Headers
 
 | Module | Description |
@@ -150,6 +152,8 @@ extern fn int wsa_startup(ushort version_required, WSAData* wsa_data) @cname("WS
 | `c::winsock2` | Windows Sockets 2 |
 | `c::ws2tcpip` | Windows Sockets TCP/IP functions |
 | `c::errno` | provides `errno()` and `get_fault()` |
+
+And find [more header mappings](./)
 
 This is a part of extended C3 library.
 Back to [ext.c3l](../../README.md) library.
