@@ -32,7 +32,7 @@ macro Fd fd_null()
     return -1;
 }
 
-struct FdWatch @private
+struct FdWatch @local
 {
     Fd fd;
     bool active;
@@ -43,7 +43,7 @@ struct FdWatch @private
     Future* write_fut;
 }
 
-struct IoContext @private
+struct IoContext @local
 {
     FdWatch[MAX_FD_WATCH] fd_table;
     usz fd_count;
@@ -54,9 +54,9 @@ struct IoContext @private
     Fd wake_w;
 }
 
-tlocal IoContext* ctx @private = null;
+tlocal IoContext* ctx @local = null;
 
-fn void init() @init
+fn void init()
 {
     if (ctx != null) return;
     aio::init();
@@ -103,7 +103,7 @@ fn void init() @init
     kqueue_ctl(wake, true, false);
 }
 
-fn void deinit() @finalizer
+fn void deinit()
 {
     if (ctx == null) return;
 
@@ -122,7 +122,7 @@ fn bool set_nonblocking(Fd fd)
     return fcntl::fcntl(fd, fcntl::F_SETFL, flags | fcntl::O_NONBLOCK) == 0;
 }
 
-fn FdWatch* find_or_create(Fd fd) @private
+fn FdWatch* find_or_create(Fd fd) @local
 {
     @assert(fd >= 0 && (usz)fd < MAX_FD_WATCH);
     FdWatch* w = &ctx.fd_table[fd];

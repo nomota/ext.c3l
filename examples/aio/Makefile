@@ -47,7 +47,7 @@ LIBC = $(EXT)/c/*.c3
 MEM = $(EXT)/debug/*.c3 $(EXT)/mem/*.c3
 FIBER = $(EXT)/fiber/*.c3
 IO = $(EXT)/io/*.c3
-AIO = waiter.c3 task.c3 loop.c3 timer.c3  stream.c3 io.posix.c3 io.win32.c3 net.posix.c3 net.win32.c3 server.c3 sleep.c3 taskgroup.c3 buffered.c3 primitives.c3 future.c3 datagram.c3 file.c3 handler.c3 executor.c3 path.c3
+AIO = $(EXT)/aio/*.c3
 
 LIBS = $(AIO) $(FIBER) $(MEM) $(LIBC) $(IO)
 

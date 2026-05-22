@@ -59,7 +59,7 @@ struct IocpOp
     char[128] addr_buf;
 }
 
-struct Context @private
+struct Context @local
 {
     IocpOp[IOCP_OP_POOL] op_pool;
     winbase::Handle iocp;
@@ -74,7 +74,7 @@ struct Context @private
     winbase::OverlappedEntry[MAX_EVENTS] entries;
 }
 
-tlocal Context* ctx @private = null;
+tlocal Context* ctx @local = null;
 
 faultdef NONE;
 
@@ -92,7 +92,7 @@ struct Arg @local
     usz result;
 }
 
-fn IocpOp* op_alloc() @private
+fn IocpOp* op_alloc()
 {
     @assert(ctx != null);
 
@@ -111,7 +111,7 @@ fn IocpOp* op_alloc() @private
     return null;
 }
 
-fn void op_free(IocpOp* op) @private
+fn void op_free(IocpOp* op)
 {
     if (op == null) return;
 
@@ -137,7 +137,7 @@ fn void fd_set_socket(Fd fd, bool is_sock)
     ctx.socket_fds[fd] = is_sock;
 }
 
-fn bool iocp_associate(Fd fd) @private
+fn bool iocp_associate(Fd fd)
 {
     if (fd_invalid(fd)) return false;
     if (try ctx.iocp_assoc[fd]) return true;
@@ -155,7 +155,7 @@ fn bool iocp_associate(Fd fd) @private
     return true;
 }
 
-fn void init() @init
+fn void init()
 {
     if (ctx != null) return;
 
@@ -178,7 +178,7 @@ fn void init() @init
     @assert(ctx.iocp != null, "aio: CreateIoCompletionPort failed");
 }
 
-fn void deinit() @finalizer
+fn void deinit()
 {
     if (ctx == null) return;
 
@@ -972,7 +972,7 @@ fn void* file_open_blocking(void* v_arg) @local
     return v_arg;
 }
 
-fn Fd? file_open(String name, String mode)
+fn Fd? file_open(String name, String mode, int permission = 0o644)
 {
     Arg arg = {
         .error = NONE,

@@ -1,5 +1,7 @@
 # ext::asyncio for C3
 
+This module is deprecated. Use [`ext::aio`](../aio/README.md) instead.
+
 This is a C3 port of Python's asyncio library. It follows [Python's API](PythonAPI.md), as it is the most approachable among libraries of its kind.
 It is based on C3's [fiber](../fiber/README.md) coroutine.
 Asynchronous I/O by IOCP on Win32, kqueue/kevent on macOS(BSD family) and io_uring on Linux.

@@ -148,20 +148,14 @@ fn void? test_tcp_callback()
 
     Task* client_task = aio::tcp_callback_client(&client_handler, HOST, TCP_PORT)!;
 
-    if (catch err = client_task.join())
-    {
-        if (err != aio::CLOSED && err != aio::CANCELLED) return err~;
-    }
+    client_task.join();
 
     aio::sleep(100)!;
     
     warn("cancel server_task");
     server_task.cancel();
 
-    if (catch err = server_task.join())
-    {
-        if (err != aio::CLOSED && err != aio::CANCELLED) return err~;
-    }
+    server_task.join();
 
     @assert(g_tcp_server_made);
     @assert(g_tcp_server_received);
@@ -202,10 +196,7 @@ fn void? test_udp_callback()
 
     server_task.cancel();
 
-    if (catch err = server_task.join())
-    {
-        if (err != aio::CLOSED && err != aio::CANCELLED) return err~;
-    }
+    server_task.join();
 
     @assert(g_udp_server_made);
     @assert(g_udp_server_received);

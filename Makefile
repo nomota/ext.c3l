@@ -13,9 +13,8 @@ build-all:
 	@cd ./examples/hash && make build TARGET=$(TARGET)
 	@cd ./examples/io && make build TARGET=$(TARGET)
 	@cd ./examples/fiber && make build TARGET=$(TARGET)
-	@cd ./examples/asyncio && make build TARGET=$(TARGET)
-	@cd ./examples/aiofiles && make build TARGET=$(TARGET)
 	@cd ./examples/serializer && make build TARGET=$(TARGET)
+	@cd ./examples/aio && make build TARGET=$(TARGET)
 
 clean:
 	@rm -rf ./build/*
@@ -25,9 +24,8 @@ clean:
 	@cd ./examples/hash && make clean
 	@cd ./examples/io && make clean
 	@cd ./examples/fiber && make clean
-	@cd ./examples/asyncio && make clean
-	@cd ./examples/aiofiles && make clean
 	@cd ./examples/serializer && make clean
+	@cd ./examples/aio && make clean
 
 push:
 	@make clean

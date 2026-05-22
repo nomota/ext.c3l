@@ -10,22 +10,22 @@ import ext::mem;
 import ext::debug;
 import ext::fiber;
 
-LocalAllocator localmem = {};
+LocalAllocator localmem = null;
 
 bool initialized = false;
 
-fn void init() @init
+fn void init()
 {
     if (initialized) return;
     initialized = true;
     
-    if (localmem == (LocalAllocator){}) localmem = tmem;
+    if (localmem == null) localmem = tmem;
     
     io::init();
     net::init();
 }
 
-fn void deinit() @finalizer
+fn void deinit()
 {
     net::deinit();
     io::deinit();
@@ -57,12 +57,14 @@ tlocal EventLoop* cur_loop @private = null;
 
 fn EventLoop*? current_loop() @maydiscard
 {
+    init();
     if (cur_loop == null) return NO_LOOP~;
     return cur_loop;
 }
 
 fn Task*? current_task() @maydiscard
 {
+    init();
     EventLoop* loop = current_loop()!;
     if (loop == null) return NO_LOOP~;
 
@@ -71,6 +73,7 @@ fn Task*? current_task() @maydiscard
 
 fn EventLoop*? loop_new()
 {
+    init();
     EventLoop* loop = localmem.alloc(EventLoop)!;
     *loop = {
         .fiber = null,
@@ -469,6 +472,8 @@ fn void? run(TaskFn main, void* arg = null) @maydiscard
     }
 
     loop.free();
+    
+    deinit();
 }
 
 fn void? yield() @maydiscard

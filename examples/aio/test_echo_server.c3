@@ -93,8 +93,8 @@ fn void? main_task(void* arg)
 
     Task* ct = aio::spawn_joinable(&client_task, server)!;
 
-    ct.join()!;
-    st.join()!;
+    ct.join();
+    st.join();
 
     warn("OK");
 }

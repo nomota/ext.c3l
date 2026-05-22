@@ -27,14 +27,14 @@ import ext::aio::io;
 
 const int DEFAULT_BACKLOG = 128;
 
-struct Context @private
+struct Context @local
 {
     HashMap{String, IpList*} dns_cache;
 }
 
-tlocal Context* ctx @private = null;
+tlocal Context* ctx @local = null;
 
-fn void init() @init
+fn void init()
 {
     if (ctx != null) return;
     aio::init();

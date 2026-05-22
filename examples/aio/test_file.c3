@@ -1,9 +1,10 @@
 // test_file.c3
 
 import ext::aio;
+import ext::aio::path;
 import ext::debug;
 
-const String TEST_PATH = "/tmp/aio_file_test.txt";
+const String TEST_PATH = "aio_file_test.txt";
 const String TEST_DATA = "hello aio file\n";
 
 fn void? main_task(void* arg)
@@ -37,6 +38,8 @@ fn void? main_task(void* arg)
     @assert(size == (long)TEST_DATA.len, "file size mismatch after read");
 
     warn("size: %d", size);
+    
+    path::remove(TEST_PATH);
     warn("OK");
 }
 

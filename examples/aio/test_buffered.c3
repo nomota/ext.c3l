@@ -44,15 +44,7 @@ fn void? server_task(void* arg)
 
     warn("server listening");
 
-    if (catch err = g_server.serve_forever())
-    {
-        if (err != aio::CANCELLED &&
-            err != aio::CLOSED &&
-            err != aio::IO_ERROR)
-        {
-            return err~;
-        }
-    }
+    g_server.serve_forever();
 
     server_closed = true;
 

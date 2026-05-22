@@ -38,13 +38,7 @@ fn void? server_task(void* arg)
     server_listened = true;
     warn("server listening");
 
-    if (catch err = g_server.serve_forever())
-    {
-        if (err != aio::CANCELLED && err != aio::CLOSED && err != aio::IO_ERROR)
-        {
-            return err~;
-        }
-    }
+    g_server.serve_forever();
 
     warn("server stopping clients");
 
@@ -79,8 +73,8 @@ fn void? main_task(void* arg)
     Task* st = aio::spawn_joinable(&server_task)!;
     Task* ct = aio::spawn_joinable(&stopper_task)!;
 
-    ct.join()!;
-    st.join()!;
+    ct.join();
+    st.join();
 
     @assert(server_listened, "server did not start listening");
     @assert(close_requested, "server close was not requested");

@@ -84,7 +84,8 @@ fn void? main_task(void* arg)
 
     if (g_tick_count == 0) return aio::FAILED~;
 
-    warn("=== executor test passed ===");
+    warn("executor test passed");
+    warn("OK");
 }
 
 fn void main()

@@ -73,30 +73,6 @@ Provides bridge modules to C header files for both POSIX and Windows platforms:
 | `winsock2.h` | `winsock2.h.c3` | `import c::winsock2;` |
 | ... | ... | ... |
 
-
-Import your familiar C header files.
-
-```c3
-import c::stdio;
-import c::string;
-import c::errno; // provides errno(), get_fault()
-import c::sys::time; // POSIX
-import c::netinet::in; // POSIX
-import c::unistd; // POSIX
-
-import c::io; // Win32
-import c::process; // Win32
-import c::winsock2; // Win32
-import c::ws2tcpip; // Win32
-
-sidio::printf("Hello\n");
-
-winsock2::WSAData wsa_data;
-int result = winsock2::wsa_startup(0x0202, &wsa_data);
-
-UdpSocket? sock = (UdpSocket)winsock2::socket(winsock2::AF_INET, winsock2::SOCK_DGRAM, winsock2::IPPROTO_UDP);
-```
-
 - More about [C Header bindings](ext/c/README.md)
 
 
@@ -173,31 +149,30 @@ Based on:
 
 ### Async I/O 
 
-This is a C3 version of Python's `asyncio` library. It follows the python's API, because it is the easiest one among its kind.
+Coroutine-based asynchronous I/O framework for C3.
 
-It's based on C3's [fiber](../fiber/README.md) coroutine.
+`ext::aio` provides an event loop, cooperative tasks, futures, synchronization primitives, TCP streams, UDP datagrams, callback-style protocol handlers, and executor-backed file/path operations.
 
-| Module | Description |
-|--------|-------------|
-| `ext::asyncio` | Python asyncio-similar operationsFuture, Task, EventLoop, Stream, Datagram, Transport, Protocol, DatagramProtocol |
+It is built on top of the [fiber](../fiber/README.md) coroutine module.
 
-* [ext/asyncio](ext/asyncio)
-- More about [Asyncio for C3](ext/asyncio/README.md)
+| Area | Description |
+|------|-------------|
+| Event loop | Single-threaded cooperative event loop with task scheduling and I/O polling |
+| Tasks | Spawned coroutine tasks with cancellation and join support |
+| Futures | Awaitable result container used by tasks, I/O operations, and synchronization primitives |
+| Waiter, Sleep, Timer | Waiting primitives and cancelling timer |
+| Synchronization | Event, Lock, Semaphore, Queue, Channel-style primitives |
+| TCP streams | Async connect, listen, accept, read, write, close |
+| UDP datagrams | Async bind, recvfrom, sendto |
+| Server | Socket server generation |
+| Callback handlers | Event-driven TCP/UDP protocol handler interfaces |
+| Executor | Invoking threaded executor for blocking operations |
+| File I/O | Executor-backed regular file operations |
+| Path operations | Async stat, rename, remove, mkdir, listdir, link, symlink, readlink |
+| Cross-platform backend | POSIX epoll/kqueue/select-style backend and Win32 IOCP backend |
 
-
-### Asynchronous Non-blocking file I/O
-
-Asynchronous, non-blocking file I/O on top of [ext::asyncio](ext/asyncio/README.md) framework. API is mostly like in Python.
-
-| Module | Description |
-|--------|-------------|
-| `ext::aiofiles` | Asynchronous file operations: open(), file_size(), read(), write(), readline(), read_unbuffered(), at_eof(), read_until(), writef(), flush(), seek(), tell(), truncate(), stdin(), stdout(), stderr() |
-| `ext::aiofiles::os` | Asynchronous os operations: stat(), rename(), replace(), remove(), mkdir(), makedirs(), rmdir(), removedirs(), listdir(), scandir(), link(), symlink(), readlink() |
-| `ext::aiofiles::os::path` | Asynchronous Directory/folder operations: exists(), getsize(), isfile(), isdir(), islink() |
-| ext::aiofiles::tempfile` | Asynchronous tempfile operations: temporaryFile(), temporaryDirectory() |
-
-* [ext/aiofiles](ext/aiofiles)
-- More about [Asynchronous File I/O](ext/aiofiles/README.md)
+* [ext/io](ext/aio)
+- More about [Async I/O for C3](ext/aio/README.md)
 
 
 ## Debugging macros

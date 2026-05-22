@@ -19,12 +19,6 @@ bool write_server_stopped = false;
 
 bool open_timeout_checked = false;
 
-fn bool expected_server_close_error(fault err)
-{
-    return err == aio::CANCELLED ||
-           err == aio::CLOSED ||
-           err == aio::IO_ERROR;
-}
 
 fn void? handle_read_timeout_client(Stream* s)
 {
@@ -114,10 +108,7 @@ fn void? write_timeout_server_task(void* arg)
 
     warn("[server] listening for write-timeout test");
 
-    if (catch err = g_write_server.serve_forever())
-    {
-        if (!expected_server_close_error(err)) return err~;
-    }
+    g_write_server.serve_forever();
 
     g_write_server.wait_closed()!;
 
@@ -201,8 +192,8 @@ fn void? main_task(void* arg)
     Task* t1 = aio::spawn_joinable(&read_timeout_server_task)!;
     Task* t2 = aio::spawn_joinable(&read_timeout_client_task)!;
 
-    t2.join()!;
-    t1.join()!;
+    t2.join();
+    t1.join();
 
     @assert(read_server_started, "read-timeout server did not start");
     @assert(read_client_connected, "read-timeout client did not connect");
@@ -213,8 +204,8 @@ fn void? main_task(void* arg)
     Task* t3 = aio::spawn_joinable(&write_timeout_server_task)!;
     Task* t4 = aio::spawn_joinable(&write_timeout_client_task)!;
 
-    t4.join()!;
-    t3.join()!;
+    t4.join();
+    t3.join();
 
     @assert(write_server_started, "write-timeout server did not start");
     @assert(write_client_connected, "write-timeout client did not connect");
@@ -223,7 +214,7 @@ fn void? main_task(void* arg)
     @assert(g_write_server == null, "write-timeout server was not cleared");
 
     Task* t5 = aio::spawn_joinable(&open_connection_timeout_task)!;
-    t5.join()!;
+    t5.join();
 
     @assert(open_timeout_checked, "open_connection_timeout test did not complete");
 

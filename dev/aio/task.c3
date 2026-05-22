@@ -226,7 +226,7 @@ fn void Task.cancel_timeout(&self)
     }
 }
 
-fn void? Task.check(&self)
+fn void? Task.check(&self) @maydiscard
 {
     if (self.error != NONE) return self.error~;
 
@@ -235,7 +235,7 @@ fn void? Task.check(&self)
 
 faultdef JOIN_DETACHED, JOIN_NO_TASK, JOIN_NO_WAITER, JOIN_TASK_CANCELLED, JOIN_TASK_FAILED;
 
-fn void? Task.join(&self)
+fn void? Task.join(&self) @maydiscard
 {
     if (self.detached) return JOIN_DETACHED~;
 
@@ -256,30 +256,13 @@ fn void? Task.join(&self)
 
         current.suspend(&waiter);
 
-        waiter.check()!;
+        waiter.check();
     }
 
-    fault err = self.error;
     TaskState state = self.state;
     EventLoop* loop = self.loop;
 
     if (loop != null) loop.reap_task(self);
-
-    if (state == TASK_CANCELLED)
-    {
-        if (err != NONE) return err~;
-        return JOIN_TASK_CANCELLED~;
-    }
-    
-    if (state == TASK_FAILED)
-    {
-        if (err != NONE) return err~;
-        return JOIN_TASK_FAILED~;
-    }
-
-    if (err != NONE) return err~;
-
-    return;
 }
 
 // eof

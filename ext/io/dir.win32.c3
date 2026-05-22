@@ -1,7 +1,6 @@
 // dir.win32.c3
 
-// get_cur_dir() change_dir() make_dir() remove_dir()
-// list_dir() is_dir() is_file() change_mode()
+// Nomota <hiongun@gmail.com>; MIT License
 
 module ext::io::dir @if(env::WIN32);
 
@@ -14,7 +13,7 @@ import c::sys::stat;
 import c::string;
 import ext::mem;
 
-tlocal LocalAllocator localmem = {};
+LocalAllocator localmem = {};
 
 const int MAX_PATH = 1024;
 
@@ -279,7 +278,7 @@ fn DirIterator? scan_dir(Allocator allocx, String path)
             len = i; break;
         }
     }
-    Char16* spath_copy = (Char16*)localmem.malloc(2*len+1);
+    Char16* spath_copy = (Char16*)localmem.malloc(2*len+1)!;
     mem::copy(spath_copy, spath, len*2+2);
     return { .handle = (windows::Handle)0, .spath = spath_copy, .path = path.copy(allocx), .allocx = allocx };
 }
@@ -403,3 +402,5 @@ fn bool is_writeable(String path) => stat::is_writeable(path);
 fn usz? read_link(String link, char[] output) => stat::read_link(link, output);
 
 fn void? change_mode(String path, Mode_t mode) @maydiscard => stat::change_mode(path, mode);
+
+// eof

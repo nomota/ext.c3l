@@ -1,5 +1,7 @@
 # ext::aiofiles
 
+This module is deprecated. Use [`ext::aio`](../aio/README.md) instead.
+
 Asynchronous, non-blocking file I/O on top of [ext::asyncio](../asyncio/README.md) framework.
 This module follows mostly the [Python's aiofiles API](PythonAPI.md).
 

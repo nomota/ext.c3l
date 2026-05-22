@@ -25,13 +25,13 @@ struct Fiber
     void* arg;
 }
 
-struct FiberContext @private
+struct FiberContext @local
 {
     Fiber primary;
     Fiber* running;
 }
 
-tlocal FiberContext* ctx @private = null;
+tlocal FiberContext* ctx @local = null;
 
 LocalAllocator localmem = {};
 
@@ -39,7 +39,7 @@ LocalAllocator localmem = {};
 // Init / deinit
 //
 
-fn void init(Allocator alloc = mem) @private
+fn void init(Allocator alloc = mem) @local
 {
     if (localmem == (LocalAllocator){})
     {
@@ -50,7 +50,7 @@ fn void init(Allocator alloc = mem) @private
 
     if (ctx == null)
     {
-        ctx = localmem.alloc(FiberContext);
+        ctx = localmem.alloc(FiberContext)!!;
         @assert(ctx != null, "fiber context allocation failed");
     }
 
@@ -124,12 +124,12 @@ fn Fiber* active()
     return ctx.running;
 }
 
-fn Fiber* create(Coroutine entry, uint stack_size = 128_000, void* arg = null)
+fn Fiber*? create(Coroutine entry, uint stack_size = 128_000, void* arg = null)
 {
     if (ctx == null || ctx.running == null) init();
     if (entry == null) return null;
 
-    Fiber* fiber = localmem.alloc(Fiber);
+    Fiber* fiber = localmem.alloc(Fiber)!;
 
     *fiber = {
         .wfiber = null,

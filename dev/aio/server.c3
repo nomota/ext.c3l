@@ -13,7 +13,7 @@ import ext::aio::net;
 
 faultdef SERVER_CLOSED;
 
-alias ClientHandler = fn void?(Stream*);
+alias ClientHandler @local = fn void?(Stream*);
 
 struct Server
 {
@@ -161,7 +161,7 @@ fn void Server.remove_client(&self, Stream* stream)
     self.clients.remove_first_match(stream);
 }
 
-fn void? Server.serve_forever(&self)
+fn void? Server.serve_forever(&self) @maydiscard
 {
     if (self.is_closed()) return SERVER_CLOSED~;
 

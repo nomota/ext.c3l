@@ -42,14 +42,7 @@ fn void? server_task(void* arg)
     Server* server = (Server*)arg;
     if (server == null) return aio::INVALID_STATE~;
 
-    if (catch err = server.serve_forever())
-    {
-        if (err == aio::CANCELLED) return;
-        if (err == aio::CLOSED) return;
-        if (err == aio::IO_ERROR) return;
-
-        return err~;
-    }
+    server.serve_forever();
 }
 
 fn void? client_task(void* arg)
@@ -92,8 +85,8 @@ fn void? main_task(void* arg)
     Task* st = aio::spawn_joinable(&server_task, server)!;
     Task* ct = aio::spawn_joinable(&client_task, server)!;
 
-    ct.join()!;
-    st.join()!;
+    ct.join();
+    st.join();
 
     warn("OK");
 }

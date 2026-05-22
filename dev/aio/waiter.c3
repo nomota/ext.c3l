@@ -75,7 +75,7 @@ fn void Waiter.cancel(&self, fault err = NONE)
     self.task.loop.call_soon(self.task);
 }
 
-fn void? Waiter.check(&self)
+fn void? Waiter.check(&self) @maydiscard
 {
     if (self.state == CANCELLED)
     {

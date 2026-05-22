@@ -26,7 +26,7 @@ fn void? reader_task(void* arg)
 
     warn("reader: wait readable");
 
-    usz n = io::async_read(test.rfd, &test.buf[0], test.buf.len)!;
+    usz n = io::async_read(test.rfd, &test.buf)!;
 
     test.read_n = n;
 
@@ -45,7 +45,7 @@ fn void? writer_task(void* arg)
 
     aio::sleep(100)!;
 
-    usz n = io::async_write(test.wfd, TEST_MSG.ptr, TEST_MSG.len)!;
+    usz n = io::async_write(test.wfd, TEST_MSG)!;
 
     test.write_n = n;
 

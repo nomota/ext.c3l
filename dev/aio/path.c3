@@ -1,6 +1,6 @@
 // path.c3
 
-// async path operations on top of `asyncio`
+// async path operations on top of `aio`
 
 // Nomota <hiongun@gmail.com>; MIT License
 
@@ -157,7 +157,7 @@ fn void? remove(String path) @maydiscard
     if (a.error != NONE) return a.error~;
 }
 
-fn usz? sendfile(int to_sock, int from_fd, long offset, long count)
+fn usz? sendfile(Fd to_sock, Fd from_fd, long offset, long count)
 {
     io::file_seek(from_fd, offset, 0);
     usz written = 0;
@@ -165,7 +165,7 @@ fn usz? sendfile(int to_sock, int from_fd, long offset, long count)
     {
         char[1024] buf;
         usz n = io::file_read(from_fd, &buf)!;
-        n = io::file_write(to_sock, &buf)!;
+        n = io::async_write(to_sock, &buf)!;
         written += n;
     }
     return written;
