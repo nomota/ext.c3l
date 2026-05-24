@@ -16,7 +16,7 @@ const String TEST_MSG = "hello udp";
 
 fn void? server_task(void* arg)
 {
-    Datagram* d = aio::udp_endpoint("127.0.0.1", 9999)!;
+    Datagram* d = aio::datagram_bind("127.0.0.1", 9999)!;
     defer d.free();
 
     server_started = true;

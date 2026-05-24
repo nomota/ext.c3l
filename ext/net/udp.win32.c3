@@ -10,190 +10,329 @@ import ext::net::wsa;
 
 typedef UdpSocket = inline winsock2::Socket;
 
-fn int detect_ip_version(String ip) 
+fn int detect_ip_version(String ip) @local
 {
-    foreach (c : ip) {
+    foreach (c : ip)
+    {
         if (c == ':') return winsock2::AF_INET6;
     }
     return winsock2::AF_INET;
 }
 
-fn UdpSocket? new(int version = winsock2::AF_INET) 
+fn bool would_block() @inline @local
 {
-    wsa::startup()!;
-    
-    int family = (int)version;
-    UdpSocket sock = (UdpSocket)winsock2::socket(family, winsock2::SOCK_DGRAM, 
-        family == winsock2::AF_INET6 ? winsock2::IPPROTO_IPV6 : winsock2::IPPROTO_UDP);
-    
-    if (sock == winsock2::INVALID_SOCKET) {
-        return errno::get_fault()~;
+    int err = winsock2::wsaGetLastError();
+    return err == errno::EAGAIN
+        || err == errno::EWOULDBLOCK
+        || err == errno::EINPROGRESS
+        || err == errno::EALREADY
+        || err == errno::WSA_IO_PENDING;
+}
+
+fn fault socket_fault() @inline @local
+{
+    if (would_block()) return errno::E_WOULD_BLOCK;
+
+    return errno::wsa_fault();
+}
+
+fn UdpSocket? new(int version = winsock2::AF_INET)
+{
+    UdpSocket sock = (UdpSocket)winsock2::socket(
+        version,
+        winsock2::SOCK_DGRAM,
+        winsock2::IPPROTO_UDP
+    );
+
+    if (sock == winsock2::INVALID_SOCKET)
+    {
+        return socket_fault()~;
     }
+
     return sock;
 }
 
-fn void? UdpSocket.bind(sock, ushort port, String opt_ip = "*") 
+// opt_ip == "*"  binds IPv4 INADDR_ANY.
+// opt_ip == "::" binds IPv6 in6addr_any.
+// Host names are not resolved; pass numeric IPv4/IPv6 addresses only.
+fn void? UdpSocket.bind(sock, ushort port, String opt_ip = "*") @maydiscard
 {
     int option = 1;
-    // winsock2::setsockopt(sock, winsock2::SOL_SOCKET, winsock2::SO_REUSEADDR, (char*)&option, $sizeof(option));
-    winsock2::setsockopt(sock, winsock2::SOL_SOCKET, winsock2::SO_EXCLUSIVEADDRUSE, (char*)&option, $sizeof(option));
+    int r = winsock2::setsockopt(
+        sock,
+        winsock2::SOL_SOCKET,
+        winsock2::SO_REUSEADDR,
+        (char*)&option,
+        $sizeof(option)
+    );
+
+    if (r == winsock2::SOCKET_ERROR)
+    {
+        return socket_fault()~;
+    }
 
     int version = detect_ip_version(opt_ip);
-    
-    if (version == winsock2::AF_INET6) {
+
+    if (version == winsock2::AF_INET6)
+    {
         winsock2::SockAddrIn6 adr = {};
         adr.sin6_family = winsock2::AF_INET6;
-        
-        if (opt_ip == "::") {
-            // Bind to all IPv6 addresses
-            // winsock2::In6Addr any_addr;
-            // Set to in6addr_any equivalent (all zeros)
-            // for (int i = 0; i < 16; i++) {
-            //     any_addr.u.byte[i] = 0;
-            // }
-            adr.sin6_addr = {}; // any_addr;
-        } else if (ws2tcpip::inet_pton(winsock2::AF_INET6, opt_ip.ptr, &adr.sin6_addr) <= 0) {
-            return errno::get_fault()~;
+
+        if (opt_ip == "::")
+        {
+            adr.sin6_addr = {};
         }
-        
+        else
+        {
+            char[128] ip_buf;
+            char* ip_cstr = str2cptr(opt_ip, &ip_buf);
+
+            int rc = ws2tcpip::inet_pton(winsock2::AF_INET6, ip_cstr, &adr.sin6_addr);
+            if (rc == 0) return errno::E_INVALID_ARG~;
+            if (rc < 0)
+            {
+                return socket_fault()~;
+            }
+        }
+
         adr.sin6_port = winsock2::htons(port);
 
-        if (winsock2::bind(sock, (winsock2::SockAddr*)&adr, $sizeof(adr)) == winsock2::SOCKET_ERROR) {
-            return errno::get_fault()~;
-        }
-    } else {
-        winsock2::SockAddrIn adr = {};
-        adr.sin_family = winsock2::AF_INET;
-        
-        if (opt_ip == "*") {
-            adr.sin_addr.s_addr = winsock2::htonl(winsock2::INADDR_ANY);
-        } else {
-            winsock2::InAddr addr;
-            if (ws2tcpip::inet_pton(winsock2::AF_INET, opt_ip.ptr, &addr) <= 0) {
-                return errno::get_fault()~;
-            }
-            adr.sin_addr = addr;
-        }
-        
-        adr.sin_port = winsock2::htons(port);
-
-        if (winsock2::bind(sock, (winsock2::SockAddr*)&adr, $sizeof(adr)) == winsock2::SOCKET_ERROR) {
-            return errno::get_fault()~;
+        if (winsock2::bind(sock, (winsock2::SockAddr*)&adr, $sizeof(adr)) == winsock2::SOCKET_ERROR)
+        {
+            return socket_fault()~;
         }
     }
-    
-    return;
+    else
+    {
+        winsock2::SockAddrIn adr = {};
+        adr.sin_family = winsock2::AF_INET;
+
+        if (opt_ip == "*")
+        {
+            adr.sin_addr.s_addr = winsock2::htonl(winsock2::INADDR_ANY);
+        }
+        else
+        {
+            winsock2::InAddr addr;
+            char[128] ip_buf;
+            char* ip_cstr = str2cptr(opt_ip, &ip_buf);
+
+            int rc = ws2tcpip::inet_pton(winsock2::AF_INET, ip_cstr, &addr);
+            if (rc == 0) return errno::E_INVALID_ARG~;
+            if (rc < 0)
+            {
+                return socket_fault()~;
+            }
+
+            adr.sin_addr = addr;
+        }
+
+        adr.sin_port = winsock2::htons(port);
+
+        if (winsock2::bind(sock, (winsock2::SockAddr*)&adr, $sizeof(adr)) == winsock2::SOCKET_ERROR)
+        {
+            return socket_fault()~;
+        }
+    }
 }
 
 fn UdpSocket? new_bind(ushort port, String ip = "*")
 {
     int version = detect_ip_version(ip);
     UdpSocket sock = new(version)!;
-    defer (catch err) {
-        (void) sock.close();
-    }
-    if (catch err = sock.bind(port, ip)) {
-        return err~;
-    }
+    defer catch (void)sock.close();
+
+    sock.bind(port, ip)!;
+
     return sock;
 }
 
-fn isz? UdpSocket.recvfrom(sock, char[] msgbuf, char[] ip, ushort* port)
+char[1] __null__;
+
+fn usz? UdpSocket.recvfrom(sock, char[] msgbuf, char[] ip = &__null__, ushort* port = null)
 {
-    winsock2::SockAddrStorage adr;
+    if (msgbuf.len == 0) return 0;
+
+    winsock2::SockAddrStorage adr = {};
     int size = $sizeof(adr);
-    
-    int len = winsock2::recvfrom(sock, msgbuf.ptr, (int)msgbuf.len, 0, (winsock2::SockAddr*)&adr, &size);
-    if (len == winsock2::SOCKET_ERROR) {
-        return errno::get_fault()~;
-    }
-    
-    if (adr.ss_family == winsock2::AF_INET6) {
-        winsock2::SockAddrIn6* adr6 = (winsock2::SockAddrIn6*)&adr;
-        if (ws2tcpip::inet_ntop(winsock2::AF_INET6, &(adr6.sin6_addr), ip.ptr, (ulong)ip.len) == null) {
-            return errno::get_fault()~;
+
+    int len = winsock2::recvfrom(
+        sock,
+        msgbuf.ptr,
+        (int)msgbuf.len,
+        0,
+        (winsock2::SockAddr*)&adr,
+        &size
+    );
+
+    if (len == winsock2::SOCKET_ERROR)
+    {
+        if (wsa::would_block())
+        {
+            return errno::F_WOULDBLOCK~;
         }
-        *port = winsock2::ntohs(adr6.sin6_port);
-    } else {
-        winsock2::SockAddrIn* adr4 = (winsock2::SockAddrIn*)&adr;
-        if (ws2tcpip::inet_ntop(winsock2::AF_INET, &(adr4.sin_addr), ip.ptr, (ulong)ip.len) == null) {
-            return errno::get_fault()~;
-        }
-        *port = winsock2::ntohs(adr4.sin_port);
+        return socket_fault()~;
     }
 
-    return (isz)len;
+    bool want_ip = ip != &__null__;
+    bool want_port = port != null;
+
+    if (want_ip && want_port)
+    {
+        if (adr.ss_family == winsock2::AF_INET6)
+        {
+            winsock2::SockAddrIn6* adr6 = (winsock2::SockAddrIn6*)&adr;
+
+            if (ws2tcpip::inet_ntop(winsock2::AF_INET6, &adr6.sin6_addr, ip.ptr, (ulong)ip.len) == null)
+            {
+                return socket_fault()~;
+            }
+            *port = winsock2::ntohs(adr6.sin6_port);
+        }
+        else
+        {
+            winsock2::SockAddrIn* adr4 = (winsock2::SockAddrIn*)&adr;
+
+            if (ws2tcpip::inet_ntop(winsock2::AF_INET, &adr4.sin_addr, ip.ptr, (ulong)ip.len) == null)
+            {
+                return socket_fault()~;
+            }
+
+            *port = winsock2::ntohs(adr4.sin_port);
+        }
+    }
+
+    return (usz)len;
 }
 
-fn isz? UdpSocket.sendto(sock, char[] msgbuf, String ip, ushort port)
+fn usz? UdpSocket.sendto(sock, char[] msgbuf, String ip, ushort port)
 {
+    if (msgbuf.len == 0) return 0;
+
     int version = detect_ip_version(ip);
-    
-    if (version == winsock2::AF_INET6) {
+
+    if (version == winsock2::AF_INET6)
+    {
         winsock2::SockAddrIn6 adr = {};
         adr.sin6_family = winsock2::AF_INET6;
         adr.sin6_port = winsock2::htons(port);
-        
-        if (ws2tcpip::inet_pton(winsock2::AF_INET6, ip.ptr, &adr.sin6_addr) <= 0) {
-            return errno::get_fault()~;
+
+        char[128] ip_buf;
+        char* ip_cstr = str2cptr(ip, &ip_buf);
+
+        int rc = ws2tcpip::inet_pton(winsock2::AF_INET6, ip_cstr, &adr.sin6_addr);
+        if (rc == 0) return errno::E_INVALID_ARG~;
+        if (rc < 0)
+        {
+            return socket_fault()~;
         }
-        
-        int len = winsock2::sendto(sock, msgbuf.ptr, (int)msgbuf.len, 0, (winsock2::SockAddr*)&adr, $sizeof(adr));
-        if (len == winsock2::SOCKET_ERROR) {
-            return errno::get_fault()~;
+
+        int len = winsock2::sendto(
+            sock,
+            msgbuf.ptr,
+            (int)msgbuf.len,
+            0,
+            (winsock2::SockAddr*)&adr,
+            $sizeof(adr)
+        );
+
+        if (len == winsock2::SOCKET_ERROR)
+        {
+            return socket_fault()~;
         }
-        return (isz)len;
-    } else {
+
+        return (usz)len;
+    }
+    else
+    {
         winsock2::SockAddrIn adr = {};
         adr.sin_family = winsock2::AF_INET;
         adr.sin_port = winsock2::htons(port);
 
         winsock2::InAddr addr;
-        if (ws2tcpip::inet_pton(winsock2::AF_INET, ip.ptr, &addr) <= 0) {
-            return errno::get_fault()~;
-        }
+        char[128] ip_buf;
+        char* ip_cstr = str2cptr(ip, &ip_buf);
+
+        int rc = ws2tcpip::inet_pton(winsock2::AF_INET, ip_cstr, &addr);
+        if (rc == 0) return errno::E_INVALID_ARG~;
+        if (rc < 0) return socket_fault()~;
+
         adr.sin_addr = addr;
-        
-        int len = winsock2::sendto(sock, msgbuf.ptr, (int)msgbuf.len, 0, (winsock2::SockAddr*)&adr, $sizeof(adr));
-        if (len == winsock2::SOCKET_ERROR) {
-            return errno::get_fault()~;
+
+        int len = winsock2::sendto(
+            sock,
+            msgbuf.ptr,
+            (int)msgbuf.len,
+            0,
+            (winsock2::SockAddr*)&adr,
+            $sizeof(adr)
+        );
+
+        if (len == winsock2::SOCKET_ERROR)
+        {
+            return socket_fault()~;
         }
-        return (isz)len;
+
+        return (usz)len;
     }
 }
 
-fn isz? UdpSocket.send(sock, char[] buf) 
+fn usz? UdpSocket.send(sock, char[] buf)
 {
+    if (buf.len == 0) return 0;
+
     int n = winsock2::send(sock, buf.ptr, (int)buf.len, 0);
-    if (n == winsock2::SOCKET_ERROR) {
-        return errno::get_fault()~;
+    if (n == winsock2::SOCKET_ERROR)
+    {
+        return socket_fault()~;
     }
-    return (isz)n;
+
+    return (usz)n;
 }
 
-fn isz? UdpSocket.recv(sock, char[] buf) 
+fn usz? UdpSocket.recv(sock, char[] buf)
 {
-    int n = winsock2::recv(sock, buf.ptr, (int)(buf.len-1), 0);
-    if (n == winsock2::SOCKET_ERROR) {
-        return errno::get_fault()~;
+    if (buf.len == 0)
+    {
+        return 0;
     }
-    buf[n] = 0;
-    return (isz)n;
+
+    int n = winsock2::recv(sock, buf.ptr, (int)buf.len, 0);
+    if (n == winsock2::SOCKET_ERROR)
+    {
+        return socket_fault()~;
+    }
+
+    return (usz)n;
 }
 
-fn void? UdpSocket.set_non_blocking(sock) @maydiscard 
+fn void? UdpSocket.set_non_blocking(sock) @maydiscard
 {
-    uint mode = 1; // non-blocking mode
+    uint mode = 1;
     int r = winsock2::ioctlsocket(sock, winsock2::FIONBIO, &mode);
-    if (r == winsock2::SOCKET_ERROR) {
-        return errno::get_fault()~;
+    if (r == winsock2::SOCKET_ERROR)
+    {
+        return socket_fault()~;
+    }
+}
+
+fn void? UdpSocket.set_blocking(sock) @maydiscard
+{
+    uint mode = 0;
+    int r = winsock2::ioctlsocket(sock, winsock2::FIONBIO, &mode);
+    if (r == winsock2::SOCKET_ERROR)
+    {
+        return socket_fault()~;
     }
 }
 
 fn void? UdpSocket.close(sock) @maydiscard
 {
     int r = winsock2::closesocket(sock);
-    if (r == winsock2::SOCKET_ERROR) {
-        return errno::get_fault()~;
+    if (r == winsock2::SOCKET_ERROR)
+    {
+        return socket_fault()~;
     }
 }
+
+// eof

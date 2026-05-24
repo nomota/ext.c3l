@@ -78,7 +78,7 @@ fn void? read_timeout_client_task(void* arg)
         aio::yield();
     }
 
-    Stream* s = aio::open_connection("127.0.0.1", 8080)!;
+    Stream* s = aio::stream_connect("127.0.0.1", 8080)!;
     defer s.free();
 
     read_client_connected = true;
@@ -122,7 +122,7 @@ fn void? write_timeout_client_task(void* arg)
         aio::yield();
     }
 
-    Stream* s = aio::open_connection("127.0.0.1", 8081)!;
+    Stream* s = aio::stream_connect("127.0.0.1", 8081)!;
     defer s.free();
 
     write_client_connected = true;
@@ -161,24 +161,24 @@ fn void? write_timeout_client_task(void* arg)
     warn("[write-timeout-client] done");
 }
 
-fn void? open_connection_timeout_task(void* arg)
+fn void? stream_connect_timeout_task(void* arg)
 {
     warn("[open-timeout] connecting to blackhole address");
 
-    if (catch err = aio::open_connection_timeout("10.255.255.1", 65000, 300))
+    if (catch err = aio::stream_connect_timeout("10.255.255.1", 65000, 300))
     {
         warn("[open-timeout] err=%s", err);
 
         @assert(
             err == aio::TIMEOUT || err == aio::CONNECT_ERROR,
-            "open_connection_timeout() must return aio::TIMEOUT or aio::CONNECT_ERROR"
+            "stream_connect_timeout() must return aio::TIMEOUT or aio::CONNECT_ERROR"
         );
 
         open_timeout_checked = true;
     }
     else
     {
-        @assert(false, "open_connection_timeout() unexpectedly succeeded");
+        @assert(false, "stream_connect_timeout() unexpectedly succeeded");
     }
 
     warn("[open-timeout] done");
@@ -210,10 +210,10 @@ fn void? main_task(void* arg)
     @assert(write_server_stopped, "write-timeout server did not stop");
     @assert(g_write_server == null, "write-timeout server was not cleared");
 
-    Task* t5 = aio::spawn_joinable(&open_connection_timeout_task)!;
+    Task* t5 = aio::spawn_joinable(&stream_connect_timeout_task)!;
     t5.join();
 
-    @assert(open_timeout_checked, "open_connection_timeout test did not complete");
+    @assert(open_timeout_checked, "stream_connect_timeout test did not complete");
 
     warn("OK");
 }

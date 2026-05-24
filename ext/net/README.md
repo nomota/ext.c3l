@@ -1,299 +1,446 @@
+# ext::net
 
-# ext::net - High-Level Networking Library for C3
+High-level networking library for the [C3 programming language](https://c3-lang.org/).
 
-A networking library for the [C3 programming language](https://c3-lang.org/), providing simplified abstractions over raw socket APIs with comprehensive TCP and UDP, DNS lookup support.
+`ext::net` provides small, practical abstractions over raw socket APIs, including TCP, UDP, and DNS lookup support. It is intended to be simple enough for direct use, while still exposing socket-level behavior such as non-blocking mode and explicit error handling.
+
+This is part of the extended C3 library.
+
+Back to [ext.c3l](../../README.md).
 
 ## Available Modules
 
 | Module | Description |
 |--------|-------------|
-| `ext::io::tcp` | TCP operations: new(), new_listen(), listen(), connect(), accept(), send(), recv(), read(), write(), readline(), set_non_blocking(), close()|
-| `ext::io::udp` | UDP operations: new(), new_bind(), bind(), send(), recv(), sendto(), recvfrom(), set_non_blocking(), close() |
-| `ext::io::dns` | DNS operations: get_addrinfo() |
+| `ext::net::tcp` | TCP operations: `new()`, `new_listen()`, `new_connect()`, `listen()`, `connect()`, `accept()`, `send()`, `recv()`, `read()`, `write()`, `readline()`, `set_non_blocking()`, `close()` |
+| `ext::net::udp` | UDP operations: `new()`, `new_bind()`, `bind()`, `send()`, `recv()`, `sendto()`, `recvfrom()`, `set_non_blocking()`, `close()` |
+| `ext::net::dns` | DNS operations: `get_addrinfo()` |
+| `ext::net::wsa` | Windows-only WinSock startup helper |
 
-This is a part of extended C3 library.
-Back to [ext.c3l](../../README.md) library.
+## Platform Support
 
-### TCP Module (`ext::net::tcp`)
+| Platform | TCP | UDP | DNS |
+|----------|-----|-----|-----|
+| POSIX / Linux / BSD / macOS | yes | yes | yes |
+| Windows | yes | yes | yes |
+
+The POSIX implementation uses the system socket API.
+
+The Windows implementation uses WinSock. Socket errors should be interpreted through WinSock error codes, not only through `GetLastError()`.
+
+## Error Handling
+
+`ext::net` uses C3 optional return values. Functions that can fail return optional types such as `TcpSocket?`, `UdpSocket?`, `usz?`, or `void?`.
+
+Typical error handling:
+
+```c3
+TcpSocket? server = tcp::new_listen(8080);
+if (catch err = server)
+{
+    io::printfn("listen failed: %s", err);
+    return;
+}
+```
+
+Most socket errors are mapped to common `c::errno` faults such as:
+
+```text
+E_ACCESS_DENIED, E_ADDR_IN_USE, E_ADDR_NOT_AVAIL, E_AGAIN, E_WOULD_BLOCK,
+E_CONN_REFUSED, E_CONN_RESET, E_NOT_CONNECTED, E_TIMED_OUT, E_GENERAL_ERR
+```
+
+## TCP Module
+
+Source files:
 
 * [tcp.posix.c3](tcp.posix.c3)
 * [tcp.win32.c3](tcp.win32.c3)
 
-Available functions:
+Import:
 
 ```c3
 import ext::net::tcp;
-
-TcpSocket? sock = tcp::new(int version = AF_INET);
-int? r = sock.listen(ushort port, String opt_ip = "*", int backlog = 10); // sets reuse_addr, "::" for AF_INET6
-TcpSocket? sock = tcp::new_listen(ushort port, String opt_ip = "*", int backlog = 10); // sets reuse_addr, "::" for AF_INET6
-
-void? sock.connect(String ip, ushort port);
-TcpSocket? client = tcp::new_connect(String ip, ushort port);
-TcpSocket? sock = server.accept(char[] ip = &__null__, ushort* port = null);
-
-isz? n = sock.send(char[] buf);
-isz? n = sock.recv(char[] buf);
-isz? n = sock.write(char[] buf);
-isz? n = sock.read(char[] buf);
-isz? n = sock.readline(char[] line);
-
-void? sock.set_non_blocking() @maydiscard;
-
-void? socket.close() @maydiscard;
 ```
 
-### UDP Module (`ext::net::udp`)
+Available API:
+
+```c3
+TcpSocket? sock = tcp::new(int version = AF_INET);
+
+int? r = sock.listen(
+    ushort port,
+    String opt_ip = "*",
+    int backlog = 10
+);
+
+TcpSocket? server = tcp::new_listen(
+    ushort port,
+    String opt_ip = "*",
+    int backlog = 10
+);
+
+void? sock.connect(String ip, ushort port);
+
+TcpSocket? sock = tcp::new_connect(String ip, ushort port);
+
+TcpSocket? client = server.accept(
+    char[] ip = &__null__,
+    ushort* port = null
+);
+
+usz? n = sock.send(char[] buf);
+usz? n = sock.recv(char[] buf);
+
+// these are blocking mode only
+usz? n = sock.write(char[] buf);
+usz? n = sock.read(char[] buf);
+sz? n = sock.readline(char[] line);
+
+void? sock.set_non_blocking() @maydiscard;
+void? sock.close() @maydiscard;
+```
+
+Notes:
+
+* `tcp::new()` creates a socket.
+* `tcp::new_listen()` creates, binds, and listens.
+* `tcp::new_connect()` creates and connects.
+* `listen()` sets `reuse_addr`.
+* `opt_ip = "*"` binds to the default wildcard address.
+* For IPv6, the wildcard address is usually `"::"`.
+* `send()` and `write()` are aliases in style, depending on how the socket is used.
+* `recv()` and `read()` are aliases in style, depending on how the socket is used.
+* `readline()` is useful for text protocols.
+
+## UDP Module
+
+Source files:
 
 * [udp.posix.c3](udp.posix.c3)
 * [udp.win32.c3](udp.win32.c3)
 
-Available functions:
+Import:
 
 ```c3
 import ext::net::udp;
+```
 
+Available API:
+
+```c3
 UdpSocket? sock = udp::new(int version = AF_INET);
-void? sock.bind(ushort port, String opt_ip = "*"); // sets reuse_addr, "::" for AF_INET6 // missing in std lib
-UdpSocket? sock = udp::new_bind(ushort port, String ip = "*"); // sets reuse_addr, "::" for AF_INET6 // missing in std lib
 
-isz? n = sock.recvfrom(char[] msgbuf, char[] ip, ushort* port); // missing in stdlib
-isz? n = sock.sendto(char[] msgbuf, String ip, ushort port); // missing is std lib
+void? sock.bind(
+    ushort port,
+    String opt_ip = "*"
+);
 
-isz? n = sock.send(char[] buf);
-isz? n = sock.recv(char[] buf);
+UdpSocket? sock = udp::new_bind(
+    ushort port,
+    String ip = "*"
+);
+
+usz? n = sock.recvfrom(
+    char[] msgbuf,
+    char[] ip,
+    ushort* port
+);
+
+usz? n = sock.sendto(
+    char[] msgbuf,
+    String ip,
+    ushort port
+);
+
+usz? n = sock.send(char[] buf);
+usz? n = sock.recv(char[] buf);
 
 void? sock.set_non_blocking() @maydiscard;
-
 void? sock.close() @maydiscard;
 ```
 
-### DNS module (`ext::net::dns`)
+Notes:
+
+* `udp::new()` creates a UDP socket.
+* `udp::new_bind()` creates and binds.
+* `bind()` sets `reuse_addr`.
+* `recvfrom()` returns the sender address through `ip` and `port`.
+* `sendto()` sends a datagram to a target address.
+* `send()` and `recv()` are useful after connecting a UDP socket or when using a platform mode that supports default peer behavior.
+
+## DNS Module
+
+Source files:
 
 * [dns.posix.c3](dns.posix.c3)
 * [dns.win32.c3](dns.win32.c3)
 
-Available functions:
+Import:
 
-```c3 
+```c3
 import ext::net::dns;
 import std::collections::list;
+```
 
-List{String}? ips =  dns::get_addrinfo(Allocator allocx, String host); // should properly free() result
+Available API:
 
-foreach (e: ips) { e.free(); }
+```c3
+// caller should free ips properly
+List{String}? ips = dns::get_addrinfo(Allocator allocx, String host);
+```
+
+Example:
+
+```c3
+List{String} ips = dns::get_addrinfo(mem, "example.com")!!;
+
+foreach (ip: ips)
+{
+    io::printfn("%s", ip);
+    ip.free(mem);
+}
+
 ips.free();
 ```
 
-Back to [ext.c3l](../../README.md) library.
+The caller owns the returned list and every `String` inside it. Free both the contained strings and the list itself.
 
-### Example codes
+DNS lookup uses `getaddrinfo()` internally. On Windows, `wsa::startup()` is called before using WinSock DNS APIs.
 
-* [../../examples/net](../../examples/net)
-
-### TCP Server Example
+## TCP Server Example
 
 ```c3
 import std::io;
+import stdio;
 
-import ext::net::tcp; // from src/net
-import stdio; // from src/libc
+import ext::net::tcp;
 
-fn void main() 
+fn void main()
 {
-    // Create and bind a TCP server on port 8080
     TcpSocket? server = tcp::new_listen(8080);
-    if (catch err = server) {
-        io::printfn("%s", err);
+    if (catch err = server)
+    {
+        io::printfn("Failed to listen: %s", err);
         return;
     }
 
     io::printfn("Server listening on port 8080...");
-    
-    while (true) {
-        // Accept incoming connections
-        char[16] client_ip;
+
+    while (true)
+    {
+        char[64] client_ip;
         ushort client_port;
-        TcpSocket? client = server.accept(&client_ip, &client_port);
-        if (catch err = client) {
-            io::printfn("%s", err);
-            return;
-        }
-        
-        stdio::printf("Client connected from %s:%d\n", &client_ip[0], client_port);
-        
-        // Receive data
-        char[1024] buffer;
-        isz? bytes_read = client.recv(&buffer);
-        if (catch err = bytes_read) {
-            io::printfn("%s", err);
-            return;
-        }
-        
-        io::printfn("Received: %s", buffer[:bytes_read]);
-        
-        // Send response
-        (void)client.send("Hello from server!\n");
-        client.close()!!;
-    }
-}
 
-### TCP Client Example
-
-```c3
-import ext::net::tcp; // from src/net
-import std::io;
-
-fn void main() 
-{
-    // Connect to server
-    TcpSocket? sock = tcp::new_connect("127.0.0.1", 8080);
-    if (catch err = sock) {
-        io::printfn("%s", err);
-        return;
-    }
-
-    io::printfn("Connected to server");
-    
-    // Send data
-    sock.send("Hello, server!\n")!!;
-    
-    // Receive response
-    char[1024] buffer;
-    isz bytes = sock.recv(&buffer)!!;
-    io::printfn("Server response: %s", (String)buffer[:bytes]);
-    
-    sock.close()!!;
-}
-```
-
-### UDP Server Example
-
-```c3
-import ext::net::udp; // from src/net
-import std::io;
-
-fn void main() 
-{
-    // Create and bind UDP socket
-    UdpSocket? sock = udp::new_bind(9000);
-    if (catch err = sock) {
-        io::printfn("%s", err);
-        return;
-    }
-    io::printfn("UDP server listening on port 9000...");
-    
-    char[1024] buffer;
-    char[16] client_ip;
-    ushort client_port;
-    
-    while (true) {
-        // Receive datagram
-        isz len = sock.recvfrom(&buffer, &client_ip, &client_port)!!;
-        io::printfn("Received from %s:%d: %s", (ZString)&client_ip[0], client_port, (String)buffer[:len]);
-        
-        // Send response
-        sock.sendto("Acknowledged\n", client_ip, client_port)!!;
-    }
-}
-```
-
-### UDP Client Example
-
-```c3
-import ext::net::udp; // from src/net
-import std::io;
-
-fn void main() 
-{
-    // Create UDP socket
-    UdpSocket sock = udp::new()!!;
-    
-    // Send datagram
-    sock.sendto("Hello, UDP server!\n", "127.0.0.1", 9000)!!;
-    
-    // Receive response
-    char[1024] buffer;
-    char[16] server_ip;
-    ushort server_port;
-    isz len = sock.recvfrom(&buffer, &server_ip, &server_port);
-    io::printfn("Response: %s", (String)buffer[:len]);
-    
-    sock.close()!!;
-}
-```
-
-## Error Handling
-
-`ext_net` uses C3's optional return types for error handling. All functions that can fail return optional types (`?`).
-
-### Example with Error Handling
-
-```c3
-import ext::net::tcp; // from src/net
-import std::io;
-
-fn void main() 
-{
-    TcpSocket? sock = tcp::new_listen(8080);
-    
-    if (catch err = sock) {
-        io::printfn("Failed to create server: %s", err);
-        return;
-    }
-    
-    while (true) {
-        TcpSocket? client = sock.accept();
-        if (catch err = client) {
-            io::printfn("Accept failed: %s", err);
+        TcpSocket? client = server.accept(client_ip[..], &client_port);
+        if (catch err = client)
+        {
+            io::printfn("accept failed: %s", err);
             continue;
         }
-        
-        // Handle client...
-        
-        client.close()!!;
+        defer client.close()!!;
+
+        stdio::printf("Client connected from %s:%d\n", &client_ip[0], client_port);
+
+        char[1024] buffer;
+        usz? bytes = client.recv(buffer[..]);
+        if (catch err = bytes)
+        {
+            io::printfn("recv failed: %s", err);
+            continue;
+        }
+
+        io::printfn("Received: %s", (String)buffer[0:bytes]);
+
+        client.send("Hello from server!\n")!!;
     }
 }
 ```
 
-## Advanced Features
-
-### Non-Blocking I/O
+## TCP Client Example
 
 ```c3
+import std::io;
+
 import ext::net::tcp;
 
-fn void main() 
+fn void main()
 {
-    TcpSocket sock = tcp::new_connect("127.0.0.1", 8080)!!;
-    sock.set_non_blocking()!!;
-    
-    // Now socket operations won't block
-    // Handle EAGAIN/EWOULDBLOCK appropriately
+    TcpSocket? sock = tcp::new_connect("127.0.0.1", 8080);
+    if (catch err = sock)
+    {
+        io::printfn("connect failed: %s", err);
+        return;
+    }
+    defer sock.close()!!;
+
+    io::printfn("Connected to server");
+
+    sock.send("Hello, server!\n")!!;
+
+    char[1024] buffer;
+    usz bytes = sock.recv(buffer[..])!!;
+
+    io::printfn("Server response: %s", (String)buffer[0:bytes]);
 }
 ```
 
-### Reading Lines
+## UDP Server Example
 
-Perfect for text-based protocols:
+```c3
+import std::io;
+
+import ext::net::udp;
+
+fn void main()
+{
+    UdpSocket? sock = udp::new_bind(9000);
+    if (catch err = sock)
+    {
+        io::printfn("bind failed: %s", err);
+        return;
+    }
+    defer sock.close()!!;
+
+    io::printfn("UDP server listening on port 9000...");
+
+    char[1024] buffer;
+    char[64] client_ip;
+    ushort client_port;
+
+    while (true)
+    {
+        usz len = sock.recvfrom(buffer[..], client_ip[..], &client_port)!!;
+
+        io::printfn(
+            "Received from %s:%d: %s",
+            (ZString)&client_ip[0],
+            client_port,
+            (String)buffer[0:len]
+        );
+
+        sock.sendto("Acknowledged\n", (ZString)&client_ip[0], client_port)!!;
+    }
+}
+```
+
+## UDP Client Example
+
+```c3
+import std::io;
+
+import ext::net::udp;
+
+fn void main()
+{
+    UdpSocket sock = udp::new()!!;
+    defer sock.close()!!;
+
+    sock.sendto("Hello, UDP server!\n", "127.0.0.1", 9000)!!;
+
+    char[1024] buffer;
+    char[64] server_ip;
+    ushort server_port;
+
+    usz len = sock.recvfrom(buffer[..], server_ip[..], &server_port)!!;
+
+    io::printfn(
+        "Response from %s:%d: %s",
+        (ZString)&server_ip[0],
+        server_port,
+        (String)buffer[0:len]
+    );
+}
+```
+
+## DNS Example
+
+```c3
+import std::io;
+import std::collections::list;
+
+import ext::net::dns;
+
+fn void main()
+{
+    List{String}? ips = dns::get_addrinfo(mem, "example.com");
+    if (catch err = ips)
+    {
+        io::printfn("DNS lookup failed: %s", err);
+        return;
+    }
+
+    foreach (ip: ips)
+    {
+        io::printfn("%s", ip);
+        ip.free(mem);
+    }
+
+    ips.free();
+}
+```
+
+## Non-Blocking I/O
+
+Sockets can be switched to non-blocking mode:
 
 ```c3
 import ext::net::tcp;
+
+fn void main()
+{
+    TcpSocket sock = tcp::new_connect("127.0.0.1", 8080)!!;
+    defer sock.close()!!;
+
+    sock.set_non_blocking()!!;
+
+    char[1024] buffer;
+    usz? n = sock.recv(buffer[..]);
+
+    if (catch err = n)
+    {
+        if (err == errno::E_WOULD_BLOCK)
+        {
+            // Try again later, or wait through an event loop.
+            return;
+        }
+
+        return;
+    }
+}
+```
+
+Non-blocking sockets are useful when integrating `ext::net` with an event loop such as `ext::aio`.
+
+On Windows, socket operations should use WinSock error handling. A socket operation that would block normally maps to `E_WOULD_BLOCK`.
+
+## Reading Lines
+
+`readline()` is useful for simple text protocols.
+
+```c3
 import std::io;
 
-fn void? handle_client(TcpSocket sock) 
+import ext::net::tcp;
+import c::errno;
+
+fn void? handle_client(TcpSocket sock)
 {
     char[1024] line;
-    
-    while (true) {
-        isz? len = sock.readline(&line);
-        if (catch err = len) {
-            if (err == tcp::EOF) break;  // Connection closed
-            io::printfn("Read error: %s", err);
-            break;
+
+    while (true)
+    {
+        usz? len = sock.readline(line[..]);
+        if (catch err = len)
+        {
+            if (err == errno::EOF) break;
+
+            io::printfn("readline failed: %s", err);
+            return err;
         }
-        
-        io::printfn("Received line: %s", (String)line[:len]);
+
+        io::printfn("Received line: %s", (String)line[0:len]);
+
         sock.send("OK\n")!;
     }
 }
@@ -301,21 +448,45 @@ fn void? handle_client(TcpSocket sock)
 
 ## Testing
 
-The library includes comprehensive test examples in the `examples/` directory:
+Example programs are available in the `examples/` directory:
 
-- [tcpserver.c3](../../examples/tcpserver.c3) - TCP echo server implementation
-- [tcpclient.c3](../../examples/tcpserver.c3) - TCP client example
-- [udpserver.c3](../../examples/udpserver.c3) - UDP echo server implementation  
-- [udpclient.c3](../../examples/udpclient.c3) - UDP client example
+* [tcpserver.c3](../../examples/tcpserver.c3) - TCP echo server
+* [tcpclient.c3](../../examples/tcpclient.c3) - TCP client
+* [udpserver.c3](../../examples/udpserver.c3) - UDP echo server
+* [udpclient.c3](../../examples/udpclient.c3) - UDP client
 
-Run the tests to verify installation and see usage examples:
+Example run:
 
 ```bash
-# Terminal 1: Start TCP server
+# Terminal 1
 make tcpserver
 
-# Terminal 2: Run TCP client
+# Terminal 2
 make tcpclient
 ```
 
-Back to [ext.c3l](../../README.md) library.
+UDP examples:
+
+```bash
+# Terminal 1
+make udpserver
+
+# Terminal 2
+make udpclient
+```
+
+## Design Notes
+
+`ext::net` is intentionally synchronous at the API level. It exposes non-blocking mode so that higher-level modules can build event-loop based I/O on top of it.
+
+A typical layering is:
+
+```text
+ext::aio
+    -> ext::net::tcp / ext::net::udp
+        -> POSIX sockets or WinSock
+```
+
+For Windows, IOCP is not required to use `ext::net`. A higher-level event loop may also use non-blocking sockets with `select()` or `WSAPoll()`. File I/O is a separate concern and is usually handled by a thread pool or an overlapped I/O backend.
+
+Back to [ext.c3l](../../README.md).

@@ -1,5 +1,7 @@
 // primitives.c3
 
+// Synchronization primitives on ext::aio
+
 // Nomota <hiongun@gmail.com>; MIT License
 
 module ext::aio;
@@ -15,7 +17,7 @@ faultdef CHANNEL_CLOSED, CHANNEL_USED;
 // Waiter list helpers
 // 
 
-fn void wake_one(LinkedList{Waiter*}* waiters) @private
+fn void wake_one(LinkedList{Waiter*}* waiters) @local
 {
     if (waiters == null) return;
     if (waiters.is_empty()) return;
@@ -25,7 +27,7 @@ fn void wake_one(LinkedList{Waiter*}* waiters) @private
     if (waiter != null) waiter.wake();
 }
 
-fn void wake_all(LinkedList{Waiter*}* waiters) @private
+fn void wake_all(LinkedList{Waiter*}* waiters) @local
 {
     if (waiters == null) return;
 
@@ -37,7 +39,7 @@ fn void wake_all(LinkedList{Waiter*}* waiters) @private
     }
 }
 
-fn void cancel_all_waiters(LinkedList{Waiter*}* waiters, fault err = CANCELLED) @private
+fn void cancel_all_waiters(LinkedList{Waiter*}* waiters, fault err = CANCELLED) @local
 {
     if (waiters == null) return;
 
@@ -598,3 +600,5 @@ fn void*? Channel.recv_nowait(&self)
 
     return self.future.get_result();
 }
+
+// eof

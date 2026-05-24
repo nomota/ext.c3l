@@ -133,6 +133,8 @@ extern fn int wsa_startup(ushort version_required, WSAData* wsa_data) @cname("WS
 
 And find [more header mappings](./)
 
+An example usage file: [../net/tcp.posix.c3](../net/tcp.posix.c3)
+
 ### Windows Headers
 
 | Module | Description |
@@ -154,6 +156,8 @@ And find [more header mappings](./)
 | `c::errno` | provides `errno()` and `get_fault()` |
 
 And find [more header mappings](./)
+
+An example usage file: [../net/tcp.win32.c3](../net/tcp.win32.c3)
 
 This is a part of extended C3 library.
 Back to [ext.c3l](../../README.md) library.

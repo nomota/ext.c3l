@@ -11,16 +11,16 @@ struct Timer
     Task* target;
     Task* timer_task;
 
-    ulong timeout_ms;
+    ulong timeout_us;
     bool active;
 }
 
-fn void? timer_task_entry(void* arg) @private
+fn void? timer_task_entry(void* arg) @local
 {
     Timer* t = (Timer*)arg;
     if (t == null) return INVALID_ARG~;
 
-    sleep(t.timeout_ms)!;
+    sleep(t.timeout_us)!;
 
     if (!t.active) return;
 
@@ -35,9 +35,9 @@ fn void? timer_task_entry(void* arg) @private
     }
 }
 
-fn Timer*? Task.start_timer(&self, ulong timeout_ms)
+fn Timer*? Task.start_timer(&self, ulong timeout_us)
 {
-    if (timeout_ms == 0) return INVALID_ARG~;
+    if (timeout_us == 0) return INVALID_ARG~;
 
     EventLoop* loop = self.loop;
     if (loop == null) return INVALID_STATE~;
@@ -46,7 +46,7 @@ fn Timer*? Task.start_timer(&self, ulong timeout_ms)
     *timer = {
         .target = self,
         .timer_task = null,
-        .timeout_ms = timeout_ms,
+        .timeout_us = timeout_us,
         .active = true,
     };
     defer catch localmem.free(timer);
@@ -58,11 +58,11 @@ fn Timer*? Task.start_timer(&self, ulong timeout_ms)
     return timer;
 }
 
-fn Timer*? start_timer(ulong timeout_ms)
+fn Timer*? start_timer(ulong timeout_us)
 {
     Task* task = current_task()!;
 
-    return task.start_timer(timeout_ms)!;
+    return task.start_timer(timeout_us)!;
 }
 
 
@@ -79,3 +79,5 @@ fn void Timer.cancel(&self)
     
     localmem.free(self);
 }
+
+// eof

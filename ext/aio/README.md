@@ -1,3 +1,5 @@
+// ext/aio/README.md
+
 # ext::aio - Async I/O for C3
 
 Coroutine-based asynchronous I/O framework for C3.
@@ -274,7 +276,6 @@ Detailed documentation is split into topic-specific files:
 | [`docs/EXECUTOR.md`](docs/EXECUTOR.md) | Invoking threaded executor for blocking operations |
 | [`docs/FILE_IO.md`](docs/FILE_IO.md) | Executor-backed file operations |
 | [`docs/PATH.md`](docs/PATH.md) | Filesystem path utilities |
-| [`docs/PLATFORM.md`](docs/PLATFORM.md) | POSIX and Win32 backend notes |
 
 ## Error handling
 
@@ -309,3 +310,4 @@ MIT License.
 This is a part of extended C3 library.
 Back to [ext.c3l](../../README.md) library.
 
+// eof

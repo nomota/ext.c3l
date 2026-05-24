@@ -846,3 +846,5 @@ const uint WSA_WAIT_EVENT_0      = 0x00000000; // WAIT_OBJECT_0
 const uint WSA_WAIT_IO_COMPLETION = 0x000000C0; // WAIT_IO_COMPLETION
 const uint WSA_WAIT_TIMEOUT      = 258;         // WAIT_TIMEOUT
 const uint WSA_INFINITE          = 0xFFFFFFFF;  // INFINITE
+
+// eof

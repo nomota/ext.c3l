@@ -56,7 +56,7 @@ fn void? client_task(void* arg)
 
     defer server.close();
 
-    Stream* s = aio::open_connection("127.0.0.1", 8080)!;
+    Stream* s = aio::stream_connect("127.0.0.1", 8080)!;
     defer s.free();
 
     char[1024] buf;

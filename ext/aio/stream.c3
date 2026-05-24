@@ -170,25 +170,13 @@ fn usz? Stream.read_line(&self, char[] buf)
     return self.read_until(buf, '\n');
 }
 
-fn Stream*? open_connection(String host, ushort port)
-{
-    Fd fd = net::tcp_socket()!;
 
-    if (catch err = net::tcp_connect(fd, host, port))
-    {
-        net::socket_close(fd);
-        return err~;
-    }
-
-    return stream_new(fd);
-}
-
-fn Stream*? open_connection_timeout(String host, ushort port, ulong timeout_ms)
+fn Stream*? stream_connect_timeout(String host, ushort port, ulong timeout_ms)
 {
     Timer* timer = start_timer(timeout_ms)!;
     defer timer.cancel();
 
-    return open_connection(host, port);
+    return stream_connect(host, port);
 }
 
 // eof

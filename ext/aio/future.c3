@@ -161,3 +161,4 @@ fn void*? Future.await(&self)
     return self.result;
 }
 
+// eof

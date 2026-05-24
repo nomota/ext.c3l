@@ -5,7 +5,6 @@
 module c::termios @if(env::LINUX);
 
 alias TcFlag = uint;
-alias Cc = char;
 alias Speed = uint;
 
 const int NCCS = 32;
@@ -16,7 +15,7 @@ struct Termios
     TcFlag c_oflag;
     TcFlag c_cflag;
     TcFlag c_lflag;
-    Cc[NCCS] c_cc;
+    char[NCCS] c_cc;
 }
 
 extern fn int tcgetattr(int fd, Termios* termios_p);
@@ -200,7 +199,6 @@ const TcFlag EXTPROC = 0x010000;
 module c::termios @if(env::DARWIN);
 
 alias TcFlag = ulong;
-alias Cc = uchar;
 alias Speed = ulong;
 
 const int NCCS = 20;
@@ -211,7 +209,7 @@ struct Termios
     TcFlag c_oflag;
     TcFlag c_cflag;
     TcFlag c_lflag;
-    Cc[NCCS] c_cc;
+    char[NCCS] c_cc;
     Speed c_ispeed;
     Speed c_ospeed;
 }
@@ -368,7 +366,6 @@ const Speed B230400 = 230400;
 module c::termios @if(env::FREEBSD);
 
 alias TcFlag = uint;
-alias Cc = uchar;
 alias Speed = uint;
 
 const int NCCS = 20;
@@ -379,7 +376,7 @@ struct Termios
     TcFlag c_oflag;
     TcFlag c_cflag;
     TcFlag c_lflag;
-    Cc[NCCS] c_cc;
+    char[NCCS] c_cc;
     Speed c_ispeed;
     Speed c_ospeed;
 }
@@ -519,7 +516,6 @@ const Speed B230400 = 230400;
 module c::termios @if(env::NETBSD);
 
 alias TcFlag = uint;
-alias Cc = uchar;
 alias Speed = uint;
 
 const int NCCS = 20;
@@ -530,7 +526,7 @@ struct Termios
     TcFlag c_oflag;
     TcFlag c_cflag;
     TcFlag c_lflag;
-    Cc[NCCS] c_cc;
+    char[NCCS] c_cc;
     Speed c_ispeed;
     Speed c_ospeed;
 }
@@ -649,7 +645,6 @@ const Speed B230400 = 230400;
 module c::termios @if(env::OPENBSD);
 
 alias TcFlag = uint;
-alias Cc = uchar;
 alias Speed = uint;
 
 const int NCCS = 20;
@@ -660,7 +655,7 @@ struct Termios
     TcFlag c_oflag;
     TcFlag c_cflag;
     TcFlag c_lflag;
-    Cc[NCCS] c_cc;
+    char[NCCS] c_cc;
     Speed c_ispeed;
     Speed c_ospeed;
 }

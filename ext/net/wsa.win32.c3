@@ -1,29 +1,36 @@
-module ext::net @if(env::WIN32);
+// wsa.win32.c3
 
-bool __wsa_initialized = false;
+// Nomota <hiongun@gmail.com>; MIT License
 
 module ext::net::wsa @if(env::WIN32);
 
 import c::errno;
 import c::winsock2;
+import ext::debug;
 
-fn void? startup() 
+bool initialized = false;
+
+fn void startup() @init
 {
-    if (net::__wsa_initialized) return;
+    if (initialized) return;
     
     winsock2::WSAData wsa_data;
-    int result = winsock2::wsaStartup(0x0202, &wsa_data);
-    if (result != 0) {
-        return errno::F_SYSNOTREADY~;
+    int rc = winsock2::wsaStartup(0x0202, &wsa_data);
+    if (rc != 0)
+    {
+        warn("ERROR: wsaStartup failed: %d\n", rc);
+        return;
     }
-    net::__wsa_initialized = true;
+    initialized = true;
 }
 
-fn void cleanup() 
+fn void cleanup() @finalizer
 {
-    if (net::__wsa_initialized) {
+    if (initialized)
+    {
         winsock2::wsaCleanup();
-        net::__wsa_initialized = false;
+        initialized = false;
     }
 }
 
+// eof

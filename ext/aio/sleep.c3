@@ -28,7 +28,7 @@ fn void Sleep.init(&self, Task* task, ulong deadline_us)
     self.next = null;
 }
 
-fn void EventLoop.add_sleep(&self, Sleep* sleep)
+fn void EventLoop.add_sleep(&self, Sleep* sleep) // private
 {
     if (sleep == null) return;
 
@@ -57,7 +57,7 @@ fn void EventLoop.add_sleep(&self, Sleep* sleep)
     prev.next = sleep;
 }
 
-fn void EventLoop.process_sleeps(&self)
+fn void EventLoop.process_sleeps(&self) // private
 {
     ulong now = clock_now();
 
@@ -72,7 +72,7 @@ fn void EventLoop.process_sleeps(&self)
     }
 }
 
-fn ulong EventLoop.next_sleep_delay_us(&self)
+fn ulong EventLoop.next_sleep_delay_us(&self) // private
 {
     if (self.sleep_head == null) return 0;
 
@@ -84,7 +84,7 @@ fn ulong EventLoop.next_sleep_delay_us(&self)
     return delay;
 }
 
-fn void EventLoop.remove_sleep(&self, Sleep* sleep)
+fn void EventLoop.remove_sleep(&self, Sleep* sleep) // private
 {
     if (sleep == null) return;
 
@@ -131,3 +131,5 @@ fn void? sleep(ulong us) @maydiscard
 
     sleep.waiter.check()!;
 }
+
+// eof

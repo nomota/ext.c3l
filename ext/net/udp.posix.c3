@@ -2,7 +2,6 @@
 
 module ext::net::udp @if(!env::WIN32);
 
-import c::string;
 import c::netinet::in;
 import c::sys::socket;
 import c::unistd;
@@ -11,184 +10,303 @@ import c::errno;
 
 typedef UdpSocket = inline int;
 
-fn int detect_ip_version(String ip) 
+fn char*? str2cptr(String str, char[] buf) @inline @local
 {
-    foreach (c : ip) {
+    if (buf.len == 0 || str.len+1 > buf.len) return errno::E_INVALID_ARG~;
+
+    buf[0:str.len] = str[0:str.len];
+    buf[str.len] = 0;
+
+    return &buf[0];
+}
+
+fn int detect_ip_version(String ip)
+{
+    foreach (c : ip)
+    {
         if (c == ':') return socket::AF_INET6;
     }
     return socket::AF_INET;
 }
 
-fn UdpSocket? new(int version = socket::AF_INET) 
+fn bool would_block() @inline @local
 {
-    // int family = (int)version;
+    int err = errno::errno();
+    return err == errno::EAGAIN
+        || err == errno::EWOULDBLOCK
+        || err == errno::EINPROGRESS
+        || err == errno::EALREADY;
+}
+
+fn fault socket_fault() @inline @local
+{
+    if (would_block()) return errno::E_WOULD_BLOCK;
+
+    return errno::get_fault();
+}
+
+fn UdpSocket? new(int version = socket::AF_INET)
+{
     UdpSocket sock = (UdpSocket)socket::socket((int)version, socket::SOCK_DGRAM, 0);
-    if (sock == -1) {
+    if (sock == -1)
+    {
         return errno::get_fault()~;
     }
     return sock;
 }
 
-fn void? UdpSocket.bind(sock, ushort port, String opt_ip = "*") 
+// opt_ip == "*"  binds IPv4 INADDR_ANY.
+// opt_ip == "::" binds IPv6 in6addr_any.
+// Host names are not resolved; pass numeric IPv4/IPv6 addresses only.
+fn void? UdpSocket.bind(sock, ushort port, String opt_ip = "*") @maydiscard
 {
-    int option = 1; // true
-    // int optlen = $sizeof(option);
-    socket::setsockopt(sock, socket::SOL_SOCKET, socket::SO_REUSEADDR, (void*)&option, $sizeof(option));
-    socket::setsockopt(sock, socket::SOL_SOCKET, socket::SO_REUSEPORT, (void*)&option, $sizeof(option));
+    int option = 1;
+
+    int r = socket::setsockopt(
+        sock,
+        socket::SOL_SOCKET,
+        socket::SO_REUSEADDR,
+        (void*)&option,
+        $sizeof(option)
+    );
+    if (r < 0) return errno::get_fault()~;
+
+    r = socket::setsockopt(
+        sock,
+        socket::SOL_SOCKET,
+        socket::SO_REUSEPORT,
+        (void*)&option,
+        $sizeof(option)
+    );
+    if (r < 0) return errno::get_fault()~;
 
     int version = detect_ip_version(opt_ip);
-    
-    if (version == socket::AF_INET6) {
-        SockAddrIn6 adr = {};
-        // string::memset(&adr, 0, $sizeof(adr));
-        adr.sin6_family = socket::AF_INET6;
-        
-        if (opt_ip == "::") {
-            adr.sin6_addr = {}; // in::in6addr_any;
-            // string::memset(&adr.sin6_addr, 0, In6Addr.sizeof);
 
-        } else if (in::inet_pton(socket::AF_INET6, opt_ip.ptr, &adr.sin6_addr) != 1) {
-            return errno::get_fault()~;
+    if (version == socket::AF_INET6)
+    {
+        in::SockAddrIn6 adr = {};
+        adr.sin6_family = socket::AF_INET6;
+
+        if (opt_ip == "::")
+        {
+            adr.sin6_addr = {};
         }
-        
+        else
+        {
+            char[128] ip_buf;
+            char* ip_cstr = str2cptr(opt_ip, &ip_buf)!;
+
+            int rc = in::inet_pton(socket::AF_INET6, ip_cstr, &adr.sin6_addr);
+            if (rc == 0) return errno::E_INVALID_ARG~;
+            if (rc < 0)
+            {
+                return errno::get_fault()~;
+            }
+        }
+
         adr.sin6_port = in::htons(port);
 
-        if (socket::bind(sock, (SockAddr*)&adr, $sizeof(adr)) == -1) {
-            return errno::get_fault()~;
-        }
-    } else {
-        SockAddrIn adr = {};
-        // string::memset(&adr, 0, $sizeof(adr));
-        adr.sin_family = socket::AF_INET;
-        
-        if (opt_ip == "*") {
-            adr.sin_addr.s_addr = in::htonl(in::INADDR_ANY);
-        } else if (in::inet_pton(socket::AF_INET, opt_ip.ptr, &adr.sin_addr) != 1) {
-            return errno::get_fault()~;
-        }
-        
-        adr.sin_port = in::htons(port);
-
-        if (socket::bind(sock, (SockAddr*)&adr, $sizeof(adr)) == -1) {
+        if (socket::bind(sock, (socket::SockAddr*)&adr, $sizeof(adr)) < 0)
+        {
             return errno::get_fault()~;
         }
     }
-    
-    return;
+    else
+    {
+        in::SockAddrIn adr = {};
+        adr.sin_family = socket::AF_INET;
+
+        if (opt_ip == "*")
+        {
+            adr.sin_addr.s_addr = in::htonl(in::INADDR_ANY);
+        }
+        else
+        {
+            char[128] ip_buf;
+            char* ip_cstr = str2cptr(opt_ip, &ip_buf)!;
+
+            int rc = in::inet_pton(socket::AF_INET, ip_cstr, &adr.sin_addr);
+            if (rc == 0) return errno::E_INVALID_ARG~;
+            if (rc < 0)
+            {
+                return errno::get_fault()~;
+            }
+        }
+
+        adr.sin_port = in::htons(port);
+
+        if (socket::bind(sock, (socket::SockAddr*)&adr, $sizeof(adr)) < 0)
+        {
+            return errno::get_fault()~;
+        }
+    }
 }
 
 fn UdpSocket? new_bind(ushort port, String ip = "*")
 {
     int version = detect_ip_version(ip);
     UdpSocket sock = new(version)!;
-    defer (catch err) {
-        (void) sock.close();
-    }
-    if (catch err = sock.bind(port, ip)) {
-        return err~;
-    }
+    defer catch (void)sock.close();
+
+    sock.bind(port, ip)!;
+    
     return sock;
 }
 
-fn isz? UdpSocket.recvfrom(sock, char[] msgbuf, char[] ip, ushort* port)
+char[1] __null__;
+
+fn usz? UdpSocket.recvfrom(sock, char[] msgbuf, char[] ip = &__null__, ushort* port = null)
 {
-    socket::SockAddrStorage adr;
+    if (msgbuf.len == 0) return 0;
+
+    socket::SockAddrStorage adr = {};
     socket::SockLen size = $sizeof(adr);
-    
-    isz len = socket::recvfrom(sock, msgbuf.ptr, msgbuf.len, 0, (socket::SockAddr*)&adr, &size);
-    if (len < 0) {
-        return errno::get_fault()~;
-    }
-    
-    if (adr.ss_family == socket::AF_INET6) {
-        in::SockAddrIn6* adr6 = (in::SockAddrIn6*)&adr;
-        if (in::inet_ntop(socket::AF_INET6, &(adr6.sin6_addr), ip.ptr, ip.len) == null) {
-            return errno::get_fault()~;
+
+    isz len = socket::recvfrom(
+        sock,
+        msgbuf.ptr,
+        msgbuf.len,
+        0,
+        (socket::SockAddr*)&adr,
+        &size
+    );
+
+    if (len < 0) return socket_fault()~;
+
+    bool want_ip = ip != &__null__;
+    bool want_port = port != null;
+
+    if (want_ip && want_port)
+    {
+        if (adr.ss_family == socket::AF_INET6)
+        {
+            in::SockAddrIn6* adr6 = (in::SockAddrIn6*)&adr;
+
+            if (in::inet_ntop(socket::AF_INET6, &adr6.sin6_addr, ip.ptr, ip.len) == null)
+            {
+                return errno::get_fault()~;
+            }
+
+            *port = in::ntohs(adr6.sin6_port);
         }
-        *port = in::ntohs(adr6.sin6_port);
-    } else {
-        in::SockAddrIn* adr4 = (in::SockAddrIn*)&adr;
-        if (in::inet_ntop(socket::AF_INET, &(adr4.sin_addr), ip.ptr, ip.len) == null) {
-            return errno::get_fault()~;
+        else
+        {
+            in::SockAddrIn* adr4 = (in::SockAddrIn*)&adr;
+
+            if (in::inet_ntop(socket::AF_INET, &adr4.sin_addr, ip.ptr, ip.len) == null)
+            {
+                return errno::get_fault()~;
+            }
+
+            *port = in::ntohs(adr4.sin_port);
         }
-        *port = in::ntohs(adr4.sin_port);
     }
 
-    return len;
+    return (usz)len;
 }
 
-fn isz? UdpSocket.sendto(sock, char[] msgbuf, String ip, ushort port)
+fn usz? UdpSocket.sendto(sock, char[] msgbuf, String ip, ushort port)
 {
+    if (msgbuf.len == 0) return 0;
+
     int version = detect_ip_version(ip);
-    
-    if (version == socket::AF_INET6) {
+
+    if (version == socket::AF_INET6)
+    {
         in::SockAddrIn6 adr = {};
-        // string::memset(&adr, 0, $sizeof(adr));
         adr.sin6_family = socket::AF_INET6;
         adr.sin6_port = in::htons(port);
 
-        if (in::inet_pton(socket::AF_INET6, ip.ptr, &adr.sin6_addr) != 1) {
-            return errno::get_fault()~;
-        }
-        
-        isz len = socket::sendto(sock, msgbuf.ptr, msgbuf.len, 0, (SockAddr*)&adr, $sizeof(adr));
-        if (len < 0) {
-            return errno::get_fault()~;
-        }
-        return len;
-    } else {
+        char[128] ip_buf;
+        char* ip_cstr = str2cptr(ip, &ip_buf)!;
+
+        int rc = in::inet_pton(socket::AF_INET6, ip_cstr, &adr.sin6_addr);
+        if (rc == 0) return errno::E_INVALID_ARG~;
+        if (rc < 0) return errno::get_fault()~;
+
+        isz len = socket::sendto(
+            sock,
+            msgbuf.ptr,
+            msgbuf.len,
+            0,
+            (socket::SockAddr*)&adr,
+            $sizeof(adr)
+        );
+
+        if (len < 0) return socket_fault()~;
+
+        return (usz)len;
+    }
+    else
+    {
         in::SockAddrIn adr = {};
-        // string::memset(&adr, 0, $sizeof(adr));
         adr.sin_family = socket::AF_INET;
         adr.sin_port = in::htons(port);
 
-        if (in::inet_pton(socket::AF_INET, ip.ptr, &adr.sin_addr) != 1) {
-            return errno::get_fault()~;
-        }
-        
-        isz len = socket::sendto(sock, msgbuf.ptr, msgbuf.len, 0, (socket::SockAddr*)&adr, $sizeof(adr));
-        if (len < 0) {
-            return errno::get_fault()~;
-        }
-        return len;
+        char[128] ip_buf;
+        char* ip_cstr = str2cptr(ip, &ip_buf)!;
+
+        int rc = in::inet_pton(socket::AF_INET, ip_cstr, &adr.sin_addr);
+        if (rc == 0) return errno::E_INVALID_ARG~;
+        if (rc < 0) return errno::get_fault()~;
+
+        isz len = socket::sendto(
+            sock,
+            msgbuf.ptr,
+            msgbuf.len,
+            0,
+            (socket::SockAddr*)&adr,
+            $sizeof(adr)
+        );
+
+        if (len < 0) return socket_fault()~;
+
+        return (usz)len;
     }
 }
 
-fn isz? UdpSocket.send(sock, char[] buf) 
+fn usz? UdpSocket.send(sock, char[] buf)
 {
+    if (buf.len == 0) return 0;
+
     isz n = socket::send(sock, buf.ptr, buf.len, 0);
-    if (n < 0) {
-        return errno::get_fault()~;
-    }
-    return n;
+    if (n < 0) return socket_fault()~;
+
+    return (usz)n;
 }
 
-fn isz? UdpSocket.recv(sock, char[] buf) 
+fn usz? UdpSocket.recv(sock, char[] buf)
 {
-    isz n = socket::recv(sock, buf.ptr, buf.len-1, 0);
-    if (n < 0) {
-        return errno::get_fault()~;
-    }
-    buf[n] = 0;
-    return n;
+    if (buf.len == 0) return 0;
+
+    isz n = socket::recv(sock, buf.ptr, buf.len, 0);
+    if (n < 0) return socket_fault()~;
+
+    return (usz)n;
 }
 
-fn void? UdpSocket.set_non_blocking(sock) @maydiscard 
+fn void? UdpSocket.set_non_blocking(sock) @maydiscard
 {
     int flags = fcntl::fcntl(sock, fcntl::F_GETFL, 0);
-    if (flags < 0) {
-        return errno::get_fault()~;
-    }
+    if (flags < 0) return errno::get_fault()~;
+
     int r = fcntl::fcntl(sock, fcntl::F_SETFL, flags | fcntl::O_NONBLOCK);
-    if (r < 0) {
-        return errno::get_fault()~;
-    }
+    if (r < 0) return errno::get_fault()~;
+}
+
+fn void? UdpSocket.set_blocking(sock) @maydiscard
+{
+    int flags = fcntl::fcntl(sock, fcntl::F_GETFL, 0);
+    if (flags < 0) return errno::get_fault()~;
+
+    int r = fcntl::fcntl(sock, fcntl::F_SETFL, flags & ~fcntl::O_NONBLOCK);
+    if (r < 0) return errno::get_fault()~;
 }
 
 fn void? UdpSocket.close(sock) @maydiscard
 {
     int r = unistd::close(sock);
-    if (r < 0) {
-        return errno::get_fault()~;
-    }
+    if (r < 0) return errno::get_fault()~;
 }
+
+// eof

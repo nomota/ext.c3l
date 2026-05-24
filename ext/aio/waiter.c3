@@ -88,3 +88,4 @@ fn void? Waiter.check(&self) @maydiscard
     return;
 }
 
+// eof

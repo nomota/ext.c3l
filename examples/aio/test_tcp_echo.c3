@@ -54,7 +54,7 @@ fn void? client_task(void* arg)
 
     warn("client: connecting");
 
-    Stream* s = aio::open_connection("127.0.0.1", 8080)!;
+    Stream* s = aio::stream_connect("127.0.0.1", 8080)!;
     defer s.free();
     defer server.close();
 

@@ -109,7 +109,7 @@ fn Fd? udp_socket(int family = socket::AF_INET)
     return socket_new(family, socket::SOCK_DGRAM);
 }
 
-fn char*? str2cptr(String str, char[] buf) @inline @private
+fn char*? str2cptr(String str, char[] buf) @inline @local
 {
     if (buf.len == 0) return aio::ADDR_ERROR~;
     if (str.len+1 > buf.len) return aio::ADDR_ERROR~;

@@ -113,26 +113,8 @@ fn Datagram*? open_datagram()
     Fd fd = net::udp_socket()!;
 
     Datagram* d = datagram_new(fd)!;
-    if (d == null)
-    {
-        io::fd_close(fd);
-        return OUT_OF_MEMORY~;
-    }
 
     return d;
-}
-
-fn Datagram*? udp_endpoint(String ip, ushort port)
-{
-    Fd fd = net::udp_socket()!;
-
-    if (catch err = net::socket_bind(fd, ip, port))
-    {
-        io::fd_close(fd);
-        return err~;
-    }
-
-    return datagram_new(fd)!;
 }
 
 // eof

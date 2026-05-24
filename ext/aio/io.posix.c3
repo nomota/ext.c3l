@@ -1,5 +1,7 @@
 // io.posix.c3
 
+// Nomota <hiongun@gmail.com>; MIT License
+
 module ext::aio::io @if(env::POSIX);
 
 import std::io;

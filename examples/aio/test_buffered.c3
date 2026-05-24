@@ -63,7 +63,7 @@ fn void? client_task(void* arg)
 
     aio::sleep(100)!;
 
-    Stream* s = aio::open_connection("127.0.0.1", 8080)!;
+    Stream* s = aio::stream_connect("127.0.0.1", 8080)!;
     BufferedStream* bs = aio::buffered_new(s, 1024, true)!;
     defer bs.free();
 
