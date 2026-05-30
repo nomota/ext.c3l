@@ -35,13 +35,13 @@ If the path does not exist, `STAT_FILE_NOT_FOUND` is returned.
 ### `getsize`
 
 ```c3
-fn usz? path::getsize(String path)
+fn sz? path::getsize(String path)
 ```
 
 Returns the file size in bytes.
 
 ```c3
-usz size = path::getsize("data.txt")!;
+sz size = path::getsize("data.txt")!;
 ```
 
 ## Path checks
@@ -291,7 +291,7 @@ path::symlink("releases/v1", "current")!;
 ### `readlink`
 
 ```c3
-fn usz? path::readlink(String path, char[] buf) @maydiscard
+fn sz? path::readlink(String path, char[] buf) @maydiscard
 ```
 
 Reads the target of a symbolic link into `buf`.
@@ -301,7 +301,7 @@ Returns the number of bytes written to `buf`.
 ```c3
 char[1024] buf;
 
-usz n = path::readlink("current", buf[..])!;
+sz n = path::readlink("current", buf[..])!;
 String target = (String)buf[0:n];
 ```
 
@@ -310,13 +310,13 @@ String target = (String)buf[0:n];
 ### `sendfile`
 
 ```c3
-fn usz? path::sendfile(Fd to_sock, Fd from_fd, long offset, long count)
+fn sz? path::sendfile(Fd to_sock, Fd from_fd, long offset, long count)
 ```
 
 Sends `count` bytes from file descriptor `from_fd` to socket descriptor `to_sock`, starting at `offset`.
 
 ```c3
-usz sent = path::sendfile(sock_fd, file_fd, 0, file_size)!;
+sz sent = path::sendfile(sock_fd, file_fd, 0, file_size)!;
 ```
 
 The implementation seeks the source file to `offset`, reads chunks, and writes them to the socket asynchronously.
@@ -396,7 +396,7 @@ fn void? main_task(void* arg)
     path::symlink("releases/v1", "current")!;
 
     char[1024] buf;
-    usz n = path::readlink("current", buf[..])!;
+    sz n = path::readlink("current", buf[..])!;
 
     String target = (String)buf[0:n];
     warn("current -> %s", target);

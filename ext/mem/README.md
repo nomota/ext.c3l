@@ -48,7 +48,7 @@ import ext::mem;
 tlocal LocalAllocator* mem = mem::localallocator_new(Allocator allocx);
 
 // Allocate raw bytes. Returns null on failure.
-void*? p = mem.malloc(usz size);
+void*? p = mem.malloc(sz size);
 
 // Allocate a single value of Type. Returns null on failure.
 Type*? p = mem.alloc(Type);

@@ -22,7 +22,7 @@ fn char*? scopy(char[] buf, String str) @inline
 {
     if (str.len == 0) return errno::E_INVALID~;
     if (str.len > buf.len+1) return errno::E_ARG_TOO_BIG~;
-    usz len = (str.len < buf.len-1) ? str.len: buf.len-1;
+    sz len = (str.len < buf.len-1) ? str.len: buf.len-1;
     buf[0:len] = str[0:len];
     buf[len] = 0;
     return buf.ptr;
@@ -44,19 +44,19 @@ fn File? open(String fname, String fmode)
     return file;
 }
 
-fn usz? File.read(&self, char[] buf) @dynamic
+fn sz? File.read(&self, char[] buf) @dynamic
 {
-    usz n = stdio::fread(buf.ptr, 1, buf.len, self.fp);
+    sz n = stdio::fread(buf.ptr, 1, buf.len, self.fp);
     if (stdio::ferror(self.fp)) return errno::get_fault()~;
     if (n == 0 && stdio::feof(self.fp)) return errno::EOF~;
     return n;
 }
 
-fn usz? File.readline(&self, char[] buf)
+fn sz? File.readline(&self, char[] buf)
 {
-    usz idx = 0;
+    sz idx = 0;
     while (idx < buf.len - 1) {
-        ichar c = stdio::fgetc(self.fp);
+        char c = stdio::fgetc(self.fp);
         if (c == stdio::EOF) {
             if (stdio::ferror(self.fp)) return errno::get_fault()~;
             if (idx == 0) return errno::EOF~;
@@ -77,9 +77,9 @@ fn char? File.read_byte(&self) @dynamic
 	return (char)c;
 }
 
-fn usz? File.write(&self, char[] buf) @dynamic
+fn sz? File.write(&self, char[] buf) @dynamic
 {
-    usz n = stdio::fwrite(buf.ptr, 1, buf.len, self.fp);
+    sz n = stdio::fwrite(buf.ptr, 1, buf.len, self.fp);
     if (stdio::ferror(self.fp)) return errno::get_fault()~;
     return n;
 }
@@ -101,17 +101,17 @@ fn void File.flush(&self)
     stdio::fflush(self.fp);
 }
 
-fn usz? File.printf(&self, String fmt, args...)
+fn sz? File.printf(&self, String fmt, args...)
 {
     DString str; str.init(mem);
     defer str.free();
     str.appendf(fmt, ...args);
 
-    usz? n = self.write(str.str_view())!; 
-    return (usz) n;
+    sz? n = self.write(str.str_view())!; 
+    return (sz) n;
 }
 
-fn usz? File.seek(&self, long pos, int whence) @maydiscard
+fn sz? File.seek(&self, long pos, int whence) @maydiscard
 {
     int n = stdio::fseek(self.fp, pos, whence);
     if (n != 0) return errno::get_fault()~;
@@ -141,7 +141,7 @@ fn char[]? load(Allocator allocx, String file)
     defer fp.close();
     long i = 0;
     while (i < n) {
-        usz? r = fp.read(buf[i..n-1]);
+        sz? r = fp.read(buf[i..n-1]);
         if (catch err = r) {
             if (err == errno::EOF) break;
             return err~;
@@ -158,7 +158,7 @@ fn void? save(String filename, char[] data)
 	defer (void)file.close();
 	while (data.len)
 	{
-		usz written = file.write(data)!;
+		sz written = file.write(data)!;
 		data = data[written..];
 	}
 }
@@ -197,12 +197,12 @@ fn void? copy(String fname, String fname2) @maydiscard
     
     long i = 0;
     while (i < buf.len) {
-        usz r = fp.write(buf[i..buf.len-1])!;
+        sz r = fp.write(buf[i..buf.len-1])!;
         i += r;
     }
 }
 
-fn usz? size(String file) => stat::size(file);
+fn sz? size(String file) => stat::size(file);
 
 fn bool exists(String file) => stat::exists(file);
 
@@ -216,6 +216,6 @@ fn bool is_readable(String file) => stat::is_readable(file);
 fn bool is_writeable(String file) => stat::is_writeable(file);
 fn bool is_executable(String file) => stat::is_executable(file);
 
-fn usz? read_link(String link, char[] output) => stat::read_link(link, output);
+fn sz? read_link(String link, char[] output) => stat::read_link(link, output);
 
 fn void? change_mode(String file, Mode_t mode) @maydiscard => stat::change_mode(file, mode);

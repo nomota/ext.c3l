@@ -235,11 +235,11 @@ const int FP_SUBNORMAL = 3;
 const int FP_NORMAL = 4;
 
 // Special values
-const double HUGE_VAL = double.inf;
-const float HUGE_VALF = float.inf;
-const double HUGE_VALL = double.inf;
-const double INFINITY = double.inf;
-const double NAN = double.nan;
+const double HUGE_VAL = double::inf;
+const float HUGE_VALF = float::inf;
+const double HUGE_VALL = double::inf;
+const double INFINITY = double::inf;
+const double NAN = double::nan;
 
 // ========== Darwin (macOS) ==========
 

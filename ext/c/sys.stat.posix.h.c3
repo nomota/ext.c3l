@@ -153,7 +153,7 @@ fn bool is_executable(String path)
     return access(zpath, X_OK) == 0;
 }
 
-fn usz? read_link(String path, char[] output)
+fn sz? read_link(String path, char[] output)
 {
     char[MAX_PATH] p2; 
     ZString zpath = path_to_zstr(path, &p2)!;
@@ -170,7 +170,7 @@ fn usz? read_link(String path, char[] output)
     }
     
     output[n] = 0;
-    return (usz)n;
+    return (sz)n;
 }
 
 */

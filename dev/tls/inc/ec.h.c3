@@ -99,7 +99,7 @@ struct ECPublicKey {
     <* Public curve point (uncompressed format). *>
     char*  q;
     <* Length of the public curve point (in bytes). *>
-    usz    qlen;
+    sz    qlen;
 }
 
 <*
@@ -116,7 +116,7 @@ struct ECPrivateKey {
     <* Private key value (unsigned big-endian encoding). *>
     char*  x;
     <* Private key length (in bytes). *>
-    usz    xlen;
+    sz    xlen;
 }
 
 // ============================================================================
@@ -132,7 +132,7 @@ struct ECPrivateKey {
   param len     receives the encoded generator length (in bytes).
   return pointer to the encoded generator.
 *>
-alias ECGeneratorFn = fn char*(int curve, usz* len);
+alias ECGeneratorFn = fn char*(int curve, sz* len);
 
 <*
   Get the subgroup order for a curve (unsigned big-endian).
@@ -143,7 +143,7 @@ alias ECGeneratorFn = fn char*(int curve, usz* len);
   param len     receives the encoded order length (in bytes).
   return pointer to the encoded order.
 *>
-alias ECOrderFn     = fn char*(int curve, usz* len);
+alias ECOrderFn     = fn char*(int curve, sz* len);
 
 <*
   Get the byte offset and length of the X coordinate in an encoded point.
@@ -152,7 +152,7 @@ alias ECOrderFn     = fn char*(int curve, usz* len);
   param len     receives the X coordinate length (in bytes).
   return byte offset of the X coordinate in the encoded point.
 *>
-alias ECXOffFn      = fn usz(int curve, usz* len);
+alias ECXOffFn      = fn sz(int curve, sz* len);
 
 <*
   Multiply a curve point by an integer (in place).
@@ -169,7 +169,7 @@ alias ECXOffFn      = fn usz(int curve, usz* len);
   param curve   curve identifier.
   return 1 on success, 0 on error.
 *>
-alias ECMulFn       = fn uint(char* G, usz glen, char* x, usz xlen, int curve);
+alias ECMulFn       = fn uint(char* G, sz glen, char* x, sz xlen, int curve);
 
 <*
   Multiply the curve generator by an integer.
@@ -183,7 +183,7 @@ alias ECMulFn       = fn uint(char* G, usz glen, char* x, usz xlen, int curve);
   param curve   curve identifier.
   return encoded result point length (in bytes).
 *>
-alias ECMulGenFn    = fn usz(char* R, char* x, usz xlen, int curve);
+alias ECMulGenFn    = fn sz(char* R, char* x, sz xlen, int curve);
 
 <*
   Multiply two curve points by two integers and return their sum: x*A + y*B.
@@ -205,8 +205,8 @@ alias ECMulGenFn    = fn usz(char* R, char* x, usz xlen, int curve);
   param curve   curve identifier.
   return 1 on success, 0 on error.
 *>
-alias ECMulAddFn    = fn uint(char* A, char* B, usz len,
-    char* x, usz xlen, char* y, usz ylen, int curve);
+alias ECMulAddFn    = fn uint(char* A, char* B, sz len,
+    char* x, sz xlen, char* y, sz ylen, int curve);
 
 // ============================================================================
 // EC Implementation Structure
@@ -404,7 +404,7 @@ extern fn ECImpl* ec_get_default();
   param sig_len   current signature length (in bytes).
   return new signature length, or 0 on error.
 *>
-extern fn usz ecdsa_raw_to_asn1(void* sig, usz sig_len);
+extern fn sz ecdsa_raw_to_asn1(void* sig, sz sig_len);
 
 <*
   Convert an ECDSA signature from "asn1" to "raw" format (in place).
@@ -416,7 +416,7 @@ extern fn usz ecdsa_raw_to_asn1(void* sig, usz sig_len);
   param sig_len   current signature length (in bytes).
   return new signature length, or 0 on error.
 *>
-extern fn usz ecdsa_asn1_to_raw(void* sig, usz sig_len);
+extern fn sz ecdsa_asn1_to_raw(void* sig, sz sig_len);
 
 // ============================================================================
 // ECDSA — Function Pointer Types
@@ -441,7 +441,7 @@ extern fn usz ecdsa_asn1_to_raw(void* sig, usz sig_len);
   param sig          destination buffer for the signature.
   return signature length (in bytes), or 0 on error.
 *>
-alias ECDSASignFn = fn usz(ECImpl* impl,
+alias ECDSASignFn = fn sz(ECImpl* impl,
     HashClass* hf, void* hash_value,
     ECPrivateKey* sk, void* sig);
 
@@ -460,8 +460,8 @@ alias ECDSASignFn = fn usz(ECImpl* impl,
   return 1 on success, 0 on error.
 *>
 alias ECDSAVrfyFn = fn uint(ECImpl* impl,
-    void* hash, usz hash_len,
-    ECPublicKey* pk, void* sig, usz sig_len);
+    void* hash, sz hash_len,
+    ECPublicKey* pk, void* sig, sz sig_len);
 
 // ============================================================================
 // ECDSA — Concrete Implementations
@@ -477,7 +477,7 @@ alias ECDSAVrfyFn = fn uint(ECImpl* impl,
   param sig          destination buffer.
   return signature length (in bytes), or 0 on error.
 *>
-extern fn usz ecdsa_i31_sign_asn1(ECImpl* impl,
+extern fn sz ecdsa_i31_sign_asn1(ECImpl* impl,
     HashClass* hf, void* hash_value,
     ECPrivateKey* sk, void* sig);
 
@@ -491,7 +491,7 @@ extern fn usz ecdsa_i31_sign_asn1(ECImpl* impl,
   param sig          destination buffer.
   return signature length (in bytes), or 0 on error.
 *>
-extern fn usz ecdsa_i31_sign_raw(ECImpl* impl,
+extern fn sz ecdsa_i31_sign_raw(ECImpl* impl,
     HashClass* hf, void* hash_value,
     ECPrivateKey* sk, void* sig);
 
@@ -507,8 +507,8 @@ extern fn usz ecdsa_i31_sign_raw(ECImpl* impl,
   return 1 on success, 0 on error.
 *>
 extern fn uint ecdsa_i31_vrfy_asn1(ECImpl* impl,
-    void* hash, usz hash_len,
-    ECPublicKey* pk, void* sig, usz sig_len);
+    void* hash, sz hash_len,
+    ECPublicKey* pk, void* sig, sz sig_len);
 
 <*
   ECDSA verifier, "i31" implementation, "raw" input format.
@@ -522,8 +522,8 @@ extern fn uint ecdsa_i31_vrfy_asn1(ECImpl* impl,
   return 1 on success, 0 on error.
 *>
 extern fn uint ecdsa_i31_vrfy_raw(ECImpl* impl,
-    void* hash, usz hash_len,
-    ECPublicKey* pk, void* sig, usz sig_len);
+    void* hash, sz hash_len,
+    ECPublicKey* pk, void* sig, sz sig_len);
 
 <*
   ECDSA signer, "i15" implementation, "asn1" output format.
@@ -535,7 +535,7 @@ extern fn uint ecdsa_i31_vrfy_raw(ECImpl* impl,
   param sig          destination buffer.
   return signature length (in bytes), or 0 on error.
 *>
-extern fn usz ecdsa_i15_sign_asn1(ECImpl* impl,
+extern fn sz ecdsa_i15_sign_asn1(ECImpl* impl,
     HashClass* hf, void* hash_value,
     ECPrivateKey* sk, void* sig);
 
@@ -549,7 +549,7 @@ extern fn usz ecdsa_i15_sign_asn1(ECImpl* impl,
   param sig          destination buffer.
   return signature length (in bytes), or 0 on error.
 *>
-extern fn usz ecdsa_i15_sign_raw(ECImpl* impl,
+extern fn sz ecdsa_i15_sign_raw(ECImpl* impl,
     HashClass* hf, void* hash_value,
     ECPrivateKey* sk, void* sig);
 
@@ -565,8 +565,8 @@ extern fn usz ecdsa_i15_sign_raw(ECImpl* impl,
   return 1 on success, 0 on error.
 *>
 extern fn uint ecdsa_i15_vrfy_asn1(ECImpl* impl,
-    void* hash, usz hash_len,
-    ECPublicKey* pk, void* sig, usz sig_len);
+    void* hash, sz hash_len,
+    ECPublicKey* pk, void* sig, sz sig_len);
 
 <*
   ECDSA verifier, "i15" implementation, "raw" input format.
@@ -580,8 +580,8 @@ extern fn uint ecdsa_i15_vrfy_asn1(ECImpl* impl,
   return 1 on success, 0 on error.
 *>
 extern fn uint ecdsa_i15_vrfy_raw(ECImpl* impl,
-    void* hash, usz hash_len,
-    ECPublicKey* pk, void* sig, usz sig_len);
+    void* hash, sz hash_len,
+    ECPublicKey* pk, void* sig, sz sig_len);
 
 // ============================================================================
 // ECDSA — Default Implementation Getters
@@ -647,7 +647,7 @@ const EC_KBUF_PUB_MAX_SIZE  = 145;
   param curve     curve identifier.
   return bytes used in kbuf, or 0 on error.
 *>
-extern fn usz ec_keygen(PRNGClass** rng_ctx,
+extern fn sz ec_keygen(PRNGClass** rng_ctx,
     ECImpl* impl, ECPrivateKey* sk,
     void* kbuf, int curve);
 
@@ -669,5 +669,5 @@ extern fn usz ec_keygen(PRNGClass** rng_ctx,
   param sk     source private key.
   return public key point length (in bytes), or 0 on error.
 *>
-extern fn usz ec_compute_pub(ECImpl* impl, ECPublicKey* pk,
+extern fn sz ec_compute_pub(ECImpl* impl, ECPublicKey* pk,
     void* kbuf, ECPrivateKey* sk);

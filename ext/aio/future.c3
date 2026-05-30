@@ -66,7 +66,7 @@ fn void Future.wake_all(&self)
 {
     while (!self.waiters.is_empty())
     {
-        Waiter* waiter = self.waiters.pop_front()!!;
+        Waiter* waiter = self.waiters.pop_first()!!;
 
         if (waiter != null) waiter.wake();
     }
@@ -125,7 +125,7 @@ fn void Future.cancel(&self, fault err = NONE)
 
     while (!self.waiters.is_empty())
     {
-        Waiter* waiter = self.waiters.pop_front()!!;
+        Waiter* waiter = self.waiters.pop_first()!!;
 
         if (waiter != null) waiter.cancel(cancel_err);
     }

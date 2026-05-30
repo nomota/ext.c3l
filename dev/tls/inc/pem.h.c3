@@ -89,7 +89,7 @@ struct PEMDecoderCPU {
   param src        pointer to the current chunk of decoded data.
   param len        chunk length (in bytes).
 *>
-alias PEMDestFn = fn void(void* dest_ctx, void* src, usz len);
+alias PEMDestFn = fn void(void* dest_ctx, void* src, sz len);
 
 // ============================================================================
 // PEM Decoder Context
@@ -115,7 +115,7 @@ struct PEMDecoderContext {
 
     // Input buffer pointers (current source window)
     char*         hbuf;
-    usz           hlen;
+    sz           hlen;
 
     // Decoded data callback and its opaque context
     PEMDestFn     dest;
@@ -127,7 +127,7 @@ struct PEMDecoderContext {
     char[128]     name;
     // Internal Base64 decode buffer
     char[255]     buf;
-    usz           ptr;
+    sz           ptr;
 }
 
 // ============================================================================
@@ -156,7 +156,7 @@ extern fn void pem_decoder_init(PEMDecoderContext* ctx);
   param len    number of source bytes.
   return number of bytes consumed (0 to len).
 *>
-extern fn usz pem_decoder_push(PEMDecoderContext* ctx, void* data, usz len);
+extern fn sz pem_decoder_push(PEMDecoderContext* ctx, void* data, sz len);
 
 <*
   Set the callback for receiving decoded object data.
@@ -238,4 +238,4 @@ fn char* pem_decoder_name(PEMDecoderContext* ctx) @inline
   param flags    encoder flags (PEM_LINE64, PEM_CRLF, or 0).
   return PEM output length in characters, excluding the terminating NUL.
 *>
-extern fn usz pem_encode(void* dest, void* src, usz len, char* banner, uint flags);
+extern fn sz pem_encode(void* dest, void* src, sz len, char* banner, uint flags);

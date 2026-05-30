@@ -27,7 +27,7 @@ fn char*? path_to_cstr(String path, char[] buffer) @inline
     return buffer.ptr;
 }
 
-fn usz? size(String path)
+fn sz? size(String path)
 {
     char[MAX_PATH] p2; 
     char* zpath = path_to_cstr(path, &p2)!;
@@ -37,7 +37,7 @@ fn usz? size(String path)
         return errno::get_fault()~;
     }
     
-    return (usz)st.st_size;
+    return (sz)st.st_size;
 }
 
 fn bool exists(String path)
@@ -126,7 +126,7 @@ fn bool is_executable(String path)
     return unistd::access(zpath, stat::X_OK) == 0;
 }
 
-fn usz? read_link(String path, char[] output)
+fn sz? read_link(String path, char[] output)
 {
     char[MAX_PATH] p2; 
     char* zpath = path_to_cstr(path, &p2)!;
@@ -140,7 +140,7 @@ fn usz? read_link(String path, char[] output)
     }
     
     output[n] = 0;
-    return (usz)n;
+    return (sz)n;
 }
 
 fn void? change_mode(String file, Mode_t mode) @maydiscard

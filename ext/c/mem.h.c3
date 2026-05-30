@@ -16,7 +16,7 @@ const int MAP_PRIVATE = 0x0002; // Changes are private (copy-on-write)
 const int MAP_FIXED   = 0x0010; // Interpret addr exactly
 
 // MAP_FAILED = (void *)-1
-const uptr MAP_FAILED = uptr.max;
+const uptr MAP_FAILED = uptr::max;
 
 // POSIX madvise hints (portable values)
 const int POSIX_MADV_NORMAL     = 0; // No special treatment
@@ -28,34 +28,34 @@ const int POSIX_MADV_DONTNEED   = 4; // Don't need these pages
 alias Off = long; // off_t
 
 // sys/mman.h
-extern fn void* mmap(void* addr, usz length, int prot, int flags, int fd, Off offset);
-extern fn int munmap(void* addr, usz length);
-extern fn int mprotect(void* addr, usz length, int prot);
-extern fn int msync(void* addr, usz length, int flags);
-extern fn int mlock(void* addr, usz length);
-extern fn int munlock(void* addr, usz length);
+extern fn void* mmap(void* addr, sz length, int prot, int flags, int fd, Off offset);
+extern fn int munmap(void* addr, sz length);
+extern fn int mprotect(void* addr, sz length, int prot);
+extern fn int msync(void* addr, sz length, int flags);
+extern fn int mlock(void* addr, sz length);
+extern fn int munlock(void* addr, sz length);
 extern fn int mlockall(int flags);
 extern fn int munlockall();
-extern fn int madvise(void* addr, usz length, int advice);
-extern fn int posix_madvise(void* addr, usz length, int advice);
+extern fn int madvise(void* addr, sz length, int advice);
+extern fn int posix_madvise(void* addr, sz length, int advice);
 extern fn int shm_open(ZString name, int oflag, uint mode);
 extern fn int shm_unlink(ZString name);
-extern fn int posix_memalign(void** memptr, usz alignment, usz size);
+extern fn int posix_memalign(void** memptr, sz alignment, sz size);
 
 // string.h — memory functions
-extern fn void* memcpy(void* dest, void* src, usz n);
-extern fn void* memmove(void* dest, void* src, usz n);
-extern fn void* memset(void* s, int c, usz n);
-extern fn int memcmp(void* s1, void* s2, usz n);
-extern fn void* memchr(void* s, int c, usz n);
-extern fn void* memccpy(void* dest, void* src, int c, usz n);
+extern fn void* memcpy(void* dest, void* src, sz n);
+extern fn void* memmove(void* dest, void* src, sz n);
+extern fn void* memset(void* s, int c, sz n);
+extern fn int memcmp(void* s1, void* s2, sz n);
+extern fn void* memchr(void* s, int c, sz n);
+extern fn void* memccpy(void* dest, void* src, int c, sz n);
 
 // stdlib.h — heap allocation
-extern fn void* malloc(usz size);
-extern fn void* calloc(usz nmemb, usz size);
-extern fn void* realloc(void* ptr, usz size);
+extern fn void* malloc(sz size);
+extern fn void* calloc(sz nmemb, sz size);
+extern fn void* realloc(void* ptr, sz size);
 extern fn void  free(void* ptr);
-extern fn void* aligned_alloc(usz alignment, usz size);
+extern fn void* aligned_alloc(sz alignment, sz size);
 
 
 
@@ -120,19 +120,19 @@ const int MFD_ALLOW_SEALING = 0x0002; // Allow file sealing
 const int MFD_HUGETLB       = 0x0004; // Use hugetlb pages
 
 // Linux-specific functions
-extern fn void* mremap(void* oldAddr, usz oldSize, usz newSize, int flags, ...);
+extern fn void* mremap(void* oldAddr, sz oldSize, sz newSize, int flags, ...);
 extern fn int memfd_create(ZString name, uint flags);
-extern fn int mlock2(void* addr, usz length, uint flags);
+extern fn int mlock2(void* addr, sz length, uint flags);
 
 // GNU extensions
-extern fn void* memrchr(void* s, int c, usz n);
-extern fn void* memmem(void* haystack, usz haystackLen, void* needle, usz needleLen);
-extern fn void* mempcpy(void* dest, void* src, usz n);
+extern fn void* memrchr(void* s, int c, sz n);
+extern fn void* memmem(void* haystack, sz haystackLen, void* needle, sz needleLen);
+extern fn void* mempcpy(void* dest, void* src, sz n);
 
 // glibc heap extensions
-extern fn void* valloc(usz size);
-extern fn void* memalign(usz alignment, usz size);
-extern fn usz malloc_usable_size(void* ptr);
+extern fn void* valloc(sz size);
+extern fn void* memalign(sz alignment, sz size);
+extern fn sz malloc_usable_size(void* ptr);
 
 
 
@@ -168,12 +168,12 @@ const int MCL_CURRENT = 0x0001; // Lock all currently mapped pages
 const int MCL_FUTURE  = 0x0002; // Lock all future mapped pages
 
 // Darwin heap extensions
-extern fn usz malloc_size(void* ptr);
-extern fn usz malloc_good_size(usz size);
+extern fn sz malloc_size(void* ptr);
+extern fn sz malloc_good_size(sz size);
 
 // BSD extensions
-extern fn void* memrchr(void* s, int c, usz n);
-extern fn void* memmem(void* haystack, usz haystackLen, void* needle, usz needleLen);
+extern fn void* memrchr(void* s, int c, sz n);
+extern fn void* memmem(void* haystack, sz haystackLen, void* needle, sz needleLen);
 
 
 
@@ -211,8 +211,8 @@ const int MCL_CURRENT = 0x0001; // Lock all currently mapped pages
 const int MCL_FUTURE  = 0x0002; // Lock all future mapped pages
 
 // BSD extensions
-extern fn void* memrchr(void* s, int c, usz n);
-extern fn void* memmem(void* haystack, usz haystackLen, void* needle, usz needleLen);
+extern fn void* memrchr(void* s, int c, sz n);
+extern fn void* memmem(void* haystack, sz haystackLen, void* needle, sz needleLen);
 
 
 
@@ -242,8 +242,8 @@ const int MCL_CURRENT = 0x0001; // Lock all currently mapped pages
 const int MCL_FUTURE  = 0x0002; // Lock all future mapped pages
 
 // BSD extensions
-extern fn void* memrchr(void* s, int c, usz n);
-extern fn void* memmem(void* haystack, usz haystackLen, void* needle, usz needleLen);
+extern fn void* memrchr(void* s, int c, sz n);
+extern fn void* memmem(void* haystack, sz haystackLen, void* needle, sz needleLen);
 
 
 
@@ -274,5 +274,5 @@ const int MCL_CURRENT = 0x0001; // Lock all currently mapped pages
 const int MCL_FUTURE  = 0x0002; // Lock all future mapped pages
 
 // BSD extensions
-extern fn void* memrchr(void* s, int c, usz n);
-extern fn void* memmem(void* haystack, usz haystackLen, void* needle, usz needleLen);
+extern fn void* memrchr(void* s, int c, sz n);
+extern fn void* memmem(void* haystack, sz haystackLen, void* needle, sz needleLen);

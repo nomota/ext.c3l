@@ -52,14 +52,14 @@ fn ulong rotl64(ulong x, char r) @inline
 fn uint getblock32(char* p, uint i) @inline
 {
     uint r;
-    libc::memcpy(&r, p+i, uint.sizeof);
+    libc::memcpy(&r, p+i, uint::size);
     return r;
 }
 
 fn ulong getblock64(char* p, uint i) @inline
 {
     ulong r = *(p+i*4);
-    libc::memcpy(&r, p+i, ulong.sizeof);
+    libc::memcpy(&r, p+i, ulong::size);
     return r;
 
 }

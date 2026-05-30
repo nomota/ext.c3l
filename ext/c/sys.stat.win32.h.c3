@@ -8,7 +8,7 @@ alias Bool = int;
 alias LPCWstr = Char16*;
 alias Long = long;
 
-const Handle INVALID_HANDLE_VALUE = (Handle)uptr.max;
+const Handle INVALID_HANDLE_VALUE = (Handle)uptr::max;
 const Dword GENERIC_READ = 0x80000000;
 const Dword GENERIC_WRITE = 0x40000000;
 const Dword FILE_SHARE_READ = 0x00000001;
@@ -146,7 +146,7 @@ fn fault win_error_to_fault()
     }
 }
 
-fn usz? utf8to16(String path, Char16[] wpath) 
+fn sz? utf8to16(String path, Char16[] wpath) 
 {
     Char16[]? p2 = path.to_utf16(mem);
     if (catch err = p2) return err~;
@@ -162,7 +162,7 @@ fn usz? utf8to16(String path, Char16[] wpath)
 fn bool file_exists(String path) 
 {
     Char16[260] wpath;
-    usz? n = utf8to16(path, &wpath);
+    sz? n = utf8to16(path, &wpath);
     if (catch err = n) return false;
     
     Dword attrs = getFileAttributesW(&wpath[0]);
@@ -172,7 +172,7 @@ fn bool file_exists(String path)
 fn long? file_size(String path) 
 {
     Char16[260] wpath;
-    usz? n = utf8to16(path, &wpath);
+    sz? n = utf8to16(path, &wpath);
     if (catch err = n) return err~;
     
     Win32FileAttributeData file_info;
@@ -187,7 +187,7 @@ fn long? file_size(String path)
 fn long? last_modified(String path) 
 {
     Char16[260] wpath;
-    usz? n = utf8to16(path, &wpath);
+    sz? n = utf8to16(path, &wpath);
     if (catch err = n) return err~;
     
     Win32FileAttributeData file_info;
@@ -202,7 +202,7 @@ fn long? last_modified(String path)
 fn bool is_dir(String path) 
 {
     Char16[260] wpath;
-    usz? n = utf8to16(path, &wpath);
+    sz? n = utf8to16(path, &wpath);
     if (catch err = n) return false;
     
     Dword attrs = getFileAttributesW(&wpath[0]);
@@ -214,7 +214,7 @@ fn bool is_dir(String path)
 fn bool is_file(String path) 
 {
     Char16[260] wpath;
-    usz? n = utf8to16(path, &wpath);
+    sz? n = utf8to16(path, &wpath);
     if (catch err = n) return false;
     
     Dword attrs = getFileAttributesW(&wpath[0]);
@@ -226,7 +226,7 @@ fn bool is_file(String path)
 fn bool is_link(String path) 
 {
     Char16[260] wpath;
-    usz? n = utf8to16(path, &wpath);
+    sz? n = utf8to16(path, &wpath);
     if (catch err = n) return false;
     
     Dword attrs = getFileAttributesW(&wpath[0]);
@@ -235,10 +235,10 @@ fn bool is_link(String path)
     return (attrs & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
 }
 
-fn usz? read_link(String path, char[] output) 
+fn sz? read_link(String path, char[] output) 
 {
     Char16[260] wpath;
-    usz? n = utf8to16(path, &wpath);
+    sz? n = utf8to16(path, &wpath);
     if (catch err = n) return err~;
     
     Handle handle = createFileW(
@@ -269,7 +269,7 @@ fn usz? read_link(String path, char[] output)
     }
 
     Char16* target = (Char16*)&reparse.pathBuffer[reparse.printNameOffset / 2];
-    usz len = reparse.printNameLength / 2;
+    sz len = reparse.printNameLength / 2;
     
     String? s = string::from_utf16(tmem, target[0:len]);
     if (catch err = s) return GENERAL_ERR~;
@@ -280,13 +280,13 @@ fn usz? read_link(String path, char[] output)
     output[0:s.len] = s[0:s.len];
     output[s.len] = 0;
     
-    return (usz)s.len;
+    return (sz)s.len;
 }
 
 fn bool is_readable(String path) 
 {
     Char16[260] wpath;
-    usz? n = utf8to16(path, &wpath);
+    sz? n = utf8to16(path, &wpath);
     if (catch err = n) return false;
     
     Handle handle = createFileW(
@@ -303,7 +303,7 @@ fn bool is_readable(String path)
 fn bool is_writeable(String path) 
 {
     Char16[260] wpath;
-    usz? n = utf8to16(path, &wpath);
+    sz? n = utf8to16(path, &wpath);
     if (catch err = n) return false;
 
     Handle handle = createFileW(
@@ -322,7 +322,7 @@ fn bool is_executable(String path)
     if (!file_exists(path)) return false;
     if (is_dir(path)) return false;
     
-    usz? idx = path.rindex_of_char('.');
+    sz? idx = path.rindex_of_char('.');
     if (catch idx) return false;
     
     String ext = path[idx..];

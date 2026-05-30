@@ -58,10 +58,10 @@ char* s2 = slre::reg_replace(char *regex, char *buf, char *sub);
 #### Files
 
 * [slre.c3](slre.c3)
-* [../../examples/regex/slre_test.c3](../../examples/regex/slre_test.c3)
+* [../../test/regex/slre_test.c3](../../test/regex/slre_test.c3)
 * [regex.c3](regex.c3)
-* [../../examples/regex/regex_test.c3](../../examples/regex/regex_test.c3)
-* [../../examples/regex/regex_example.c3](../../exqmples/regex/regex_example.c3)
+* [../../test/regex/regex_test.c3](../../test/regex/regex_test.c3)
+* [../../test/regex/regex_example.c3](../../exqmples/regex/regex_example.c3)
 
 ## Main Features
 

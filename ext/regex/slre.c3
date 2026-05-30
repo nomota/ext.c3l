@@ -515,7 +515,7 @@ fn char *reg_replace(char *regex, char *buf, char *sub) {
       n2 = 0;
       n3 = 0;
     }
-    s = (char *) stdlib::realloc(s, (usz) s_len + n1 + n2 + n3 + 1);
+    s = (char *) stdlib::realloc(s, (sz) s_len + n1 + n2 + n3 + 1);
     string::memcpy(s + s_len, buf, n1);
     string::memcpy(s + s_len + n1, sub, n2);
     string::memcpy(s + s_len + n1 + n2, cap.ptr + cap.len, n3);

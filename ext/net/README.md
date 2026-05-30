@@ -30,7 +30,7 @@ The Windows implementation uses WinSock. Socket errors should be interpreted thr
 
 ## Error Handling
 
-`ext::net` uses C3 optional return values. Functions that can fail return optional types such as `TcpSocket?`, `UdpSocket?`, `usz?`, or `void?`.
+`ext::net` uses C3 optional return values. Functions that can fail return optional types such as `TcpSocket?`, `UdpSocket?`, `sz?`, or `void?`.
 
 Typical error handling:
 
@@ -89,12 +89,12 @@ TcpSocket? client = server.accept(
     ushort* port = null
 );
 
-usz? n = sock.send(char[] buf);
-usz? n = sock.recv(char[] buf);
+sz? n = sock.send(char[] buf);
+sz? n = sock.recv(char[] buf);
 
 // these are blocking mode only
-usz? n = sock.write(char[] buf);
-usz? n = sock.read(char[] buf);
+sz? n = sock.write(char[] buf);
+sz? n = sock.read(char[] buf);
 sz? n = sock.readline(char[] line);
 
 void? sock.set_non_blocking() @maydiscard;
@@ -141,20 +141,20 @@ UdpSocket? sock = udp::new_bind(
     String ip = "*"
 );
 
-usz? n = sock.recvfrom(
+sz? n = sock.recvfrom(
     char[] msgbuf,
     char[] ip,
     ushort* port
 );
 
-usz? n = sock.sendto(
+sz? n = sock.sendto(
     char[] msgbuf,
     String ip,
     ushort port
 );
 
-usz? n = sock.send(char[] buf);
-usz? n = sock.recv(char[] buf);
+sz? n = sock.send(char[] buf);
+sz? n = sock.recv(char[] buf);
 
 void? sock.set_non_blocking() @maydiscard;
 void? sock.close() @maydiscard;
@@ -243,7 +243,7 @@ fn void main()
         stdio::printf("Client connected from %s:%d\n", &client_ip[0], client_port);
 
         char[1024] buffer;
-        usz? bytes = client.recv(buffer[..]);
+        sz? bytes = client.recv(buffer[..]);
         if (catch err = bytes)
         {
             io::printfn("recv failed: %s", err);
@@ -279,7 +279,7 @@ fn void main()
     sock.send("Hello, server!\n")!!;
 
     char[1024] buffer;
-    usz bytes = sock.recv(buffer[..])!!;
+    sz bytes = sock.recv(buffer[..])!!;
 
     io::printfn("Server response: %s", (String)buffer[0:bytes]);
 }
@@ -310,7 +310,7 @@ fn void main()
 
     while (true)
     {
-        usz len = sock.recvfrom(buffer[..], client_ip[..], &client_port)!!;
+        sz len = sock.recvfrom(buffer[..], client_ip[..], &client_port)!!;
 
         io::printfn(
             "Received from %s:%d: %s",
@@ -342,7 +342,7 @@ fn void main()
     char[64] server_ip;
     ushort server_port;
 
-    usz len = sock.recvfrom(buffer[..], server_ip[..], &server_port)!!;
+    sz len = sock.recvfrom(buffer[..], server_ip[..], &server_port)!!;
 
     io::printfn(
         "Response from %s:%d: %s",
@@ -395,7 +395,7 @@ fn void main()
     sock.set_non_blocking()!!;
 
     char[1024] buffer;
-    usz? n = sock.recv(buffer[..]);
+    sz? n = sock.recv(buffer[..]);
 
     if (catch err = n)
     {
@@ -430,7 +430,7 @@ fn void? handle_client(TcpSocket sock)
 
     while (true)
     {
-        usz? len = sock.readline(line[..]);
+        sz? len = sock.readline(line[..]);
         if (catch err = len)
         {
             if (err == errno::EOF) break;
@@ -448,12 +448,12 @@ fn void? handle_client(TcpSocket sock)
 
 ## Testing
 
-Example programs are available in the `examples/` directory:
+Example programs are available in the `test/` directory:
 
-* [tcpserver.c3](../../examples/tcpserver.c3) - TCP echo server
-* [tcpclient.c3](../../examples/tcpclient.c3) - TCP client
-* [udpserver.c3](../../examples/udpserver.c3) - UDP echo server
-* [udpclient.c3](../../examples/udpclient.c3) - UDP client
+* [tcpserver.c3](../../test/tcpserver.c3) - TCP echo server
+* [tcpclient.c3](../../test/tcpclient.c3) - TCP client
+* [udpserver.c3](../../test/udpserver.c3) - UDP echo server
+* [udpclient.c3](../../test/udpclient.c3) - UDP client
 
 Example run:
 

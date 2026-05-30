@@ -2,16 +2,16 @@
 
 module c::windows @if(env::WIN32);
 
-// =============================================================================
+//
 // Basic Windows Types
-// =============================================================================
+//
 
 // Basic integer types
 alias Byte = char;
 alias Word = ushort;
 alias DWord = uint;
 alias QWord = ulong;
-alias DWordPtr = usz;
+alias DWordPtr = sz;
 alias Long = int;
 alias ULong = uint;
 alias LongLong = long;
@@ -56,12 +56,12 @@ alias HGlobal = void*;
 alias HLocal = void*;
 
 // Special handle values
-const Handle INVALID_HANDLE_VALUE = (Handle)(uptr.max);
+const Handle INVALID_HANDLE_VALUE = (Handle)(uptr::max);
 const Handle NULL_HANDLE = (Handle)0;
 
-// =============================================================================
+//
 // Error Codes
-// =============================================================================
+//
 
 const DWord ERROR_SUCCESS = 0;
 const DWord ERROR_INVALID_FUNCTION = 1;
@@ -94,9 +94,9 @@ const DWord FORMAT_MESSAGE_FROM_SYSTEM = 0x00001000;
 const DWord FORMAT_MESSAGE_IGNORE_INSERTS = 0x00000200;
 const DWord FORMAT_MESSAGE_ALLOCATE_BUFFER = 0x00000100;
 
-// =============================================================================
+//
 // File Operations
-// =============================================================================
+//
 
 // File access modes
 const DWord GENERIC_READ = 0x80000000;
@@ -151,13 +151,15 @@ const DWord FILE_CURRENT = 1;
 const DWord FILE_END = 2;
 
 // File time structure
-struct FileTime {
+struct FileTime
+{
     DWord dwLowDateTime;
     DWord dwHighDateTime;
 }
 
 // File information structures
-struct Win32FindDataA {
+struct Win32FindDataA
+{
     DWord dwFileAttributes;
     FileTime ftCreationTime;
     FileTime ftLastAccessTime;
@@ -170,7 +172,8 @@ struct Win32FindDataA {
     char[14] cAlternateFileName;
 }
 
-struct Win32FindDataW {
+struct Win32FindDataW
+{
     DWord dwFileAttributes;
     FileTime ftCreationTime;
     FileTime ftLastAccessTime;
@@ -183,7 +186,8 @@ struct Win32FindDataW {
     ushort[14] cAlternateFileName;
 }
 
-struct ByHandleFileInformation {
+struct ByHandleFileInformation
+{
     DWord dwFileAttributes;
     FileTime ftCreationTime;
     FileTime ftLastAccessTime;
@@ -299,9 +303,9 @@ extern fn Bool findNextFileA(Handle hFindFile, Win32FindDataA* lpFindFileData) @
 extern fn Bool findNextFileW(Handle hFindFile, Win32FindDataW* lpFindFileData) @cname("FindNextFileW");
 extern fn Bool findClose(Handle hFindFile) @cname("FindClose");
 
-// =============================================================================
+//
 // Memory Management
-// =============================================================================
+//
 
 // Memory allocation flags
 const DWord MEM_COMMIT = 0x00001000;
@@ -329,34 +333,34 @@ const DWord HEAP_GENERATE_EXCEPTIONS = 0x00000004;
 const DWord HEAP_ZERO_MEMORY = 0x00000008;
 
 // Memory functions
-extern fn LPVoid virtualAlloc(LPVoid lpAddress, usz dwSize, DWord flAllocationType,
+extern fn LPVoid virtualAlloc(LPVoid lpAddress, sz dwSize, DWord flAllocationType,
     DWord flProtect) @cname("VirtualAlloc");
-extern fn Bool virtualFree(LPVoid lpAddress, usz dwSize, DWord dwFreeType) @cname("VirtualFree");
-extern fn Bool virtualProtect(LPVoid lpAddress, usz dwSize, DWord flNewProtect,
+extern fn Bool virtualFree(LPVoid lpAddress, sz dwSize, DWord dwFreeType) @cname("VirtualFree");
+extern fn Bool virtualProtect(LPVoid lpAddress, sz dwSize, DWord flNewProtect,
     DWord* lpflOldProtect) @cname("VirtualProtect");
-extern fn usz virtualQuery(LPCVoid lpAddress, void* lpBuffer, usz dwLength) @cname("VirtualQuery");
+extern fn sz virtualQuery(LPCVoid lpAddress, void* lpBuffer, sz dwLength) @cname("VirtualQuery");
 
 // Heap functions
 extern fn Handle getProcessHeap() @cname("GetProcessHeap");
-extern fn Handle heapCreate(DWord flOptions, usz dwInitialSize, usz dwMaximumSize) @cname("HeapCreate");
+extern fn Handle heapCreate(DWord flOptions, sz dwInitialSize, sz dwMaximumSize) @cname("HeapCreate");
 extern fn Bool heapDestroy(Handle hHeap) @cname("HeapDestroy");
-extern fn LPVoid heapAlloc(Handle hHeap, DWord dwFlags, usz dwBytes) @cname("HeapAlloc");
-extern fn LPVoid heapReAlloc(Handle hHeap, DWord dwFlags, LPVoid lpMem, usz dwBytes) @cname("HeapReAlloc");
+extern fn LPVoid heapAlloc(Handle hHeap, DWord dwFlags, sz dwBytes) @cname("HeapAlloc");
+extern fn LPVoid heapReAlloc(Handle hHeap, DWord dwFlags, LPVoid lpMem, sz dwBytes) @cname("HeapReAlloc");
 extern fn Bool heapFree(Handle hHeap, DWord dwFlags, LPVoid lpMem) @cname("HeapFree");
-extern fn usz heapSize(Handle hHeap, DWord dwFlags, LPCVoid lpMem) @cname("HeapSize");
+extern fn sz heapSize(Handle hHeap, DWord dwFlags, LPCVoid lpMem) @cname("HeapSize");
 extern fn Bool heapValidate(Handle hHeap, DWord dwFlags, LPCVoid lpMem) @cname("HeapValidate");
 
 // Global memory functions (legacy but still used)
-extern fn HGlobal globalAlloc(uint uFlags, usz dwBytes) @cname("GlobalAlloc");
-extern fn HGlobal globalReAlloc(HGlobal hMem, usz dwBytes, uint uFlags) @cname("GlobalReAlloc");
+extern fn HGlobal globalAlloc(uint uFlags, sz dwBytes) @cname("GlobalAlloc");
+extern fn HGlobal globalReAlloc(HGlobal hMem, sz dwBytes, uint uFlags) @cname("GlobalReAlloc");
 extern fn HGlobal globalFree(HGlobal hMem) @cname("GlobalFree");
 extern fn LPVoid globalLock(HGlobal hMem) @cname("GlobalLock");
 extern fn Bool globalUnlock(HGlobal hMem) @cname("GlobalUnlock");
-extern fn usz globalSize(HGlobal hMem) @cname("GlobalSize");
+extern fn sz globalSize(HGlobal hMem) @cname("GlobalSize");
 
-// =============================================================================
+//
 // Process and Thread Management
-// =============================================================================
+//
 
 // Process creation flags
 const DWord DEBUG_PROCESS = 0x00000001;
@@ -388,14 +392,16 @@ const DWord INFINITE = 0xFFFFFFFF;
 const DWord STILL_ACTIVE = 259;
 
 // Security attributes
-struct SecurityAttributes {
+struct SecurityAttributes
+{
     DWord nLength;
     LPVoid lpSecurityDescriptor;
     Bool bInheritHandle;
 }
 
 // Process information
-struct ProcessInformation {
+struct ProcessInformation
+{
     Handle hProcess;
     Handle hThread;
     DWord dwProcessId;
@@ -403,7 +409,8 @@ struct ProcessInformation {
 }
 
 // Startup info
-struct StartupInfoA {
+struct StartupInfoA
+{
     DWord cb;
     LPStr lpReserved;
     LPStr lpDesktop;
@@ -424,7 +431,8 @@ struct StartupInfoA {
     Handle hStdError;
 }
 
-struct StartupInfoW {
+struct StartupInfoW
+{
     DWord cb;
     LPWStr lpReserved;
     LPWStr lpDesktop;
@@ -461,7 +469,7 @@ extern fn Bool getExitCodeProcess(Handle hProcess, DWord* lpExitCode) @cname("Ge
 extern fn Handle openProcess(DWord dwDesiredAccess, Bool bInheritHandle, DWord dwProcessId) @cname("OpenProcess");
 alias Thrfn = fn DWord(LPVoid);
 // Thread functions
-extern fn Handle createThread(SecurityAttributes* lpThreadAttributes, usz dwStackSize,
+extern fn Handle createThread(SecurityAttributes* lpThreadAttributes, sz dwStackSize,
     Thrfn lpStartAddress, LPVoid lpParameter,
     DWord dwCreationFlags, DWord* lpThreadId) @cname("CreateThread");
 extern fn Handle getCurrentThread() @cname("GetCurrentThread");
@@ -480,9 +488,9 @@ extern fn DWord waitForMultipleObjects(DWord nCount, Handle* lpHandles, Bool bWa
 // Exit process
 extern fn void exitProcess(uint uExitCode) @cname("ExitProcess") @noreturn;
 
-// =============================================================================
+//
 // Synchronization
-// =============================================================================
+//
 
 // Synchronization functions
 extern fn Handle createMutexA(SecurityAttributes* lpMutexAttributes, Bool bInitialOwner,
@@ -512,7 +520,8 @@ extern fn Handle openSemaphoreW(DWord dwDesiredAccess, Bool bInheritHandle, LPCW
 extern fn Bool releaseSemaphore(Handle hSemaphore, Long lReleaseCount, Long* lpPreviousCount) @cname("ReleaseSemaphore");
 
 // Critical section
-struct CriticalSection {
+struct CriticalSection
+{
     void* debugInfo;
     Long lockCount;
     Long recursionCount;
@@ -536,15 +545,18 @@ extern fn Long interlockedExchange(Long* target, Long value) @cname("Interlocked
 extern fn Long interlockedExchangeAdd(Long* addend, Long value) @cname("InterlockedExchangeAdd");
 extern fn Long interlockedCompareExchange(Long* destination, Long exchange, Long comparand) @cname("InterlockedCompareExchange");
 
-// =============================================================================
+//
 // System Information
-// =============================================================================
+//
 
 // System info structure
-struct SystemInfo {
-    union {
+struct SystemInfo
+{
+    union
+    {
         DWord dwOemId;
-        struct {
+        struct
+        {
             Word wProcessorArchitecture;
             Word wReserved;
         }
@@ -568,7 +580,8 @@ extern fn Bool queryPerformanceCounter(LongLong* lpPerformanceCount) @cname("Que
 extern fn Bool queryPerformanceFrequency(LongLong* lpFrequency) @cname("QueryPerformanceFrequency");
 
 // System time
-struct SystemTime {
+struct SystemTime
+{
     Word wYear;
     Word wMonth;
     Word wDayOfWeek;
@@ -586,9 +599,9 @@ extern fn Bool setLocalTime(SystemTime* lpSystemTime) @cname("SetLocalTime");
 extern fn Bool systemTimeToFileTime(SystemTime* lpSystemTime, FileTime* lpFileTime) @cname("SystemTimeToFileTime");
 extern fn Bool fileTimeToSystemTime(FileTime* lpFileTime, SystemTime* lpSystemTime) @cname("FileTimeToSystemTime");
 
-// =============================================================================
+//
 // Console Functions
-// =============================================================================
+//
 
 // Console constants
 const DWord STD_INPUT_HANDLE = (DWord)(-10);
@@ -606,9 +619,9 @@ extern fn Bool setConsoleTitleW(LPCWStr lpConsoleTitle) @cname("SetConsoleTitleW
 extern fn DWord getConsoleTitleA(LPStr lpConsoleTitle, DWord nSize) @cname("GetConsoleTitleA");
 extern fn DWord getConsoleTitleW(LPWStr lpConsoleTitle, DWord nSize) @cname("GetConsoleTitleW");
 
-// =============================================================================
+//
 // Module/Library Functions
-// =============================================================================
+//
 
 // LoadLibrary flags
 const DWord LOAD_LIBRARY_AS_DATAFILE = 0x00000002;
@@ -626,9 +639,9 @@ extern fn HModule getModuleHandleW(LPCWStr lpModuleName) @cname("GetModuleHandle
 extern fn DWord getModuleFileNameA(HModule hModule, LPStr lpFilename, DWord nSize) @cname("GetModuleFileNameA");
 extern fn DWord getModuleFileNameW(HModule hModule, LPWStr lpFilename, DWord nSize) @cname("GetModuleFileNameW");
 
-// =============================================================================
+//
 // String and Character Functions
-// =============================================================================
+//
 
 extern fn int multiByteToWideChar(
     uint codePage, 
@@ -653,9 +666,9 @@ extern fn int wideCharToMultiByte(
 const uint CP_ACP = 0;   // ANSI code page
 const uint CP_UTF8 = 65001; // UTF-8 code page
 
-// =============================================================================
+//
 // Miscellaneous
-// =============================================================================
+//
 
 extern fn void sleep(DWord dwMilliseconds) @cname("Sleep");
 extern fn void outputDebugStringA(LPCStr lpOutputString) @cname("OutputDebugStringA");
@@ -680,9 +693,9 @@ extern fn LPWStr getCommandLineW() @cname("GetCommandLineW");
 extern fn Bool getComputerNameA(LPStr lpBuffer, DWord* nSize) @cname("GetComputerNameA");
 extern fn Bool getComputerNameW(LPWStr lpBuffer, DWord* nSize) @cname("GetComputerNameW");
 
-// =============================================================================
+//
 // Macros and Helper Functions
-// =============================================================================
+//
 
 // LOWORD/HIWORD macros
 macro Word loword(DWord dw) => ((Word)((DWordPtr)(dw) & 0xFFFF));
@@ -699,3 +712,5 @@ macro DWord makelong(Word lo, Word hi) => ((DWord)(((Word)(lo)) | ((DWord)((Word
 // Success/failure checks
 macro Bool succeeded(Long hr) => ((Long)(hr) >= 0);
 macro Bool failed(Long hr) => ((Long)(hr) < 0);
+
+// eof

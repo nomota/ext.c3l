@@ -10,20 +10,20 @@ import c::sys::socket;
 // Host database functions
 extern fn HostEnt* gethostbyname(char* name);
 extern fn HostEnt* gethostbyaddr(void* addr, uint len, int type);
-extern fn int gethostbyname_r(char* name, HostEnt* ret, char* buf, usz buflen, HostEnt** result, int* h_errnop);
-extern fn int gethostbyaddr_r(void* addr, uint len, int type, HostEnt* ret, char* buf, usz buflen, HostEnt** result, int* h_errnop);
+extern fn int gethostbyname_r(char* name, HostEnt* ret, char* buf, sz buflen, HostEnt** result, int* h_errnop);
+extern fn int gethostbyaddr_r(void* addr, uint len, int type, HostEnt* ret, char* buf, sz buflen, HostEnt** result, int* h_errnop);
 
 // Service database functions
 extern fn ServEnt* getservbyname(char* name, char* proto);
 extern fn ServEnt* getservbyport(int port, char* proto);
-extern fn int getservbyname_r(char* name, char* proto, ServEnt* ret, char* buf, usz buflen, ServEnt** result);
-extern fn int getservbyport_r(int port, char* proto, ServEnt* ret, char* buf, usz buflen, ServEnt** result);
+extern fn int getservbyname_r(char* name, char* proto, ServEnt* ret, char* buf, sz buflen, ServEnt** result);
+extern fn int getservbyport_r(int port, char* proto, ServEnt* ret, char* buf, sz buflen, ServEnt** result);
 
 // Protocol database functions
 extern fn ProtoEnt* getprotobyname(char* name);
 extern fn ProtoEnt* getprotobynumber(int proto);
-extern fn int getprotobyname_r(char* name, ProtoEnt* ret, char* buf, usz buflen, ProtoEnt** result);
-extern fn int getprotobynumber_r(int proto, ProtoEnt* ret, char* buf, usz buflen, ProtoEnt** result);
+extern fn int getprotobyname_r(char* name, ProtoEnt* ret, char* buf, sz buflen, ProtoEnt** result);
+extern fn int getprotobynumber_r(int proto, ProtoEnt* ret, char* buf, sz buflen, ProtoEnt** result);
 
 // Modern address resolution (getaddrinfo/getnameinfo)
 extern fn int getaddrinfo(char* node, char* service, AddrInfo* hints, AddrInfo** res);

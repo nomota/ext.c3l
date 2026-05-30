@@ -8,9 +8,9 @@ module c::regex @if(env::LINUX);
 
 // Type Definitions
 struct RegEx {
-    usz re_nsub;      // Number of parenthesized subexpressions
+    sz re_nsub;      // Number of parenthesized subexpressions
     void* re_pcre;    // Compiled pattern (opaque)
-    usz re_erroffset; // Error offset
+    sz re_erroffset; // Error offset
     void* re_extra;   // Extra data
     uint re_flags;    // Flags
     void*[10] others;
@@ -25,8 +25,8 @@ alias RegoffT = int;
 
 // Function Declarations
 extern fn int regcomp(RegEx* preg, char* pattern, int cflags);
-extern fn int regexec(RegEx* preg, char* string, usz nmatch, RegMatch* pmatch, int eflags);
-extern fn usz regerror(int errcode, RegEx* preg, char* errbuf, usz errbuf_size);
+extern fn int regexec(RegEx* preg, char* string, sz nmatch, RegMatch* pmatch, int eflags);
+extern fn sz regerror(int errcode, RegEx* preg, char* errbuf, sz errbuf_size);
 extern fn void regfree(RegEx* preg);
 
 // Compilation flags (cflags)
@@ -69,7 +69,7 @@ module c::regex @if(env::DARWIN);
 // Type Definitions
 struct RegEx {
     int re_magic;
-    usz re_nsub;
+    sz re_nsub;
     char* re_endp;
     void* re_g;
 }
@@ -81,8 +81,8 @@ struct RegMatch {
 
 // Function Declarations
 extern fn int regcomp(RegEx* preg, char* pattern, int cflags);
-extern fn int regexec(RegEx* preg, char* string, usz nmatch, RegMatch* pmatch, int eflags);
-extern fn usz regerror(int errcode, RegEx* preg, char* errbuf, usz errbuf_size);
+extern fn int regexec(RegEx* preg, char* string, sz nmatch, RegMatch* pmatch, int eflags);
+extern fn sz regerror(int errcode, RegEx* preg, char* errbuf, sz errbuf_size);
 extern fn void regfree(RegEx* preg);
 
 // Compilation flags (cflags)
@@ -133,7 +133,7 @@ module c::regex @if(env::FREEBSD);
 // Type Definitions
 struct RegEx  {
     int re_magic;
-    usz re_nsub;
+    sz re_nsub;
     char* re_endp;
     void* re_guts;
     int re_flags;
@@ -148,13 +148,13 @@ alias RegoffT = int;
 
 // Function Declarations
 extern fn int regcomp(RegEx* preg, char* pattern, int cflags);
-extern fn int regexec(RegEx* preg, char* string, usz nmatch, RegMatch* pmatch, int eflags);
-extern fn usz regerror(int errcode, RegEx* preg, char* errbuf, usz errbuf_size);
+extern fn int regexec(RegEx* preg, char* string, sz nmatch, RegMatch* pmatch, int eflags);
+extern fn sz regerror(int errcode, RegEx* preg, char* errbuf, sz errbuf_size);
 extern fn void regfree(RegEx* preg);
 
 // Additional FreeBSD functions
-extern fn int regncomp(RegEx* preg, char* pattern, usz len, int cflags);
-extern fn int regnexec(RegEx* preg, char* string, usz len, usz nmatch, RegMatch* pmatch, int eflags);
+extern fn int regncomp(RegEx* preg, char* pattern, sz len, int cflags);
+extern fn int regnexec(RegEx* preg, char* string, sz len, sz nmatch, RegMatch* pmatch, int eflags);
 
 // Compilation flags (cflags)
 const int REG_BASIC = 0;
@@ -203,7 +203,7 @@ module c::regex @if(env::NETBSD);
 // Type Definitions
 struct RegEx  {
     int re_magic;
-    usz re_nsub;
+    sz re_nsub;
     char* re_endp;
     void* re_guts;
 }
@@ -217,8 +217,8 @@ alias RegoffT = int;
 
 // Function Declarations
 extern fn int regcomp(RegEx* preg, char* pattern, int cflags);
-extern fn int regexec(RegEx* preg, char* string, usz nmatch, RegMatch* pmatch, int eflags);
-extern fn usz regerror(int errcode, RegEx* preg, char* errbuf, usz errbuf_size);
+extern fn int regexec(RegEx* preg, char* string, sz nmatch, RegMatch* pmatch, int eflags);
+extern fn sz regerror(int errcode, RegEx* preg, char* errbuf, sz errbuf_size);
 extern fn void regfree(RegEx* preg);
 
 // Compilation flags (cflags)
@@ -268,7 +268,7 @@ module c::regex @if(env::OPENBSD);
 // Type Definitions
 struct RegEx  {
     int re_magic;
-    usz re_nsub;
+    sz re_nsub;
     char* re_endp;
     void* re_guts;
 }
@@ -282,8 +282,8 @@ alias RegoffT = int;
 
 // Function Declarations
 extern fn int regcomp(RegEx* preg, char* pattern, int cflags);
-extern fn int regexec(RegEx* preg, char* string, usz nmatch, RegMatch* pmatch, int eflags);
-extern fn usz regerror(int errcode, RegEx* preg, char* errbuf, usz errbuf_size);
+extern fn int regexec(RegEx* preg, char* string, sz nmatch, RegMatch* pmatch, int eflags);
+extern fn sz regerror(int errcode, RegEx* preg, char* errbuf, sz errbuf_size);
 extern fn void regfree(RegEx* preg);
 
 // Compilation flags (cflags)

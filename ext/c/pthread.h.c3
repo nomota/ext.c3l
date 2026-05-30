@@ -243,7 +243,7 @@ extern fn CInt pthread_getattr_np(Pthread thread, PthreadAttr* attr) @if(env::LI
 
 // Type Definitions
 
-alias CSize = usz;
+alias CSize = sz;
 
 // Opaque types
 alias Pthread = CULong;           // Thread ID

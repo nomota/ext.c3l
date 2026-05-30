@@ -21,7 +21,7 @@ import c::sys::mman;
 // Constants 
 //
 
-const usz MIN_STACK_SIZE @private = 65_536;
+const sz MIN_STACK_SIZE @private = 65_536;
 
 fn void init() @init 
 {
@@ -37,36 +37,36 @@ fn void deinit()
 // Low-level VM stack helpers
 //
 
-fn usz page_size() @private
+fn sz page_size() @private
 {
     long p = unistd::sysconf(unistd::_SC_PAGESIZE);
     if (p <= 0) return 4096;
-    return (usz)p;
+    return (sz)p;
 }
 
-fn usz align_up(usz n, usz a) @inline @private
+fn sz align_up(sz n, sz a) @inline @private
 {
     return (n + a - 1) & ~(a - 1);
 }
 
 faultdef MMAP_FAILED, MPROTECT_FAILED;
 fn char*? stack_alloc(
-    usz requested_stack_size,
-    usz* out_block_size,
+    sz requested_stack_size,
+    sz* out_block_size,
     char** out_stack_low,
     char** out_stack_high,
-    usz* out_stack_size
+    sz* out_stack_size
 )
 {
-    usz ps = page_size();
+    sz ps = page_size();
 
     if (requested_stack_size < MIN_STACK_SIZE)
     {
         requested_stack_size = MIN_STACK_SIZE;
     }
 
-    usz usable_size = align_up(requested_stack_size, ps);
-    usz total_size = usable_size + ps;
+    sz usable_size = align_up(requested_stack_size, ps);
+    sz total_size = usable_size + ps;
 
     void* p = mman::mmap(
         null,
@@ -106,7 +106,7 @@ fn char*? stack_alloc(
     return block;
 }
 
-fn void stack_free(char* block, usz block_size)
+fn void stack_free(char* block, sz block_size)
 {
     if (block == null || block_size == 0) return;
     mman::munmap(block, block_size);

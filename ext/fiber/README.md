@@ -68,8 +68,8 @@ The assembly backends are the preferred fast-switching backends where supported.
 | `fiber.win32.c3` | Native Windows Fiber API backend |
 | `fiber.ucontext.c3` | POSIX `ucontext` backend |
 | `fiber.sjlj.c3` | POSIX `sigsetjmp()` / `siglongjmp()` backend |
-| `../../examples/fiber/fiber_test.c3` | Basic fiber example |
-| `../../examples/fiber/fiber_mem_test.c3` | Fiber memory usage test |
+| `../../test/fiber/fiber_test.c3` | Basic fiber example |
+| `../../test/fiber/fiber_mem_test.c3` | Fiber memory usage test |
 
 ---
 
@@ -104,7 +104,7 @@ void fiber::done();
 void fiber::delete(Fiber* fib);
 void fiber::deinit();
 
-usz fiber::stack_used(Fiber* fib);
+sz fiber::stack_used(Fiber* fib);
 void fiber::diag();
 ```
 
@@ -183,7 +183,7 @@ Do not delete the currently running fiber.
 ### `fiber::stack_used()`
 
 ```c3
-usz used = fiber::stack_used(fib);
+sz used = fiber::stack_used(fib);
 ```
 
 Returns an approximate stack usage value where supported.

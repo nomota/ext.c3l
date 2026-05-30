@@ -32,13 +32,13 @@ struct Arg @local
     String path2;
     Stat stat;
     fault error;
-    int mode;
+    uint mode;
     bool exist_ok;
-    usz n;
+    sz n;
     Allocator allocx;
     List{String} files;
     char[] buf;
-    usz size;
+    sz size;
     bool exists;
     bool isfile;
     bool isdir;
@@ -157,14 +157,14 @@ fn void? remove(String path) @maydiscard
     if (a.error != NONE) return a.error~;
 }
 
-fn usz? sendfile(Fd to_sock, Fd from_fd, long offset, long count)
+fn sz? sendfile(Fd to_sock, Fd from_fd, long offset, long count)
 {
     io::file_seek(from_fd, offset, 0);
-    usz written = 0;
+    sz written = 0;
     while (written < count)
     {
         char[1024] buf;
-        usz n = io::file_read(from_fd, &buf)!;
+        sz n = io::file_read(from_fd, &buf)!;
         n = io::async_write(to_sock, &buf)!;
         written += n;
     }
@@ -184,7 +184,7 @@ fn void* _mkdir(void* arg) @local
     return (void*) a;
 }
 
-fn void? mkdir(String path, int mode=0o777) @maydiscard
+fn void? mkdir(String path, uint mode=0o777) @maydiscard
 {
     Arg arg = { .path = path, .mode = mode, .error = NONE };
     Arg*? a = aio::run_in_executor(&_mkdir, &arg);
@@ -213,7 +213,7 @@ fn void* _makedirs(void* arg) @local
     return (void*) a;
 }
 
-fn void? makedirs(String path, int mode=0o777, bool exist_ok=true) @maydiscard
+fn void? makedirs(String path, uint mode=0o777, bool exist_ok=true) @maydiscard
 {
     Arg arg = { .path = path, .mode = mode, .exist_ok = exist_ok, .error = NONE };
 
@@ -252,7 +252,7 @@ fn void* _removedirs(void* arg) @local
         files.free();
         
         dir::remove_dir(path);
-        usz? idx = path.rindex_of_char('/');
+        sz? idx = path.rindex_of_char('/');
         if (catch idx)
         {
             idx = path.rindex_of_char('\\');
@@ -268,7 +268,7 @@ fn void* _removedirs(void* arg) @local
     return (void*) a;
 }
 
-fn void? removedirs(String path, int mode=0o777) @maydiscard
+fn void? removedirs(String path, uint mode=0o777) @maydiscard
 {
     Arg arg = { .path = path, .error = NONE };
     Arg*? a = aio::run_in_executor(&_removedirs, &arg);
@@ -329,7 +329,7 @@ fn long? DirEntry.last_modified(&self)
     return self.last_modified();
 }
 
-fn usz? DirEntry.size(&self)
+fn sz? DirEntry.size(&self)
 {
     return self.size();
 }
@@ -410,7 +410,7 @@ fn void* _readlink(void* arg) @local
 {
     Arg* a = (Arg*) arg;
 
-    usz? n = stat::read_link(a.path, a.buf);
+    sz? n = stat::read_link(a.path, a.buf);
     if (catch err = n)
     {
         a.error = err;
@@ -421,7 +421,7 @@ fn void* _readlink(void* arg) @local
     return (void*) a;
 }
 
-fn usz? readlink(String path, char[] buf) @maydiscard
+fn sz? readlink(String path, char[] buf) @maydiscard
 {
     Arg arg = {
         .path = path, 
@@ -439,7 +439,7 @@ fn void* _getsize(void* arg) @local
 {
     Arg* a = (Arg*) arg;
     
-    usz? size = cfile::size(a.path);
+    sz? size = cfile::size(a.path);
     if (catch err = size)
     {
         a.error = err;
@@ -450,7 +450,7 @@ fn void* _getsize(void* arg) @local
     return (void*) a;
 }
 
-fn usz? getsize(String path)
+fn sz? getsize(String path)
 {
     Arg arg = { .path = path, .error = NONE };
     Arg*? a = aio::run_in_executor(&_getsize, &arg);

@@ -204,7 +204,7 @@ fn void done() @nosanitize("address")
     unreachable("dead fiber resumed");
 }
 
-fn usz stack_used(Fiber* fiber)
+fn sz stack_used(Fiber* fiber)
 {
     // Native Windows Fiber does not expose portable stack usage here.
     return 0;

@@ -30,7 +30,7 @@ import string; // libc
   param iv    nonce to use.
   param len   nonce length (in bytes).
 *>
-alias AEADResetFn        = fn void(AEADClass** cc, void* iv, usz len);
+alias AEADResetFn        = fn void(AEADClass** cc, void* iv, sz len);
 
 <*
   Inject additional authenticated data.
@@ -40,7 +40,7 @@ alias AEADResetFn        = fn void(AEADClass** cc, void* iv, usz len);
   param data   pointer to additional authenticated data.
   param len    length of additional authenticated data (in bytes).
 *>
-alias AEADAadInjectFn    = fn void(AEADClass** cc, void* data, usz len);
+alias AEADAadInjectFn    = fn void(AEADClass** cc, void* data, sz len);
 
 <*
   Finish injection of additional authenticated data.
@@ -62,7 +62,7 @@ alias AEADFlipFn         = fn void(AEADClass** cc);
   param data      data to encrypt or decrypt (in place).
   param len       data length (in bytes).
 *>
-alias AEADRunFn          = fn void(AEADClass** cc, int encrypt, void* data, usz len);
+alias AEADRunFn          = fn void(AEADClass** cc, int encrypt, void* data, sz len);
 
 <*
   Compute the authentication tag into the provided buffer.
@@ -94,7 +94,7 @@ alias AEADCheckTagFn     = fn uint(AEADClass** cc, void* tag);
   param tag   destination buffer for the tag.
   param len   tag length (in bytes).
 *>
-alias AEADGetTagTruncFn  = fn void(AEADClass** cc, void* tag, usz len);
+alias AEADGetTagTruncFn  = fn void(AEADClass** cc, void* tag, sz len);
 
 <*
   Compute and verify the authentication tag with explicit (possibly truncated) length.
@@ -106,7 +106,7 @@ alias AEADGetTagTruncFn  = fn void(AEADClass** cc, void* tag, usz len);
   param len   tag length (in bytes).
   returns 1 on success (exact match), 0 otherwise.
 *>
-alias AEADCheckTagTruncFn = fn uint(AEADClass** cc, void* tag, usz len);
+alias AEADCheckTagTruncFn = fn uint(AEADClass** cc, void* tag, sz len);
 
 <*
   Class type for an AEAD algorithm.
@@ -119,7 +119,7 @@ struct AEADClass {
     <*
       Size (in bytes) of authentication tags produced by this algorithm.
     *>
-    usz tag_size;
+    sz tag_size;
 
     <* Reset for a new computation run with a new nonce. *>
     AEADResetFn reset;
@@ -226,7 +226,7 @@ extern fn void gcm_init(GCMContext* ctx, BlockCTRClass** bctx, GHashFn gh);
   param iv    GCM nonce to use.
   param len   GCM nonce length (in bytes).
 *>
-extern fn void gcm_reset(GCMContext* ctx, void* iv, usz len);
+extern fn void gcm_reset(GCMContext* ctx, void* iv, sz len);
 
 <*
   Inject additional authenticated data into GCM.
@@ -238,7 +238,7 @@ extern fn void gcm_reset(GCMContext* ctx, void* iv, usz len);
   param data   pointer to additional authenticated data.
   param len    length of additional authenticated data (in bytes).
 *>
-extern fn void gcm_aad_inject(GCMContext* ctx, void* data, usz len);
+extern fn void gcm_aad_inject(GCMContext* ctx, void* data, sz len);
 
 <*
   Finish injection of additional authenticated data into GCM.
@@ -263,7 +263,7 @@ extern fn void gcm_flip(GCMContext* ctx);
   param data      data to encrypt or decrypt (in place).
   param len       data length (in bytes).
 *>
-extern fn void gcm_run(GCMContext* ctx, int encrypt, void* data, usz len);
+extern fn void gcm_run(GCMContext* ctx, int encrypt, void* data, sz len);
 
 <*
   Compute GCM authentication tag (16 bytes).
@@ -300,7 +300,7 @@ extern fn uint gcm_check_tag(GCMContext* ctx, void* tag);
   param tag   destination buffer for the tag.
   param len   tag length (16 bytes or less).
 *>
-extern fn void gcm_get_tag_trunc(GCMContext* ctx, void* tag, usz len);
+extern fn void gcm_get_tag_trunc(GCMContext* ctx, void* tag, sz len);
 
 <*
   Compute and verify GCM authentication tag with explicit (possibly truncated) length.
@@ -313,7 +313,7 @@ extern fn void gcm_get_tag_trunc(GCMContext* ctx, void* tag, usz len);
   param len   tag length (in bytes).
   returns 1 on success, 0 otherwise.
 *>
-extern fn uint gcm_check_tag_trunc(GCMContext* ctx, void* tag, usz len);
+extern fn uint gcm_check_tag_trunc(GCMContext* ctx, void* tag, sz len);
 
 <*
   Class instance (vtable) for GCM.
@@ -356,7 +356,7 @@ struct EAXContext {
     char[16] ctr;
     char[16] cbcmac;
     char[16] buf;
-    usz ptr;
+    sz ptr;
 }
 
 <*
@@ -407,7 +407,7 @@ extern fn void eax_capture(EAXContext* ctx, EAXState* st);
   param nonce   EAX nonce to use.
   param len     EAX nonce length (in bytes).
 *>
-extern fn void eax_reset(EAXContext* ctx, void* nonce, usz len);
+extern fn void eax_reset(EAXContext* ctx, void* nonce, sz len);
 
 <*
   Reset an EAX context using a pre-AAD captured state.
@@ -427,7 +427,7 @@ extern fn void eax_reset(EAXContext* ctx, void* nonce, usz len);
   param len     EAX nonce length (in bytes).
 *>
 extern fn void eax_reset_pre_aad(EAXContext* ctx, EAXState* st,
-    void* nonce, usz len);
+    void* nonce, sz len);
 
 <*
   Reset an EAX context using a post-AAD captured state.
@@ -446,7 +446,7 @@ extern fn void eax_reset_pre_aad(EAXContext* ctx, EAXState* st,
   param len     EAX nonce length (in bytes).
 *>
 extern fn void eax_reset_post_aad(EAXContext* ctx, EAXState* st,
-    void* nonce, usz len);
+    void* nonce, sz len);
 
 <*
   Inject additional authenticated data into EAX.
@@ -458,7 +458,7 @@ extern fn void eax_reset_post_aad(EAXContext* ctx, EAXState* st,
   param data   pointer to additional authenticated data.
   param len    length of additional authenticated data (in bytes).
 *>
-extern fn void eax_aad_inject(EAXContext* ctx, void* data, usz len);
+extern fn void eax_aad_inject(EAXContext* ctx, void* data, sz len);
 
 <*
   Finish injection of additional authenticated data into EAX.
@@ -488,7 +488,7 @@ fn void eax_get_aad_mac(EAXContext* ctx, EAXState* st) @inline
     
     //char* src = &ctx.head[0];
     //char* dst = &st.st[1][0];
-    //for (usz i = 0; i < 16; i++) {
+    //for (sz i = 0; i < 16; i++) {
     //    dst[i] = src[i];
     //}
 }
@@ -505,7 +505,7 @@ fn void eax_get_aad_mac(EAXContext* ctx, EAXState* st) @inline
   param data      data to encrypt or decrypt (in place).
   param len       data length (in bytes).
 *>
-extern fn void eax_run(EAXContext* ctx, int encrypt, void* data, usz len);
+extern fn void eax_run(EAXContext* ctx, int encrypt, void* data, sz len);
 
 <*
   Compute EAX authentication tag (16 bytes).
@@ -539,7 +539,7 @@ extern fn uint eax_check_tag(EAXContext* ctx, void* tag);
   param tag   destination buffer for the tag.
   param len   tag length (16 bytes or less).
 *>
-extern fn void eax_get_tag_trunc(EAXContext* ctx, void* tag, usz len);
+extern fn void eax_get_tag_trunc(EAXContext* ctx, void* tag, sz len);
 
 <*
   Compute and verify EAX authentication tag with explicit (possibly truncated) length.
@@ -552,7 +552,7 @@ extern fn void eax_get_tag_trunc(EAXContext* ctx, void* tag, usz len);
   param len   tag length (in bytes).
   returns 1 on success, 0 otherwise.
 *>
-extern fn uint eax_check_tag_trunc(EAXContext* ctx, void* tag, usz len);
+extern fn uint eax_check_tag_trunc(EAXContext* ctx, void* tag, sz len);
 
 <*
   Class instance (vtable) for EAX.
@@ -587,8 +587,8 @@ struct CCMContext {
     char[16] cbcmac;
     char[16] tagmask;
     char[16] buf;
-    usz ptr;
-    usz tag_len;
+    sz ptr;
+    sz tag_len;
 }
 
 <*
@@ -634,8 +634,8 @@ extern fn void ccm_init(CCMContext* ctx, BlockCTRCBCClass** bctx);
   param tag_len     tag length (in bytes, 4 to 16, even).
   returns 1 on success, 0 on error.
 *>
-extern fn int ccm_reset(CCMContext* ctx, void* nonce, usz nonce_len,
-    ulong aad_len, ulong data_len, usz tag_len);
+extern fn int ccm_reset(CCMContext* ctx, void* nonce, sz nonce_len,
+    ulong aad_len, ulong data_len, sz tag_len);
 
 <*
   Inject additional authenticated data into CCM.
@@ -647,7 +647,7 @@ extern fn int ccm_reset(CCMContext* ctx, void* nonce, usz nonce_len,
   param data   pointer to additional authenticated data.
   param len    length of additional authenticated data (in bytes).
 *>
-extern fn void ccm_aad_inject(CCMContext* ctx, void* data, usz len);
+extern fn void ccm_aad_inject(CCMContext* ctx, void* data, sz len);
 
 <*
   Finish injection of additional authenticated data into CCM.
@@ -672,7 +672,7 @@ extern fn void ccm_flip(CCMContext* ctx);
   param data      data to encrypt or decrypt (in place).
   param len       data length (in bytes).
 *>
-extern fn void ccm_run(CCMContext* ctx, int encrypt, void* data, usz len);
+extern fn void ccm_run(CCMContext* ctx, int encrypt, void* data, sz len);
 
 <*
   Compute CCM authentication tag.
@@ -686,7 +686,7 @@ extern fn void ccm_run(CCMContext* ctx, int encrypt, void* data, usz len);
   param tag   destination buffer for the tag (up to 16 bytes).
   returns the tag length (in bytes).
 *>
-extern fn usz ccm_get_tag(CCMContext* ctx, void* tag);
+extern fn sz ccm_get_tag(CCMContext* ctx, void* tag);
 
 <*
   Compute and verify CCM authentication tag.

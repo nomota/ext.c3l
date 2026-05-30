@@ -118,8 +118,8 @@ extern fn int _putenv_s(char* varname, char* value);
 extern fn int _wputenv_s(ushort* varname, ushort* value);
 extern fn void _searchenv(char* filename, char* varname, char* pathname);
 extern fn void _wsearchenv(ushort* filename, ushort* varname, ushort* pathname);
-extern fn int _searchenv_s(char* filename, char* varname, char* pathname, usz sizeInBytes);
-extern fn int _wsearchenv_s(ushort* filename, ushort* varname, ushort* pathname, usz sizeInWords);
+extern fn int _searchenv_s(char* filename, char* varname, char* pathname, sz sizeInBytes);
+extern fn int _wsearchenv_s(ushort* filename, ushort* varname, ushort* pathname, sz sizeInWords);
 
 // Spawn/Exec modes
 const int _P_WAIT = 0;          // Suspend parent until child completes

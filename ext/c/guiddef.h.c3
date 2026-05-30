@@ -46,7 +46,7 @@ fn bool isEqualGUID(Guid* r1, Guid* r2) @inline
     if (r1.data1 != r2.data1) return false;
     if (r1.data2 != r2.data2) return false;
     if (r1.data3 != r2.data3) return false;
-    for (usz i = 0; i < 8; i++) {
+    for (sz i = 0; i < 8; i++) {
         if (r1.data4[i] != r2.data4[i]) {
             return false;
         }

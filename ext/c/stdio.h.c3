@@ -2,10 +2,10 @@
 
 module c::stdio;
 
-alias Size = usz;
+alias Size = sz;
 alias CFile = void*;
 
-const int EOF = -1;
+const char EOF = char::max; // -1
 
 // Standard I/O
 

@@ -21,11 +21,11 @@ struct RSAPublicKey {
     <* Modulus. *>
     char* n;
     <* Modulus length (in bytes). *>
-    usz nlen;
+    sz nlen;
     <* Public exponent. *>
     char* e;
     <* Public exponent length (in bytes). *>
-    usz elen;
+    sz elen;
 }
 
 <*
@@ -43,23 +43,23 @@ struct RSAPrivateKey {
     <* First prime factor. *>
     char* p;
     <* First prime factor length (in bytes). *>
-    usz plen;
+    sz plen;
     <* Second prime factor. *>
     char* q;
     <* Second prime factor length (in bytes). *>
-    usz qlen;
+    sz qlen;
     <* First reduced private exponent (d mod p-1). *>
     char* dp;
     <* First reduced private exponent length (in bytes). *>
-    usz dplen;
+    sz dplen;
     <* Second reduced private exponent (d mod q-1). *>
     char* dq;
     <* Second reduced private exponent length (in bytes). *>
-    usz dqlen;
+    sz dqlen;
     <* CRT coefficient (inverse of q mod p). *>
     char* iq;
     <* CRT coefficient length (in bytes). *>
-    usz iqlen;
+    sz iqlen;
 }
 
 // ============================================================
@@ -77,7 +77,7 @@ struct RSAPrivateKey {
   param pk    RSA public key.
   returns 1 on success, 0 on error.
 *>
-alias RSAPublic = fn uint(char* x, usz xlen, RSAPublicKey* pk);
+alias RSAPublic = fn uint(char* x, sz xlen, RSAPublicKey* pk);
 
 <*
   RSA signature verification engine (PKCS#1 v1.5).
@@ -95,7 +95,7 @@ alias RSAPublic = fn uint(char* x, usz xlen, RSAPublicKey* pk);
   param hash_out  output buffer for the recovered hash value.
   returns 1 on success, 0 on error.
 *>
-alias RSAPKCS1Vrfy = fn uint(char* x, usz xlen, char* hash_oid, usz hash_len,
+alias RSAPKCS1Vrfy = fn uint(char* x, sz xlen, char* hash_oid, sz hash_len,
     RSAPublicKey* pk, char* hash_out);
 
 <*
@@ -113,9 +113,9 @@ alias RSAPKCS1Vrfy = fn uint(char* x, usz xlen, char* hash_oid, usz hash_len,
   param pk        RSA public key.
   returns 1 on success, 0 on error.
 *>
-alias RSAPSSVrfy = fn uint(char* x, usz xlen,
+alias RSAPSSVrfy = fn uint(char* x, sz xlen,
     HashClass* hf_data, HashClass* hf_mgf1,
-    void* hash, usz salt_len, RSAPublicKey* pk);
+    void* hash, sz salt_len, RSAPublicKey* pk);
 
 <*
   RSA encryption engine (OAEP).
@@ -135,10 +135,10 @@ alias RSAPSSVrfy = fn uint(char* x, usz xlen,
   param src_len      source message length (in bytes).
   returns encrypted message length (in bytes), or 0 on error.
 *>
-alias RSAOAEPEncrypt = fn usz(PRNGClass** rnd, HashClass* dig,
-    void* label, usz label_len, RSAPublicKey* pk,
-    void* dst, usz dst_max_len,
-    void* src, usz src_len);
+alias RSAOAEPEncrypt = fn sz(PRNGClass** rnd, HashClass* dig,
+    void* label, sz label_len, RSAPublicKey* pk,
+    void* dst, sz dst_max_len,
+    void* src, sz src_len);
 
 <*
   RSA private key engine (modular exponentiation with private key).
@@ -165,7 +165,7 @@ alias RSAPrivate = fn uint(char* x, RSAPrivateKey* sk);
   returns 1 on success, 0 on error.
 *>
 alias RSAPKCS1Sign = fn uint(char* hash_oid,
-    char* hash, usz hash_len,
+    char* hash, sz hash_len,
     RSAPrivateKey* sk, char* x);
 
 <*
@@ -184,7 +184,7 @@ alias RSAPKCS1Sign = fn uint(char* hash_oid,
 *>
 alias RSAPSSSign = fn uint(PRNGClass** rng,
     HashClass* hf_data, HashClass* hf_mgf1,
-    char* hash_value, usz salt_len,
+    char* hash_value, sz salt_len,
     RSAPrivateKey* sk, char* x);
 
 <*
@@ -202,8 +202,8 @@ alias RSAPSSSign = fn uint(PRNGClass** rng,
   param len        pointer to encrypted length; updated to plaintext length.
   returns 1 on success, 0 on error.
 *>
-alias RSAOAEPDecrypt = fn uint(HashClass* dig, void* label, usz label_len,
-    RSAPrivateKey* sk, void* data, usz* len);
+alias RSAOAEPDecrypt = fn uint(HashClass* dig, void* label, sz label_len,
+    RSAPrivateKey* sk, void* data, sz* len);
 
 <*
   RSA key pair generator type.
@@ -237,7 +237,7 @@ alias RSAKeygen = fn uint(PRNGClass** rng_ctx,
   param sk  RSA private key.
   returns modulus length (in bytes), or 0 on error.
 *>
-alias RSAComputeModulus = fn usz(void* n, RSAPrivateKey* sk);
+alias RSAComputeModulus = fn sz(void* n, RSAPrivateKey* sk);
 
 <*
   Type for a function that recomputes the public exponent from a private key.
@@ -263,7 +263,7 @@ alias RSAComputePubexp = fn uint(RSAPrivateKey* sk);
   param pubexp  the public exponent.
   returns private exponent length (in bytes), or 0 on error.
 *>
-alias RSAComputePrivexp = fn usz(void* d, RSAPrivateKey* sk, uint pubexp);
+alias RSAComputePrivexp = fn sz(void* d, RSAPrivateKey* sk, uint pubexp);
 
 // ============================================================
 // Hash OID constants (for PKCS#1 v1.5 signatures)
@@ -297,7 +297,7 @@ const char* HASH_OID_SHA512 = "\x09\x60\x86\x48\x01\x65\x03\x04\x02\x03";
   param size  target key size (modulus size, in bits).
   returns required buffer length (in bytes).
 *>
-fn usz rsa_kbuf_priv_size(usz size) @inline => 5 * ((size + 15) >> 4);
+fn sz rsa_kbuf_priv_size(sz size) @inline => 5 * ((size + 15) >> 4);
 
 <*
   Get buffer size needed to hold RSA public key elements.
@@ -305,7 +305,7 @@ fn usz rsa_kbuf_priv_size(usz size) @inline => 5 * ((size + 15) >> 4);
   param size  target key size (modulus size, in bits).
   returns required buffer length (in bytes).
 *>
-fn usz rsa_kbuf_pub_size(usz size) @inline => 4 + ((size + 7) >> 3);
+fn sz rsa_kbuf_pub_size(sz size) @inline => 4 + ((size + 7) >> 3);
 
 // ============================================================
 // Engine: i32
@@ -320,7 +320,7 @@ fn usz rsa_kbuf_pub_size(usz size) @inline => 4 + ((size + 7) >> 3);
   param pk    RSA public key.
   returns 1 on success, 0 on error.
 *>
-extern fn uint rsa_i32_public(char* x, usz xlen, RSAPublicKey* pk);
+extern fn uint rsa_i32_public(char* x, sz xlen, RSAPublicKey* pk);
 
 <*
   RSA signature verification "i32" (PKCS#1 v1.5).
@@ -333,8 +333,8 @@ extern fn uint rsa_i32_public(char* x, usz xlen, RSAPublicKey* pk);
   param hash_out  output buffer for the hash value.
   returns 1 on success, 0 on error.
 *>
-extern fn uint rsa_i32_pkcs1_vrfy(char* x, usz xlen,
-    char* hash_oid, usz hash_len,
+extern fn uint rsa_i32_pkcs1_vrfy(char* x, sz xlen,
+    char* hash_oid, sz hash_len,
     RSAPublicKey* pk, char* hash_out);
 
 <*
@@ -349,9 +349,9 @@ extern fn uint rsa_i32_pkcs1_vrfy(char* x, usz xlen,
   param pk        RSA public key.
   returns 1 on success, 0 on error.
 *>
-extern fn uint rsa_i32_pss_vrfy(char* x, usz xlen,
+extern fn uint rsa_i32_pss_vrfy(char* x, sz xlen,
     HashClass* hf_data, HashClass* hf_mgf1,
-    void* hash, usz salt_len, RSAPublicKey* pk);
+    void* hash, sz salt_len, RSAPublicKey* pk);
 
 <*
   RSA private key engine "i32".
@@ -373,7 +373,7 @@ extern fn uint rsa_i32_private(char* x, RSAPrivateKey* sk);
   returns 1 on success, 0 on error.
 *>
 extern fn uint rsa_i32_pkcs1_sign(char* hash_oid,
-    char* hash, usz hash_len,
+    char* hash, sz hash_len,
     RSAPrivateKey* sk, char* x);
 
 <*
@@ -390,24 +390,24 @@ extern fn uint rsa_i32_pkcs1_sign(char* hash_oid,
 *>
 extern fn uint rsa_i32_pss_sign(PRNGClass** rng,
     HashClass* hf_data, HashClass* hf_mgf1,
-    char* hash_value, usz salt_len,
+    char* hash_value, sz salt_len,
     RSAPrivateKey* sk, char* x);
 
 <*
   RSA encryption (OAEP) with the "i32" engine.
   see RSAOAEPEncrypt
 *>
-extern fn usz rsa_i32_oaep_encrypt(PRNGClass** rnd, HashClass* dig,
-    void* label, usz label_len, RSAPublicKey* pk,
-    void* dst, usz dst_max_len,
-    void* src, usz src_len);
+extern fn sz rsa_i32_oaep_encrypt(PRNGClass** rnd, HashClass* dig,
+    void* label, sz label_len, RSAPublicKey* pk,
+    void* dst, sz dst_max_len,
+    void* src, sz src_len);
 
 <*
   RSA decryption (OAEP) with the "i32" engine.
   see RSAOAEPDecrypt
 *>
-extern fn uint rsa_i32_oaep_decrypt(HashClass* dig, void* label, usz label_len,
-    RSAPrivateKey* sk, void* data, usz* len);
+extern fn uint rsa_i32_oaep_decrypt(HashClass* dig, void* label, sz label_len,
+    RSAPrivateKey* sk, void* data, sz* len);
 
 // ============================================================
 // Engine: i31
@@ -422,7 +422,7 @@ extern fn uint rsa_i32_oaep_decrypt(HashClass* dig, void* label, usz label_len,
   param pk    RSA public key.
   returns 1 on success, 0 on error.
 *>
-extern fn uint rsa_i31_public(char* x, usz xlen, RSAPublicKey* pk);
+extern fn uint rsa_i31_public(char* x, sz xlen, RSAPublicKey* pk);
 
 <*
   RSA signature verification "i31" (PKCS#1 v1.5).
@@ -435,8 +435,8 @@ extern fn uint rsa_i31_public(char* x, usz xlen, RSAPublicKey* pk);
   param hash_out  output buffer for the hash value.
   returns 1 on success, 0 on error.
 *>
-extern fn uint rsa_i31_pkcs1_vrfy(char* x, usz xlen,
-    char* hash_oid, usz hash_len,
+extern fn uint rsa_i31_pkcs1_vrfy(char* x, sz xlen,
+    char* hash_oid, sz hash_len,
     RSAPublicKey* pk, char* hash_out);
 
 <*
@@ -451,9 +451,9 @@ extern fn uint rsa_i31_pkcs1_vrfy(char* x, usz xlen,
   param pk        RSA public key.
   returns 1 on success, 0 on error.
 *>
-extern fn uint rsa_i31_pss_vrfy(char* x, usz xlen,
+extern fn uint rsa_i31_pss_vrfy(char* x, sz xlen,
     HashClass* hf_data, HashClass* hf_mgf1,
-    void* hash, usz salt_len, RSAPublicKey* pk);
+    void* hash, sz salt_len, RSAPublicKey* pk);
 
 <*
   RSA private key engine "i31".
@@ -475,7 +475,7 @@ extern fn uint rsa_i31_private(char* x, RSAPrivateKey* sk);
   returns 1 on success, 0 on error.
 *>
 extern fn uint rsa_i31_pkcs1_sign(char* hash_oid,
-    char* hash, usz hash_len,
+    char* hash, sz hash_len,
     RSAPrivateKey* sk, char* x);
 
 <*
@@ -492,24 +492,24 @@ extern fn uint rsa_i31_pkcs1_sign(char* hash_oid,
 *>
 extern fn uint rsa_i31_pss_sign(PRNGClass** rng,
     HashClass* hf_data, HashClass* hf_mgf1,
-    char* hash_value, usz salt_len,
+    char* hash_value, sz salt_len,
     RSAPrivateKey* sk, char* x);
 
 <*
   RSA encryption (OAEP) with the "i31" engine.
   see RSAOAEPEncrypt
 *>
-extern fn usz rsa_i31_oaep_encrypt(PRNGClass** rnd, HashClass* dig,
-    void* label, usz label_len, RSAPublicKey* pk,
-    void* dst, usz dst_max_len,
-    void* src, usz src_len);
+extern fn sz rsa_i31_oaep_encrypt(PRNGClass** rnd, HashClass* dig,
+    void* label, sz label_len, RSAPublicKey* pk,
+    void* dst, sz dst_max_len,
+    void* src, sz src_len);
 
 <*
   RSA decryption (OAEP) with the "i31" engine.
   see RSAOAEPDecrypt
 *>
-extern fn uint rsa_i31_oaep_decrypt(HashClass* dig, void* label, usz label_len,
-    RSAPrivateKey* sk, void* data, usz* len);
+extern fn uint rsa_i31_oaep_decrypt(HashClass* dig, void* label, sz label_len,
+    RSAPrivateKey* sk, void* data, sz* len);
 
 <*
   RSA key pair generation with the "i31" engine.
@@ -524,7 +524,7 @@ extern fn uint rsa_i31_keygen(PRNGClass** rng_ctx,
   Recompute RSA modulus ("i31" engine).
   see RSAComputeModulus
 *>
-extern fn usz rsa_i31_compute_modulus(void* n, RSAPrivateKey* sk);
+extern fn sz rsa_i31_compute_modulus(void* n, RSAPrivateKey* sk);
 
 <*
   Recompute RSA public exponent ("i31" engine).
@@ -536,7 +536,7 @@ extern fn uint rsa_i31_compute_pubexp(RSAPrivateKey* sk);
   Recompute RSA private exponent ("i31" engine).
   see RSAComputePrivexp
 *>
-extern fn usz rsa_i31_compute_privexp(void* d, RSAPrivateKey* sk, uint pubexp);
+extern fn sz rsa_i31_compute_privexp(void* d, RSAPrivateKey* sk, uint pubexp);
 
 // ============================================================
 // Engine: i62
@@ -552,7 +552,7 @@ extern fn usz rsa_i31_compute_privexp(void* d, RSAPrivateKey* sk, uint pubexp);
   param pk    RSA public key.
   returns 1 on success, 0 on error.
 *>
-extern fn uint rsa_i62_public(char* x, usz xlen, RSAPublicKey* pk);
+extern fn uint rsa_i62_public(char* x, sz xlen, RSAPublicKey* pk);
 
 <*
   RSA signature verification "i62" (PKCS#1 v1.5).
@@ -565,8 +565,8 @@ extern fn uint rsa_i62_public(char* x, usz xlen, RSAPublicKey* pk);
   param hash_out  output buffer for the hash value.
   returns 1 on success, 0 on error.
 *>
-extern fn uint rsa_i62_pkcs1_vrfy(char* x, usz xlen,
-    char* hash_oid, usz hash_len,
+extern fn uint rsa_i62_pkcs1_vrfy(char* x, sz xlen,
+    char* hash_oid, sz hash_len,
     RSAPublicKey* pk, char* hash_out);
 
 <*
@@ -581,9 +581,9 @@ extern fn uint rsa_i62_pkcs1_vrfy(char* x, usz xlen,
   param pk        RSA public key.
   returns 1 on success, 0 on error.
 *>
-extern fn uint rsa_i62_pss_vrfy(char* x, usz xlen,
+extern fn uint rsa_i62_pss_vrfy(char* x, sz xlen,
     HashClass* hf_data, HashClass* hf_mgf1,
-    void* hash, usz salt_len, RSAPublicKey* pk);
+    void* hash, sz salt_len, RSAPublicKey* pk);
 
 <*
   RSA private key engine "i62".
@@ -605,7 +605,7 @@ extern fn uint rsa_i62_private(char* x, RSAPrivateKey* sk);
   returns 1 on success, 0 on error.
 *>
 extern fn uint rsa_i62_pkcs1_sign(char* hash_oid,
-    char* hash, usz hash_len,
+    char* hash, sz hash_len,
     RSAPrivateKey* sk, char* x);
 
 <*
@@ -622,24 +622,24 @@ extern fn uint rsa_i62_pkcs1_sign(char* hash_oid,
 *>
 extern fn uint rsa_i62_pss_sign(PRNGClass** rng,
     HashClass* hf_data, HashClass* hf_mgf1,
-    char* hash_value, usz salt_len,
+    char* hash_value, sz salt_len,
     RSAPrivateKey* sk, char* x);
 
 <*
   RSA encryption (OAEP) with the "i62" engine.
   see RSAOAEPEncrypt
 *>
-extern fn usz rsa_i62_oaep_encrypt(PRNGClass** rnd, HashClass* dig,
-    void* label, usz label_len, RSAPublicKey* pk,
-    void* dst, usz dst_max_len,
-    void* src, usz src_len);
+extern fn sz rsa_i62_oaep_encrypt(PRNGClass** rnd, HashClass* dig,
+    void* label, sz label_len, RSAPublicKey* pk,
+    void* dst, sz dst_max_len,
+    void* src, sz src_len);
 
 <*
   RSA decryption (OAEP) with the "i62" engine.
   see RSAOAEPDecrypt
 *>
-extern fn uint rsa_i62_oaep_decrypt(HashClass* dig, void* label, usz label_len,
-    RSAPrivateKey* sk, void* data, usz* len);
+extern fn uint rsa_i62_oaep_decrypt(HashClass* dig, void* label, sz label_len,
+    RSAPrivateKey* sk, void* data, sz* len);
 
 <*
   RSA key pair generation with the "i62" engine.
@@ -693,7 +693,7 @@ extern fn RSAKeygen rsa_i62_keygen_get();
   param pk    RSA public key.
   returns 1 on success, 0 on error.
 *>
-extern fn uint rsa_i15_public(char* x, usz xlen, RSAPublicKey* pk);
+extern fn uint rsa_i15_public(char* x, sz xlen, RSAPublicKey* pk);
 
 <*
   RSA signature verification "i15" (PKCS#1 v1.5).
@@ -706,8 +706,8 @@ extern fn uint rsa_i15_public(char* x, usz xlen, RSAPublicKey* pk);
   param hash_out  output buffer for the hash value.
   returns 1 on success, 0 on error.
 *>
-extern fn uint rsa_i15_pkcs1_vrfy(char* x, usz xlen,
-    char* hash_oid, usz hash_len,
+extern fn uint rsa_i15_pkcs1_vrfy(char* x, sz xlen,
+    char* hash_oid, sz hash_len,
     RSAPublicKey* pk, char* hash_out);
 
 <*
@@ -722,9 +722,9 @@ extern fn uint rsa_i15_pkcs1_vrfy(char* x, usz xlen,
   param pk        RSA public key.
   returns 1 on success, 0 on error.
 *>
-extern fn uint rsa_i15_pss_vrfy(char* x, usz xlen,
+extern fn uint rsa_i15_pss_vrfy(char* x, sz xlen,
     HashClass* hf_data, HashClass* hf_mgf1,
-    void* hash, usz salt_len, RSAPublicKey* pk);
+    void* hash, sz salt_len, RSAPublicKey* pk);
 
 <*
   RSA private key engine "i15".
@@ -746,7 +746,7 @@ extern fn uint rsa_i15_private(char* x, RSAPrivateKey* sk);
   returns 1 on success, 0 on error.
 *>
 extern fn uint rsa_i15_pkcs1_sign(char* hash_oid,
-    char* hash, usz hash_len,
+    char* hash, sz hash_len,
     RSAPrivateKey* sk, char* x);
 
 <*
@@ -763,24 +763,24 @@ extern fn uint rsa_i15_pkcs1_sign(char* hash_oid,
 *>
 extern fn uint rsa_i15_pss_sign(PRNGClass** rng,
     HashClass* hf_data, HashClass* hf_mgf1,
-    char* hash_value, usz salt_len,
+    char* hash_value, sz salt_len,
     RSAPrivateKey* sk, char* x);
 
 <*
   RSA encryption (OAEP) with the "i15" engine.
   see RSAOAEPEncrypt
 *>
-extern fn usz rsa_i15_oaep_encrypt(PRNGClass** rnd, HashClass* dig,
-    void* label, usz label_len, RSAPublicKey* pk,
-    void* dst, usz dst_max_len,
-    void* src, usz src_len);
+extern fn sz rsa_i15_oaep_encrypt(PRNGClass** rnd, HashClass* dig,
+    void* label, sz label_len, RSAPublicKey* pk,
+    void* dst, sz dst_max_len,
+    void* src, sz src_len);
 
 <*
   RSA decryption (OAEP) with the "i15" engine.
   see RSAOAEPDecrypt
 *>
-extern fn uint rsa_i15_oaep_decrypt(HashClass* dig, void* label, usz label_len,
-    RSAPrivateKey* sk, void* data, usz* len);
+extern fn uint rsa_i15_oaep_decrypt(HashClass* dig, void* label, sz label_len,
+    RSAPrivateKey* sk, void* data, sz* len);
 
 <*
   RSA key pair generation with the "i15" engine.
@@ -795,7 +795,7 @@ extern fn uint rsa_i15_keygen(PRNGClass** rng_ctx,
   Recompute RSA modulus ("i15" engine).
   see RSAComputeModulus
 *>
-extern fn usz rsa_i15_compute_modulus(void* n, RSAPrivateKey* sk);
+extern fn sz rsa_i15_compute_modulus(void* n, RSAPrivateKey* sk);
 
 <*
   Recompute RSA public exponent ("i15" engine).
@@ -807,7 +807,7 @@ extern fn uint rsa_i15_compute_pubexp(RSAPrivateKey* sk);
   Recompute RSA private exponent ("i15" engine).
   see RSAComputePrivexp
 *>
-extern fn usz rsa_i15_compute_privexp(void* d, RSAPrivateKey* sk, uint pubexp);
+extern fn sz rsa_i15_compute_privexp(void* d, RSAPrivateKey* sk, uint pubexp);
 
 // ============================================================
 // Default implementation getters
@@ -906,4 +906,4 @@ extern fn RSAComputePrivexp rsa_compute_privexp_get_default();
   returns 1 on success, 0 on error.
 *>
 extern fn uint rsa_ssl_decrypt(RSAPrivate core, RSAPrivateKey* sk,
-    char* data, usz len);
+    char* data, sz len);

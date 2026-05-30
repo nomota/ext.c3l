@@ -6,7 +6,7 @@ module c::sys::stat @if(env::WIN32);
 extern fn CInt _wstat(Char16* path, Stat_t* stat) @if(env::ARCH_32_BIT) @private;
 extern fn CInt _wstat64(Char16* path, Stat_t* stat) @if(env::ARCH_64_BIT) @private;
 
-fn isz utf8to16(ZString zpath, Char16[] wpath) @private
+fn sz utf8to16(ZString zpath, Char16[] wpath) @private
 {
     String path = zpath.str_view();
     Char16[]? p2 = path.to_utf16(mem);
@@ -24,7 +24,7 @@ fn isz utf8to16(ZString zpath, Char16[] wpath) @private
 fn CInt stat(ZString path, Stat_t* stbuf) 
 {
     Char16[520] wpath;
-    isz n = utf8to16(path, &wpath);
+    sz n = utf8to16(path, &wpath);
     if (n < 0) return -1;
     
     $if env::ARCH_32_BIT:

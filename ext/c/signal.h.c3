@@ -8,7 +8,7 @@ alias SigHandler = fn void(int);
 // Special handler values (compared against signal() return value)
 const uptr SIG_DFL = 0;        // Default signal action
 const uptr SIG_IGN = 1;        // Ignore signal
-const uptr SIG_ERR = uptr.max; // Error return from signal()
+const uptr SIG_ERR = uptr::max; // Error return from signal()
 
 // Basic signal functions
 extern fn SigHandler signal(int signum, SigHandler handler);
@@ -247,7 +247,7 @@ struct SigInfo {
 struct Stack {
     void* ss_sp;
     int ss_flags;
-    usz ss_size;
+    sz ss_size;
 }
 
 // Stack flags
@@ -414,7 +414,7 @@ struct SigInfo {
 // Stack structure
 struct Stack {
     void* ss_sp;
-    usz ss_size;
+    sz ss_size;
     int ss_flags;
 }
 
@@ -598,7 +598,7 @@ struct SigInfo {
 // Stack structure
 struct Stack {
     void* ss_sp;
-    usz ss_size;
+    sz ss_size;
     int ss_flags;
 }
 
@@ -786,7 +786,7 @@ struct SigInfo {
 // Stack structure
 struct Stack {
     void* ss_sp;
-    usz ss_size;
+    sz ss_size;
     int ss_flags;
 }
 
@@ -963,7 +963,7 @@ struct SigInfo {
 // Stack structure
 struct Stack {
     void* ss_sp;
-    usz ss_size;
+    sz ss_size;
     int ss_flags;
 }
 

@@ -37,7 +37,7 @@ struct JsonDecoder {
     char[] input;
     char* begin;
     char* end;
-    usz pos;
+    sz pos;
     bool allow_trailing_commas;
     bool allow_comments;
 }
@@ -207,7 +207,7 @@ fn void JsonValue.free(&self)
 
 fn JsonValue? JsonDecoder.parse_string(&self)
 {
-    usz p0 = self.pos;
+    sz p0 = self.pos;
     @assert(*(self.begin+p0) == '"', "string error");
     char* p = self.begin+p0+1;
 
@@ -216,7 +216,7 @@ fn JsonValue? JsonDecoder.parse_string(&self)
         q = find_char(p, self.end, '"')!;
 
         // skip \" while accept \\" as string end
-        usz n_bs = 0; // num backspaces
+        sz n_bs = 0; // num backspaces
         char* r = q-1;
         while (r >= p && *r == '\\') { n_bs++; r--; }
         if (n_bs % 2 == 0) break;
@@ -230,7 +230,7 @@ fn JsonValue? JsonDecoder.parse_string(&self)
     q++;
     self.pos = (q - self.begin);
 
-    any a = any_make(s, String.typeid);
+    any a = any_make(s, String::typeid);
     
     return a;
 }
@@ -239,11 +239,11 @@ const JsonBool TRUE = true;
 const JsonBool FALSE = false;
 const JsonNull NULL = null;
 
-macro warn_linepos(char* begin, usz pos)
+macro warn_linepos(char* begin, sz pos)
 {
     int line = 1;
     int col = 1;
-    for (usz i = 0; i < pos; i++) {
+    for (sz i = 0; i < pos; i++) {
         if (*(begin+i) == '\n')  {
             line++;
             col = 1;
@@ -261,7 +261,7 @@ fn JsonValue? JsonDecoder.parse_true(&self)
         return JSON_INVALID_TOKEN~;
     }
     self.pos += 4;
-    return any_make(&TRUE, bool.typeid);
+    return any_make(&TRUE, bool::typeid);
 }
 
 fn JsonValue? JsonDecoder.parse_false(&self)
@@ -271,7 +271,7 @@ fn JsonValue? JsonDecoder.parse_false(&self)
         return JSON_INVALID_TOKEN~;
     }
     self.pos += 5;
-    return any_make(&FALSE, bool.typeid);
+    return any_make(&FALSE, bool::typeid);
 }
 
 fn JsonValue? JsonDecoder.parse_null(&self)
@@ -281,23 +281,23 @@ fn JsonValue? JsonDecoder.parse_null(&self)
         return JSON_INVALID_TOKEN~;
     }
     self.pos += 4;
-    return any_make(&NULL, JsonNull.typeid);
+    return any_make(&NULL, JsonNull::typeid);
 }
 
 const bool[256] NUM = {
-    [(usz)'0'] = true, [(usz)'1'] = true,
-    [(usz)'2'] = true, [(usz)'3'] = true,
-    [(usz)'4'] = true, [(usz)'5'] = true,
-    [(usz)'6'] = true, [(usz)'7'] = true,
-    [(usz)'8'] = true, [(usz)'9'] = true,
-    [(usz)'e'] = true, [(usz)'E'] = true,
-    [(usz)'+'] = true, [(usz)'-'] = true,
-    [(usz)'.'] = true,
+    [(sz)'0'] = true, [(sz)'1'] = true,
+    [(sz)'2'] = true, [(sz)'3'] = true,
+    [(sz)'4'] = true, [(sz)'5'] = true,
+    [(sz)'6'] = true, [(sz)'7'] = true,
+    [(sz)'8'] = true, [(sz)'9'] = true,
+    [(sz)'e'] = true, [(sz)'E'] = true,
+    [(sz)'+'] = true, [(sz)'-'] = true,
+    [(sz)'.'] = true,
 };
 
 fn bool isnum(char c) @inline @private
 {
-    return NUM[(usz)c];
+    return NUM[(sz)c];
 }
 
 fn JsonValue? JsonDecoder.parse_number(&self)
@@ -325,7 +325,7 @@ fn JsonValue? JsonDecoder.parse_number(&self)
     JsonNumber* num = localmem.alloc(JsonNumber)!;
     *num = p[0:q-p];
     self.pos = q-self.begin;
-    any a = any_make(num, JsonNumber.typeid);
+    any a = any_make(num, JsonNumber::typeid);
     return a;
 }
 
@@ -376,7 +376,7 @@ fn JsonValue? JsonDecoder.parse_array(&self)
         warn_linepos(self.begin, self.pos);
         return JSON_INVALID_TOKEN~;
     }
-    any a = any_make(l, List{any}.typeid);
+    any a = any_make(l, List{any}::typeid);
     return a;
 }
 
@@ -449,7 +449,7 @@ fn JsonValue? JsonDecoder.parse_object(&self)
         return JSON_INVALID_TOKEN~;
     }
 
-    any a = any_make(m, HashMap{String,any}.typeid);
+    any a = any_make(m, HashMap{String,any}::typeid);
     return a;
 }
 
@@ -493,12 +493,12 @@ fn JsonValue? JsonDecoder.parse_value(&self)
 
 fn bool JsonValue.is_null(&self)
 {
-    return (self.type == JsonNull.typeid);
+    return (self.type == JsonNull::typeid);
 }
 
 fn bool JsonValue.is_bool(&self)
 {
-    if (self.type == JsonBool.typeid) {
+    if (self.type == JsonBool::typeid) {
         return true;
     }
     return false;
@@ -506,10 +506,10 @@ fn bool JsonValue.is_bool(&self)
 
 fn bool JsonValue.is_int(&self)
 {
-    if (self.type == JsonNumber.typeid) {
+    if (self.type == JsonNumber::typeid) {
         char[]* n = (char[]*) *self;
         bool is_int = true;
-        for (usz i = 0; i < n.len; i++) {
+        for (sz i = 0; i < n.len; i++) {
             if ((*n)[i] == '.' || (*n)[i] == 'e' || (*n)[i] == 'E')
             {
                 is_int = false;
@@ -523,7 +523,7 @@ fn bool JsonValue.is_int(&self)
 
 fn bool JsonValue.is_float(&self)
 {
-    if (self.type == JsonNumber.typeid) {
+    if (self.type == JsonNumber::typeid) {
         return ! self.is_int();
     }
     return false;
@@ -531,7 +531,7 @@ fn bool JsonValue.is_float(&self)
 
 fn bool JsonValue.is_string(&self)
 {
-    if (self.type == String.typeid) {
+    if (self.type == String::typeid) {
         return true;
     }
     return false;
@@ -539,7 +539,7 @@ fn bool JsonValue.is_string(&self)
 
 fn bool JsonValue.is_array(&self)
 {
-    if (self.type == List{JsonValue}.typeid) {
+    if (self.type == List{JsonValue}::typeid) {
         return true;
     }
     return false;
@@ -547,7 +547,7 @@ fn bool JsonValue.is_array(&self)
 
 fn bool JsonValue.is_object(&self)
 {
-    if (self.type == HashMap{String, JsonValue}.typeid) {
+    if (self.type == HashMap{String, JsonValue}::typeid) {
         return true;
     }
     return false;
@@ -646,43 +646,43 @@ fn JsonObject? JsonObject.get_object(&self, String key)
 }
 
 /*
-fn usz JsonArray.len(&self)
+fn sz JsonArray.len(&self)
 {
     return self.len();
 }
 */
 
-fn JsonValue? JsonArray.at(&self, usz index)
+fn JsonValue? JsonArray.at(&self, sz index)
 {
     return (*self)[index];
 }
 
-fn String? JsonArray.get_string(&self, usz index)
+fn String? JsonArray.get_string(&self, sz index)
 {
     return (*self)[index].as_string()!;
 }
 
-fn long? JsonArray.get_int(&self, usz index)
+fn long? JsonArray.get_int(&self, sz index)
 {
     return (*self)[index].as_int();
 }
 
-fn double? JsonArray.get_float(&self, usz index)
+fn double? JsonArray.get_float(&self, sz index)
 {
     return (*self)[index].as_float();
 }
 
-fn bool? JsonArray.get_bool(&self, usz index)
+fn bool? JsonArray.get_bool(&self, sz index)
 {
     return (*self)[index].as_bool();
 }
 
-fn JsonArray? JsonArray.get_array(&self, usz index)
+fn JsonArray? JsonArray.get_array(&self, sz index)
 {
     return (*self)[index].as_array();
 }
 
-fn JsonObject? JsonArray.get_object(&self, usz index)
+fn JsonObject? JsonArray.get_object(&self, sz index)
 {
     return (*self)[index].as_object();
 }
@@ -731,7 +731,7 @@ fn String unescape_str(String str) @private
     DString buf;
     buf.init(localmem);
 
-    usz i = 0;
+    sz i = 0;
     while (i < str.len) {
         char c = str[i];
         if (c != '\\') {

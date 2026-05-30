@@ -28,7 +28,7 @@ module ext::net::tls;
   param seed       initial seed bytes.
   param seed_len   initial seed length (in bytes).
 *>
-alias PRNGInitFn     = fn void(PRNGClass** ctx, void* params, void* seed, usz seed_len);
+alias PRNGInitFn     = fn void(PRNGClass** ctx, void* params, void* seed, sz seed_len);
 
 <*
   Produce pseudo-random bytes.
@@ -41,7 +41,7 @@ alias PRNGInitFn     = fn void(PRNGClass** ctx, void* params, void* seed, usz se
   param out   output buffer.
   param len   number of pseudo-random bytes to produce.
 *>
-alias PRNGGenerateFn = fn void(PRNGClass** ctx, void* out, usz len);
+alias PRNGGenerateFn = fn void(PRNGClass** ctx, void* out, sz len);
 
 <*
   Inject additional entropy into the PRNG.
@@ -54,7 +54,7 @@ alias PRNGGenerateFn = fn void(PRNGClass** ctx, void* out, usz len);
   param seed       additional seed bytes.
   param seed_len   additional seed length (in bytes).
 *>
-alias PRNGUpdateFn   = fn void(PRNGClass** ctx, void* seed, usz seed_len);
+alias PRNGUpdateFn   = fn void(PRNGClass** ctx, void* seed, sz seed_len);
 
 // ============================================================================
 // PRNG Vtable Structure
@@ -69,7 +69,7 @@ alias PRNGUpdateFn   = fn void(PRNGClass** ctx, void* seed, usz seed_len);
 *>
 struct PRNGClass {
     <* Size (in bytes) of the context structure for this PRNG. *>
-    usz          context_size;
+    sz          context_size;
 
     <*
       Initialise the PRNG context with an initial seed.
@@ -163,7 +163,7 @@ extern PRNGClass hmac_drbg_vtable;
   param seed_len       initial seed length (in bytes).
 *>
 extern fn void hmac_drbg_init(HMACDRBGContext* ctx,
-    HashClass* digest_class, void* seed, usz seed_len);
+    HashClass* digest_class, void* seed, sz seed_len);
 
 <*
   Generate pseudo-random bytes with HMAC_DRBG.
@@ -175,7 +175,7 @@ extern fn void hmac_drbg_init(HMACDRBGContext* ctx,
   param out   output buffer.
   param len   number of pseudo-random bytes to produce.
 *>
-extern fn void hmac_drbg_generate(HMACDRBGContext* ctx, void* out, usz len);
+extern fn void hmac_drbg_generate(HMACDRBGContext* ctx, void* out, sz len);
 
 <*
   Inject additional entropy into HMAC_DRBG.
@@ -187,7 +187,7 @@ extern fn void hmac_drbg_generate(HMACDRBGContext* ctx, void* out, usz len);
   param seed       additional seed bytes.
   param seed_len   additional seed length (in bytes).
 *>
-extern fn void hmac_drbg_update(HMACDRBGContext* ctx, void* seed, usz seed_len);
+extern fn void hmac_drbg_update(HMACDRBGContext* ctx, void* seed, sz seed_len);
 
 <*
   Get the hash function vtable used by an HMAC_DRBG context.
@@ -255,7 +255,7 @@ extern PRNGClass aesctr_drbg_vtable;
   param seed_len   initial seed length (in bytes).
 *>
 extern fn void aesctr_drbg_init(AESCTRDRBGContext* ctx,
-    BlockCTRClass* aesctr, void* seed, usz seed_len);
+    BlockCTRClass* aesctr, void* seed, sz seed_len);
 
 <*
   Generate pseudo-random bytes with AESCTR_DRBG.
@@ -266,7 +266,7 @@ extern fn void aesctr_drbg_init(AESCTRDRBGContext* ctx,
   param out   output buffer.
   param len   number of pseudo-random bytes to produce.
 *>
-extern fn void aesctr_drbg_generate(AESCTRDRBGContext* ctx, void* out, usz len);
+extern fn void aesctr_drbg_generate(AESCTRDRBGContext* ctx, void* out, sz len);
 
 <*
   Inject additional entropy into AESCTR_DRBG.
@@ -278,4 +278,4 @@ extern fn void aesctr_drbg_generate(AESCTRDRBGContext* ctx, void* out, usz len);
   param seed       additional seed bytes.
   param seed_len   additional seed length (in bytes).
 *>
-extern fn void aesctr_drbg_update(AESCTRDRBGContext* ctx, void* seed, usz seed_len);
+extern fn void aesctr_drbg_update(AESCTRDRBGContext* ctx, void* seed, sz seed_len);

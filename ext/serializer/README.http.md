@@ -14,7 +14,7 @@
 
 ### Exqmples
 
-* [../../examples/serializer/http_sample.c3](../../examples/serializer/http_sample.c3)
+* [../../test/serializer/http_sample.c3](../../test/serializer/http_sample.c3)
 
 This is a part of the extended C3 library.
 Back to [ext.c3l](../../README.md) library.
@@ -88,7 +88,7 @@ struct Request {
     KeyValue[MAX] headers;
     uint n_headers;
 
-    usz  content_length;  // decoded from Content-Length header
+    sz  content_length;  // decoded from Content-Length header
     bool chunked;         // true when Transfer-Encoding: chunked
 
     Url    url;
@@ -98,10 +98,10 @@ struct Request {
     uint n_cookies;
 
     KeyValue[MAX] queries;
-    usz n_queries;
+    sz n_queries;
 
     KeyValue[MAX] form;
-    usz n_form;
+    sz n_form;
 
     FormFile[MAX] files;
     uint n_files;
@@ -146,11 +146,11 @@ struct Response {
     KeyValue[MAX] headers;
     uint n_headers;
 
-    usz  content_length;
+    sz  content_length;
     bool chunked;
 
     SetCookie[MAX] set_cookies;
-    usz n_set_cookies;
+    sz n_set_cookies;
 
     char* body;
 }
@@ -220,7 +220,7 @@ io::printfn("host : %s", req.url.host);
 io::printfn("path : %s", req.url.path);
 
 req.decode_query();
-for (usz i = 0; i < req.n_queries; i++) {
+for (sz i = 0; i < req.n_queries; i++) {
     io::printfn("%s = %s", req.queries[i].key, req.queries[i].value);
 }
 ```
@@ -241,7 +241,7 @@ req.decode_content_length();
 req.decode_form();
 
 // URL-encoded or multipart text fields
-for (usz i = 0; i < req.n_form; i++) {
+for (sz i = 0; i < req.n_form; i++) {
     io::printfn("%s = %s", req.form[i].key, req.form[i].value);
 }
 
@@ -267,7 +267,7 @@ Response resp;
 http::parse_response(buf, buf + len, &resp)!;
 resp.decode_setcookies();
 
-for (usz i = 0; i < resp.n_set_cookies; i++) {
+for (sz i = 0; i < resp.n_set_cookies; i++) {
     SetCookie* sc = &resp.set_cookies[i];
     io::printfn("%s=%s; Path=%s; Secure=%s",
         sc.name, sc.value, sc.path, sc.secure ? "true" : "false");

@@ -67,7 +67,7 @@ fn void? UdpSocket.bind(sock, ushort port, String opt_ip = "*") @maydiscard
         socket::SOL_SOCKET,
         socket::SO_REUSEADDR,
         (void*)&option,
-        $sizeof(option)
+        @sizeof(option)
     );
     if (r < 0) return errno::get_fault()~;
 
@@ -76,7 +76,7 @@ fn void? UdpSocket.bind(sock, ushort port, String opt_ip = "*") @maydiscard
         socket::SOL_SOCKET,
         socket::SO_REUSEPORT,
         (void*)&option,
-        $sizeof(option)
+        @sizeof(option)
     );
     if (r < 0) return errno::get_fault()~;
 
@@ -106,7 +106,7 @@ fn void? UdpSocket.bind(sock, ushort port, String opt_ip = "*") @maydiscard
 
         adr.sin6_port = in::htons(port);
 
-        if (socket::bind(sock, (socket::SockAddr*)&adr, $sizeof(adr)) < 0)
+        if (socket::bind(sock, (socket::SockAddr*)&adr, @sizeof(adr)) < 0)
         {
             return errno::get_fault()~;
         }
@@ -135,7 +135,7 @@ fn void? UdpSocket.bind(sock, ushort port, String opt_ip = "*") @maydiscard
 
         adr.sin_port = in::htons(port);
 
-        if (socket::bind(sock, (socket::SockAddr*)&adr, $sizeof(adr)) < 0)
+        if (socket::bind(sock, (socket::SockAddr*)&adr, @sizeof(adr)) < 0)
         {
             return errno::get_fault()~;
         }
@@ -155,14 +155,14 @@ fn UdpSocket? new_bind(ushort port, String ip = "*")
 
 char[1] __null__;
 
-fn usz? UdpSocket.recvfrom(sock, char[] msgbuf, char[] ip = &__null__, ushort* port = null)
+fn sz? UdpSocket.recvfrom(sock, char[] msgbuf, char[] ip = &__null__, ushort* port = null)
 {
     if (msgbuf.len == 0) return 0;
 
     socket::SockAddrStorage adr = {};
-    socket::SockLen size = $sizeof(adr);
+    socket::SockLen size = @sizeof(adr);
 
-    isz len = socket::recvfrom(
+    sz len = socket::recvfrom(
         sock,
         msgbuf.ptr,
         msgbuf.len,
@@ -202,10 +202,10 @@ fn usz? UdpSocket.recvfrom(sock, char[] msgbuf, char[] ip = &__null__, ushort* p
         }
     }
 
-    return (usz)len;
+    return (sz)len;
 }
 
-fn usz? UdpSocket.sendto(sock, char[] msgbuf, String ip, ushort port)
+fn sz? UdpSocket.sendto(sock, char[] msgbuf, String ip, ushort port)
 {
     if (msgbuf.len == 0) return 0;
 
@@ -224,18 +224,18 @@ fn usz? UdpSocket.sendto(sock, char[] msgbuf, String ip, ushort port)
         if (rc == 0) return errno::E_INVALID_ARG~;
         if (rc < 0) return errno::get_fault()~;
 
-        isz len = socket::sendto(
+        sz len = socket::sendto(
             sock,
             msgbuf.ptr,
             msgbuf.len,
             0,
             (socket::SockAddr*)&adr,
-            $sizeof(adr)
+            @sizeof(adr)
         );
 
         if (len < 0) return socket_fault()~;
 
-        return (usz)len;
+        return (sz)len;
     }
     else
     {
@@ -250,39 +250,39 @@ fn usz? UdpSocket.sendto(sock, char[] msgbuf, String ip, ushort port)
         if (rc == 0) return errno::E_INVALID_ARG~;
         if (rc < 0) return errno::get_fault()~;
 
-        isz len = socket::sendto(
+        sz len = socket::sendto(
             sock,
             msgbuf.ptr,
             msgbuf.len,
             0,
             (socket::SockAddr*)&adr,
-            $sizeof(adr)
+            @sizeof(adr)
         );
 
         if (len < 0) return socket_fault()~;
 
-        return (usz)len;
+        return (sz)len;
     }
 }
 
-fn usz? UdpSocket.send(sock, char[] buf)
+fn sz? UdpSocket.send(sock, char[] buf)
 {
     if (buf.len == 0) return 0;
 
-    isz n = socket::send(sock, buf.ptr, buf.len, 0);
+    sz n = socket::send(sock, buf.ptr, buf.len, 0);
     if (n < 0) return socket_fault()~;
 
-    return (usz)n;
+    return (sz)n;
 }
 
-fn usz? UdpSocket.recv(sock, char[] buf)
+fn sz? UdpSocket.recv(sock, char[] buf)
 {
     if (buf.len == 0) return 0;
 
-    isz n = socket::recv(sock, buf.ptr, buf.len, 0);
+    sz n = socket::recv(sock, buf.ptr, buf.len, 0);
     if (n < 0) return socket_fault()~;
 
-    return (usz)n;
+    return (sz)n;
 }
 
 fn void? UdpSocket.set_non_blocking(sock) @maydiscard

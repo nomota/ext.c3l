@@ -18,9 +18,9 @@ extern fn int posix_fadvise(int fd, long offset, long len, int advice);
 extern fn int posix_fallocate(int fd, long offset, long len);
 
 // Splice and pipe functions (Linux-specific)
-extern fn long splice(int fd_in, long* off_in, int fd_out, long* off_out, usz len, uint flags);
-extern fn long tee(int fd_in, int fd_out, usz len, uint flags);
-extern fn long vmsplice(int fd, IovecPtr* iov, usz nr_segs, uint flags);
+extern fn long splice(int fd_in, long* off_in, int fd_out, long* off_out, sz len, uint flags);
+extern fn long tee(int fd_in, int fd_out, sz len, uint flags);
+extern fn long vmsplice(int fd, IovecPtr* iov, sz nr_segs, uint flags);
 
 extern fn int fallocate(int fd, int mode, long offset, long len);
 
@@ -31,12 +31,12 @@ extern fn void sync();
 extern fn int syncfs(int fd);
 
 // Read/Write with offset (pread/pwrite family)
-extern fn isz pread(int fd, void* buf, usz count, long offset);
-extern fn isz pwrite(int fd, void* buf, usz count, long offset);
-extern fn isz preadv(int fd, IovecPtr* iov, int iovcnt, long offset);
-extern fn isz pwritev(int fd, IovecPtr* iov, int iovcnt, long offset);
-extern fn isz preadv2(int fd, IovecPtr* iov, int iovcnt, long offset, int flags);
-extern fn isz pwritev2(int fd, IovecPtr* iov, int iovcnt, long offset, int flags);
+extern fn sz pread(int fd, void* buf, sz count, long offset);
+extern fn sz pwrite(int fd, void* buf, sz count, long offset);
+extern fn sz preadv(int fd, IovecPtr* iov, int iovcnt, long offset);
+extern fn sz pwritev(int fd, IovecPtr* iov, int iovcnt, long offset);
+extern fn sz preadv2(int fd, IovecPtr* iov, int iovcnt, long offset, int flags);
+extern fn sz pwritev2(int fd, IovecPtr* iov, int iovcnt, long offset, int flags);
 
 // File descriptor duplication
 extern fn int dup(int oldfd);
@@ -47,21 +47,21 @@ extern fn int name_to_handle_at(int dirfd, char* pathname, FileHandle* handle, i
 extern fn int open_by_handle_at(int mount_fd, FileHandle* handle, int flags);
 
 // Linux: readahead
-extern fn isz readahead(int fd, long offset, usz count);
+extern fn sz readahead(int fd, long offset, sz count);
 
 extern fn int sync_file_range(int fd, long offset, long nbytes, uint flags);
 
 extern fn int memfd_create(char* name, uint flags);
 
 // Copy file range (Linux)
-extern fn isz copy_file_range(int fd_in, long* off_in, int fd_out, long* off_out, usz len, uint flags);
+extern fn sz copy_file_range(int fd_in, long* off_in, int fd_out, long* off_out, sz len, uint flags);
 
 // ========== Type Definitions ==========
 
 // Helper type for iovec
 struct IovecPtr {
     void* iov_base;
-    usz iov_len;
+    sz iov_len;
 }
 
 // File lock structure
@@ -277,10 +277,10 @@ extern fn int fdatasync(int fd);
 extern fn void sync();
 
 // Read/Write with offset (pread/pwrite family)
-extern fn isz pread(int fd, void* buf, usz count, long offset);
-extern fn isz pwrite(int fd, void* buf, usz count, long offset);
-extern fn isz preadv(int fd, IovecPtr* iov, int iovcnt, long offset);
-extern fn isz pwritev(int fd, IovecPtr* iov, int iovcnt, long offset);
+extern fn sz pread(int fd, void* buf, sz count, long offset);
+extern fn sz pwrite(int fd, void* buf, sz count, long offset);
+extern fn sz preadv(int fd, IovecPtr* iov, int iovcnt, long offset);
+extern fn sz pwritev(int fd, IovecPtr* iov, int iovcnt, long offset);
 
 // File descriptor duplication
 extern fn int dup(int oldfd);
@@ -291,7 +291,7 @@ extern fn int dup2(int oldfd, int newfd);
 // Helper type for iovec
 struct IovecPtr {
     void* iov_base;
-    usz iov_len;
+    sz iov_len;
 }
 
 // File lock structure
@@ -467,10 +467,10 @@ extern fn int fdatasync(int fd);
 extern fn void sync();
 
 // Read/Write with offset (pread/pwrite family)
-extern fn isz pread(int fd, void* buf, usz count, long offset);
-extern fn isz pwrite(int fd, void* buf, usz count, long offset);
-extern fn isz preadv(int fd, IovecPtr* iov, int iovcnt, long offset);
-extern fn isz pwritev(int fd, IovecPtr* iov, int iovcnt, long offset);
+extern fn sz pread(int fd, void* buf, sz count, long offset);
+extern fn sz pwrite(int fd, void* buf, sz count, long offset);
+extern fn sz preadv(int fd, IovecPtr* iov, int iovcnt, long offset);
+extern fn sz pwritev(int fd, IovecPtr* iov, int iovcnt, long offset);
 
 // File descriptor duplication
 extern fn int dup(int oldfd);
@@ -481,7 +481,7 @@ extern fn int dup2(int oldfd, int newfd);
 // Helper type for iovec
 struct IovecPtr {
     void* iov_base;
-    usz iov_len;
+    sz iov_len;
 }
 
 // File lock structure
@@ -668,10 +668,10 @@ extern fn int fdatasync(int fd);
 extern fn void sync();
 
 // Read/Write with offset (pread/pwrite family)
-extern fn isz pread(int fd, void* buf, usz count, long offset);
-extern fn isz pwrite(int fd, void* buf, usz count, long offset);
-extern fn isz preadv(int fd, IovecPtr* iov, int iovcnt, long offset);
-extern fn isz pwritev(int fd, IovecPtr* iov, int iovcnt, long offset);
+extern fn sz pread(int fd, void* buf, sz count, long offset);
+extern fn sz pwrite(int fd, void* buf, sz count, long offset);
+extern fn sz preadv(int fd, IovecPtr* iov, int iovcnt, long offset);
+extern fn sz pwritev(int fd, IovecPtr* iov, int iovcnt, long offset);
 
 // File descriptor duplication
 extern fn int dup(int oldfd);
@@ -682,7 +682,7 @@ extern fn int dup2(int oldfd, int newfd);
 // Helper type for iovec
 struct IovecPtr {
     void* iov_base;
-    usz iov_len;
+    sz iov_len;
 }
 
 // File lock structure
@@ -834,10 +834,10 @@ extern fn int fdatasync(int fd);
 extern fn void sync();
 
 // Read/Write with offset (pread/pwrite family)
-extern fn isz pread(int fd, void* buf, usz count, long offset);
-extern fn isz pwrite(int fd, void* buf, usz count, long offset);
-extern fn isz preadv(int fd, IovecPtr* iov, int iovcnt, long offset);
-extern fn isz pwritev(int fd, IovecPtr* iov, int iovcnt, long offset);
+extern fn sz pread(int fd, void* buf, sz count, long offset);
+extern fn sz pwrite(int fd, void* buf, sz count, long offset);
+extern fn sz preadv(int fd, IovecPtr* iov, int iovcnt, long offset);
+extern fn sz pwritev(int fd, IovecPtr* iov, int iovcnt, long offset);
 
 // File descriptor duplication
 extern fn int dup(int oldfd);
@@ -848,7 +848,7 @@ extern fn int dup2(int oldfd, int newfd);
 // Helper type for iovec
 struct IovecPtr {
     void* iov_base;
-    usz iov_len;
+    sz iov_len;
 }
 
 // File lock structure

@@ -85,7 +85,7 @@ fn void? main_task(void* arg)
     stream.write("hello\n"[..])!;
 
     char[1024] buf;
-    usz n = stream.read(buf[..])!;
+    sz n = stream.read(buf[..])!;
 
     warn("received: %.*s", n, buf.ptr);
 
@@ -112,7 +112,7 @@ fn void? handle_client(void* arg)
 
     while (!stream.closed)
     {
-        usz n = stream.read(buf[..])!;
+        sz n = stream.read(buf[..])!;
         if (n == 0) break;
 
         stream.write(buf[0:n])!;
@@ -153,7 +153,7 @@ fn void? main_task(void* arg)
 
     while (!dgram.closed)
     {
-        usz n = dgram.recvfrom(buf[..], &addr)!;
+        sz n = dgram.recvfrom(buf[..], &addr)!;
 
         String ip = (String)addr.ip[0:addr.ip_len];
 
@@ -223,14 +223,14 @@ import ext::aio::io;
 
 fn void? main_task(void* arg)
 {
-    Fd fd = io::file_open("hello.txt", "w+")!;
-    defer io::file_close(fd);
+    File f = aio::file_open("hello.txt", "w+")!;
+    defer f.close();
 
-    io::file_write(fd, "hello file\n"[..])!;
-    io::file_seek(fd, 0, 0)!;
+    f.write("hello file\n"[..])!;
+    r.seek(0, 0)!;
 
     char[128] buf;
-    usz n = io::file_read(fd, buf[..])!;
+    sz n = f.read(buf[..])!;
 }
 
 fn void main()

@@ -181,7 +181,7 @@ alias StreamWriter = fn void(SseWriter*);
 
 // RawStreamWriter: for non-SSE chunked responses; write raw bytes into buf.
 // Return the number of bytes written, or 0 to signal end of stream.
-alias RawStreamWriter = fn usz(char* buf, usz cap, void* ctx);
+alias RawStreamWriter = fn sz(char* buf, sz cap, void* ctx);
 
 // WsHandler: coroutine invoked after a WebSocket upgrade.
 alias WsHandler = fn void(WsConn*);
@@ -220,10 +220,10 @@ struct FiberConfig {
     bool   enable_print_routes;      // print registered routes on startup
     bool   stream_request_body;      // stream large request bodies instead of buffering
 
-    usz    body_limit;               // max request body size in bytes (default 4 MiB)
-    usz    concurrency;              // max concurrent connections (default 256 KiB)
-    usz    read_buffer_size;         // per-connection read buffer (default 4096)
-    usz    write_buffer_size;        // per-connection write buffer (default 4096)
+    sz    body_limit;               // max request body size in bytes (default 4 MiB)
+    sz    concurrency;              // max concurrent connections (default 256 KiB)
+    sz    read_buffer_size;         // per-connection read buffer (default 4096)
+    sz    write_buffer_size;        // per-connection write buffer (default 4096)
 
     ulong  read_timeout_us;          // microseconds; 0 = no timeout
     ulong  write_timeout_us;
@@ -237,7 +237,7 @@ struct FiberConfig {
     int    network;                  // NETWORK_TCP | NETWORK_TCP4 | NETWORK_TCP6
 
     String* trusted_proxies;         // array of trusted proxy IP strings / CIDR ranges
-    usz     trusted_proxy_count;
+    sz     trusted_proxy_count;
 
     ErrorHandler error_handler;      // global error handler; null uses the default
 }
@@ -264,7 +264,7 @@ struct Route {
     String   path;      // original URL pattern e.g. "/items/:id"
     String   name;      // name set via .name(); empty if not named
     Handler* handlers;  // middleware chain followed by the terminal handler
-    usz      handler_count;
+    sz      handler_count;
 }
 
 // RouterGroup: a route group created by app.group() or group.group()
@@ -272,7 +272,7 @@ struct Route {
 struct RouterGroup {
     String    prefix;         // URL prefix for all routes in this group
     Handler*  middlewares;    // middleware applied to every route in this group
-    usz       middleware_count;
+    sz       middleware_count;
     FiberApp* app;            // back-reference to the owning application
 }
 ```
@@ -286,9 +286,9 @@ import ext::fiber;
 struct FileHeader {
     String filename;       // original filename as sent by the client
     String content_type;   // MIME type declared by the client
-    usz    size;           // file size in bytes
+    sz    size;           // file size in bytes
     char*  data;           // buffered file bytes; null if stream_request_body is true
-    usz    data_len;
+    sz    data_len;
 }
 
 // FormatEntry: one MIME-type-to-handler mapping used by ctx.format()
@@ -328,8 +328,8 @@ struct Ctx {
     // Locals: per-request opaque pointer store (equivalent to fiber.Locals)
     String* local_keys;
     void**  local_values;
-    usz     local_count;
-    usz     local_cap;
+    sz     local_count;
+    sz     local_cap;
 
     FiberApp* app;       // the owning application
     Route*    route;     // the matched route; null inside global middleware
@@ -346,11 +346,11 @@ struct FiberApp {
     FiberConfig config;
 
     Route*       routes;
-    usz          route_count;
-    usz          route_cap;
+    sz          route_count;
+    sz          route_cap;
 
     RouterGroup* groups;
-    usz          group_count;
+    sz          group_count;
 
     asyncio::EventLoop* loop; // the underlying asyncio event loop
 }
@@ -429,7 +429,7 @@ struct BasicAuthConfig {
 // ProxyConfig: options for the reverse-proxy / load-balancer middleware
 struct ProxyConfig {
     String*       servers;         // backend URL strings
-    usz           server_count;
+    sz           server_count;
     ProxyModifier modify_request;  // called before forwarding; null for no modification
 }
 
@@ -464,8 +464,8 @@ struct SessionStore {
 struct FiberSession {
     String* keys;
     void**  values;
-    usz     count;
-    usz     capacity;
+    sz     count;
+    sz     capacity;
 }
 ```
 
@@ -477,17 +477,17 @@ import ext::fiber::ws;
 // WsConfig: options for the WebSocket upgrade
 struct WsConfig {
     ulong   handshake_timeout_us; // upgrade handshake deadline in microseconds
-    usz     read_buffer_size;
-    usz     write_buffer_size;
+    sz     read_buffer_size;
+    sz     write_buffer_size;
     String* origins;              // allowed Origin header values; null = allow all
-    usz     origin_count;
+    sz     origin_count;
 }
 
 // WsConn: an active WebSocket connection handed to a WsHandler
 struct WsConn {
     String* local_keys;    // Locals inherited from the HTTP upgrade request
     void**  local_values;
-    usz     local_count;
+    sz     local_count;
 }
 ```
 
@@ -544,21 +544,21 @@ import ext::fiber;
 
 // Register a handler for an explicit method string and path pattern.
 // handlers is a middleware chain; the last entry is the terminal handler.
-Route* app.add(String method, String path, Handler* handlers, usz handler_count);
+Route* app.add(String method, String path, Handler* handlers, sz handler_count);
 
 // Shorthand per-method registration; each accepts one or more chained handlers
-Route* app.get(String path, Handler* handlers, usz handler_count);
-Route* app.post(String path, Handler* handlers, usz handler_count);
-Route* app.put(String path, Handler* handlers, usz handler_count);
-Route* app.patch(String path, Handler* handlers, usz handler_count);
-Route* app.delete(String path, Handler* handlers, usz handler_count);
-Route* app.head(String path, Handler* handlers, usz handler_count);
-Route* app.options(String path, Handler* handlers, usz handler_count);
-Route* app.connect(String path, Handler* handlers, usz handler_count);
-Route* app.trace(String path, Handler* handlers, usz handler_count);
+Route* app.get(String path, Handler* handlers, sz handler_count);
+Route* app.post(String path, Handler* handlers, sz handler_count);
+Route* app.put(String path, Handler* handlers, sz handler_count);
+Route* app.patch(String path, Handler* handlers, sz handler_count);
+Route* app.delete(String path, Handler* handlers, sz handler_count);
+Route* app.head(String path, Handler* handlers, sz handler_count);
+Route* app.options(String path, Handler* handlers, sz handler_count);
+Route* app.connect(String path, Handler* handlers, sz handler_count);
+Route* app.trace(String path, Handler* handlers, sz handler_count);
 
 // Register handlers for all HTTP methods
-Route* app.all(String path, Handler* handlers, usz handler_count);
+Route* app.all(String path, Handler* handlers, sz handler_count);
 
 // Assign a name to a route for URL building
 Route* route.name(String name); // chainable: returns the same Route*
@@ -573,10 +573,10 @@ Route* route = app.get_route(String name);
 import ext::fiber;
 
 // Register middleware for all routes (path="" means all paths)
-void app.use(String path, Handler* middlewares, usz middleware_count);
+void app.use(String path, Handler* middlewares, sz middleware_count);
 
 // Convenience: register middleware without a path prefix (matches everything)
-void app.use_all(Handler* middlewares, usz middleware_count);
+void app.use_all(Handler* middlewares, sz middleware_count);
 ```
 
 #### Route groups
@@ -585,24 +585,24 @@ void app.use_all(Handler* middlewares, usz middleware_count);
 import ext::fiber;
 
 // Create a sub-router for path; optionally attach middleware to the group
-RouterGroup* group = app.group(String prefix, Handler* middlewares, usz middleware_count);
+RouterGroup* group = app.group(String prefix, Handler* middlewares, sz middleware_count);
 
 // Same shorthand methods as FiberApp, scoped to the group prefix
-Route* group.get(String path, Handler* handlers, usz handler_count);
-Route* group.post(String path, Handler* handlers, usz handler_count);
-Route* group.put(String path, Handler* handlers, usz handler_count);
-Route* group.patch(String path, Handler* handlers, usz handler_count);
-Route* group.delete(String path, Handler* handlers, usz handler_count);
-Route* group.head(String path, Handler* handlers, usz handler_count);
-Route* group.options(String path, Handler* handlers, usz handler_count);
-Route* group.all(String path, Handler* handlers, usz handler_count);
-Route* group.add(String method, String path, Handler* handlers, usz handler_count);
+Route* group.get(String path, Handler* handlers, sz handler_count);
+Route* group.post(String path, Handler* handlers, sz handler_count);
+Route* group.put(String path, Handler* handlers, sz handler_count);
+Route* group.patch(String path, Handler* handlers, sz handler_count);
+Route* group.delete(String path, Handler* handlers, sz handler_count);
+Route* group.head(String path, Handler* handlers, sz handler_count);
+Route* group.options(String path, Handler* handlers, sz handler_count);
+Route* group.all(String path, Handler* handlers, sz handler_count);
+Route* group.add(String method, String path, Handler* handlers, sz handler_count);
 
 // Nest a sub-group under this group
-RouterGroup* subgroup = group.group(String prefix, Handler* middlewares, usz middleware_count);
+RouterGroup* subgroup = group.group(String prefix, Handler* middlewares, sz middleware_count);
 
 // Register global middleware for all routes in this group
-void group.use(Handler* middlewares, usz middleware_count);
+void group.use(Handler* middlewares, sz middleware_count);
 ```
 
 #### Static file serving
@@ -626,10 +626,10 @@ import ext::fiber;
 // param_keys and param_values are parallel arrays of length param_count.
 // Extra keys become query parameters.
 // Returns null when the named route does not exist.
-String? url = route.build_url(String* param_keys, String* param_values, usz param_count);
+String? url = route.build_url(String* param_keys, String* param_values, sz param_count);
 
 // Same but callable from inside a handler; looks up by name on app.get_route()
-String? url = ctx.get_route_url(String name, String* param_keys, String* param_values, usz param_count);
+String? url = ctx.get_route_url(String name, String* param_keys, String* param_values, sz param_count);
 ```
 
 #### Ctx: request accessors
@@ -679,7 +679,7 @@ void? ctx.save_file(FileHeader* fh, String dest_path);
 bool b = ctx.is(String type);
 
 // Content negotiation: return best-match MIME type from offers, or "" for no match
-String best = ctx.accepts(String* offers, usz count);
+String best = ctx.accepts(String* offers, sz count);
 
 // Whether the request is from the same host as the server
 bool b = ctx.is_from_local();
@@ -707,10 +707,10 @@ fault? ctx.send(char[] data);
 fault? ctx.send_string(String s);
 
 // Send pre-serialized JSON bytes; sets Content-Type to application/json
-fault? ctx.json(char* json_str, usz json_len);
+fault? ctx.json(char* json_str, sz json_len);
 
 // Send pre-serialized XML bytes; sets Content-Type to application/xml
-fault? ctx.xml(char* xml_str, usz xml_len);
+fault? ctx.xml(char* xml_str, sz xml_len);
 
 // Send a file from disk; use_fs_cache=true keeps the file handle open between requests
 fault? ctx.send_file(String path, bool use_fs_cache);
@@ -741,7 +741,7 @@ void ctx.append(String key, String value);
 void ctx.type_ext(String ext_or_name);
 
 // Add header names to the Vary field
-void ctx.vary(String* field_names, usz count);
+void ctx.vary(String* field_names, sz count);
 
 // Set an outgoing cookie
 void ctx.cookie(Cookie* c);
@@ -753,13 +753,13 @@ void ctx.clear_cookie(String name);
 void ctx.clear_all_cookies();
 
 // Content negotiation: call the handler whose MIME type best matches Accept
-fault? ctx.format(FormatEntry* entries, usz count);
+fault? ctx.format(FormatEntry* entries, sz count);
 
 // Set Content-Disposition: attachment with optional filename
 void ctx.attachment(String filename); // pass "" to omit filename
 
 // Set the Links header for pagination
-void ctx.links(String* urls, String* rels, usz pair_count);
+void ctx.links(String* urls, String* rels, sz pair_count);
 
 // Retrieve the current value of a response header already set
 String ctx.get_resp_header(String key, String default_val);
@@ -769,8 +769,8 @@ HeaderEntry[]? ctx.get_resp_headers(Allocator alloc);
 
 // Render a named template with key-value data.
 // keys and values are parallel arrays; result is written as the response body.
-fault? ctx.render(String template_name, String* keys, void** values, usz data_count);
-fault? ctx.render_layout(String template_name, String layout, String* keys, void** values, usz data_count);
+fault? ctx.render(String template_name, String* keys, void** values, sz data_count);
+fault? ctx.render_layout(String template_name, String layout, String* keys, void** values, sz data_count);
 
 // Invoke the next handler in the middleware chain; must be called from middleware
 fault? ctx.next();
@@ -885,7 +885,7 @@ fault? conn.write_message(int msg_type, char[] data);
 char[]? conn.read_message(Allocator alloc, int* out_type);
 
 // Convenience helpers
-fault? conn.write_json(char* json_str, usz json_len);
+fault? conn.write_json(char* json_str, sz json_len);
 
 // Locals inherited from the HTTP upgrade request
 void* conn.locals_get(String key); // null when absent

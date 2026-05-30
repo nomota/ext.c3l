@@ -27,9 +27,9 @@ macro Fd fd_null()
     return winbase::INVALID_HANDLE_VALUE;
 }
 
-const usz MAX_EVENTS = 4096;
-const usz MAX_FD_WATCH = 20_000;
-const usz IOCP_OP_POOL = 4096;
+const sz MAX_EVENTS = 4096;
+const sz MAX_FD_WATCH = 20_000;
+const sz IOCP_OP_POOL = 4096;
 
 const uptr IOCP_WAKE_KEY = 1;
 
@@ -64,7 +64,7 @@ struct Context @local
     IocpOp[IOCP_OP_POOL] op_pool;
     winbase::Handle iocp;
 
-    usz active_op_count;
+    sz active_op_count;
 
     HashMap{Fd, bool} iocp_assoc;
     HashMap{Fd, bool} socket_fds;
@@ -89,18 +89,18 @@ struct Arg @local
     long offset;
     int rc;
     char[] buf;
-    usz result;
+    sz result;
 }
 
 fn IocpOp* op_alloc()
 {
     @assert(ctx != null);
 
-    for (usz i = 0; i < IOCP_OP_POOL; i++) 
+    for (sz i = 0; i < IOCP_OP_POOL; i++) 
     {
         if (!ctx.op_pool[i].active)
         {
-            string::memset(&ctx.op_pool[i], 0, IocpOp.sizeof);
+            string::memset(&ctx.op_pool[i], 0, IocpOp::size);
             ctx.op_pool[i].active = true;
             ctx.active_op_count++;
             return &ctx.op_pool[i];
@@ -184,7 +184,7 @@ fn void deinit()
 
     ctx.io_shutting_down = true;
 
-    for (usz i = 0; i < IOCP_OP_POOL; i++) 
+    for (sz i = 0; i < IOCP_OP_POOL; i++) 
     {
         if (!ctx.op_pool[i].active) continue;
 
@@ -251,7 +251,7 @@ fn bool set_nonblocking(Fd fd)
     return true;
 }
 
-fn void register_read(Fd fd, void* buf, usz len, Future* future) @private
+fn void register_read(Fd fd, void* buf, sz len, Future* future) @private
 {
     if (ctx.io_shutting_down)
     {
@@ -321,7 +321,7 @@ fn void register_write(Fd fd, Future* future) @private
     @assert(false, "not used on win32/iocp");
 }
 
-fn void start_write(Fd fd, void* data, usz len, Future* future) @private
+fn void start_write(Fd fd, void* data, sz len, Future* future) @private
 {
     if (ctx.io_shutting_down)
     {
@@ -394,7 +394,7 @@ fn void unregister(Fd fd) @private
 
     winbase::cancelIoEx(fd, null);
 
-    for (usz i = 0; i < IOCP_OP_POOL; i++)
+    for (sz i = 0; i < IOCP_OP_POOL; i++)
     {
         IocpOp* op = &ctx.op_pool[i];
 
@@ -513,7 +513,7 @@ fn void poll(ulong timeout_us)
     }
 }
 
-fn usz? async_read(Fd fd, char[] buf)
+fn sz? async_read(Fd fd, char[] buf)
 {
     if (buf.len == 0) return 0;
 
@@ -541,14 +541,14 @@ fn usz? async_read(Fd fd, char[] buf)
 
     op_free(op);
 
-    return (usz)n;
+    return (sz)n;
 }
 
-fn usz? async_write(Fd fd, char[] buf)
+fn sz? async_write(Fd fd, char[] buf)
 {
     if (buf.len == 0) return 0;
 
-    usz total = 0;
+    sz total = 0;
 
     while (total < buf.len)
     {
@@ -578,13 +578,13 @@ fn usz? async_write(Fd fd, char[] buf)
 
         if (written == 0) break;
 
-        total += (usz)written;
+        total += (sz)written;
     }
     
     return total;
 }
 
-fn void start_recvfrom(Fd fd, void* buf, usz len, Future* future) @private
+fn void start_recvfrom(Fd fd, void* buf, sz len, Future* future) @private
 {
     if (ctx.io_shutting_down)
     {
@@ -599,7 +599,7 @@ fn void start_recvfrom(Fd fd, void* buf, usz len, Future* future) @private
     op.handle = fd;
     op.future = future;
     op.flags = 0;
-    op.from_len = winsock2::SockAddrStorage.sizeof;
+    op.from_len = winsock2::SockAddrStorage::size;
     op.wsabuf.buf = buf;
     op.wsabuf.len = (winbase::DWord)len;
 
@@ -631,7 +631,7 @@ fn void start_recvfrom(Fd fd, void* buf, usz len, Future* future) @private
     }
 }
 
-fn usz? async_recvfrom(Fd fd, char[] buf, char* ip_str, usz* ip_len, ushort* port)
+fn sz? async_recvfrom(Fd fd, char[] buf, char* ip_str, sz* ip_len, ushort* port)
 {
     if (ip_str == null) return errno::E_INVALID_ARG~;
     if (ip_len == null) return errno::E_INVALID_ARG~;
@@ -665,23 +665,23 @@ fn usz? async_recvfrom(Fd fd, char[] buf, char* ip_str, usz* ip_len, ushort* por
     {
         winsock2::SockAddrIn6* a6 = (winsock2::SockAddrIn6*)&op.from_addr;
         ws2tcpip::inet_ntop(winsock2::AF_INET6, &a6.sin6_addr, ip_str, 46);
-        *ip_len = (usz)string::strlen(ip_str);
+        *ip_len = (sz)string::strlen(ip_str);
         *port = winsock2::ntohs(a6.sin6_port);
     }
     else
     {
         winsock2::SockAddrIn* a4 = (winsock2::SockAddrIn*)&op.from_addr;
         ws2tcpip::inet_ntop(winsock2::AF_INET, &a4.sin_addr, ip_str, 16);
-        *ip_len = (usz)string::strlen(ip_str);
+        *ip_len = (sz)string::strlen(ip_str);
         *port = winsock2::ntohs(a4.sin_port);
     }
 
     op_free(op);
 
-    return (usz)n;
+    return (sz)n;
 }
 
-fn usz? async_sendto(Fd fd, char[] buf, char* ip_str, ushort port)
+fn sz? async_sendto(Fd fd, char[] buf, char* ip_str, ushort port)
 {
     winsock2::SockAddr* dest_addr;
     int dest_len;
@@ -699,7 +699,7 @@ fn usz? async_sendto(Fd fd, char[] buf, char* ip_str, ushort port)
         a6.sin6_family = (ushort)winsock2::AF_INET6;
         a6.sin6_port = winsock2::htons(port);
         dest_addr = (winsock2::SockAddr*)&a6;
-        dest_len = $sizeof(a6);
+        dest_len = @sizeof(a6);
     }
     else 
     {
@@ -711,7 +711,7 @@ fn usz? async_sendto(Fd fd, char[] buf, char* ip_str, ushort port)
         a4.sin_family = (ushort)winsock2::AF_INET;
         a4.sin_port = winsock2::htons(port);
         dest_addr = (winsock2::SockAddr*)&a4;
-        dest_len = $sizeof(a4);
+        dest_len = @sizeof(a4);
     }
 
     IocpOp* op = op_alloc();
@@ -765,13 +765,13 @@ fn usz? async_sendto(Fd fd, char[] buf, char* ip_str, ushort port)
 
     op_free(completed);
 
-    return (usz)n;
+    return (sz)n;
 }
 
 fn Fd[2]? pipe_open()
 {
     winbase::SecurityAttributes sa = {};
-    sa.nLength = $sizeof(sa);
+    sa.nLength = @sizeof(sa);
     sa.lpSecurityDescriptor = null;
     sa.bInheritHandle = winbase::FALSE;
 
@@ -881,7 +881,7 @@ fn Char16*? utf8to16(String path, Char16[] wpath) @private
     wpath[0:p2.len] = p2[0:p2.len];
     wpath[p2.len] = 0;
 
-    for (usz i = 0; i < p2.len; i++)
+    for (sz i = 0; i < p2.len; i++)
     {
         if (p2[i] == (Char16)'/')
         {
@@ -1227,12 +1227,12 @@ fn void* file_read_blocking(void* v_arg) @local
         return v_arg;
     }
 
-    arg.result = (usz)n;
+    arg.result = (sz)n;
 
     return v_arg;
 }
 
-fn usz? file_read(Fd fd, char[] buf)
+fn sz? file_read(Fd fd, char[] buf)
 {
     if (buf.len == 0) return 0;
 
@@ -1254,7 +1254,7 @@ fn void* file_write_blocking(void* v_arg) @local
 {
     Arg* arg = (Arg*)v_arg;
 
-    usz total = 0;
+    sz total = 0;
 
     while (total < arg.buf.len)
     {
@@ -1277,7 +1277,7 @@ fn void* file_write_blocking(void* v_arg) @local
 
         if (n == 0) break;
 
-        total += (usz)n;
+        total += (sz)n;
     }
 
     arg.result = total;
@@ -1285,7 +1285,7 @@ fn void* file_write_blocking(void* v_arg) @local
     return v_arg;
 }
 
-fn usz? file_write(Fd fd, char[] buf)
+fn sz? file_write(Fd fd, char[] buf)
 {
     if (buf.len == 0) return 0;
 

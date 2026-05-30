@@ -68,7 +68,7 @@ fn void? TaskGroup.join_all(&self)
 
     while (!self.tasks.is_empty())
     {
-        Task* task = self.tasks.pop_front()!!;
+        Task* task = self.tasks.pop_first()!!;
 
         if (task == null) continue;
 

@@ -80,7 +80,7 @@ fn void? make_dir(String path, bool recursive = false, CUInt mode = 0o755) @mayd
     temp[path.len] = 0;
     
     // Skip leading slashes
-    usz start = 0;
+    sz start = 0;
     while (start < path.len && temp[start] == '/') {
         start++;
     }
@@ -89,7 +89,7 @@ fn void? make_dir(String path, bool recursive = false, CUInt mode = 0o755) @mayd
         return;  // Already at root or nothing to create
     }
     // Create each component
-    for (usz i = start; i <= path.len; i++) 
+    for (sz i = start; i <= path.len; i++) 
     {
         // Process at '/' or end of string
         if (i == path.len || temp[i] == '/') {
@@ -148,7 +148,7 @@ fn List{String}? list_dir(Allocator allocx, String path)
     dirent::DirEnt* entry;
     while ((entry = dirent::readdir(dir))) {
         char* name = (char*)&entry.d_name[0];
-        usz n = (usz)string::strlen(name);
+        sz n = (sz)string::strlen(name);
         String name_s = (String)name[0:n];;
 
         // Skip "." and ".."
@@ -207,7 +207,7 @@ fn DirEntry? DirIterator.next(&self)
     dirent::DirEnt* entry;
     while ((entry = dirent::readdir(self.dir))) {
         char* name = (char*)&entry.d_name[0];
-        usz n = (usz)string::strlen(name);
+        sz n = (sz)string::strlen(name);
         String name_s = (String)name[0:n];
 
         // Skip "." and ".."
@@ -230,7 +230,7 @@ fn void DirEntry.free(&self)
 // no boundary check, buf must be enough
 fn String bcat(char[] buf, String... args)
 {
-    usz n = 0;
+    sz n = 0;
     foreach (arg: args) {
         buf[n:arg.len] = arg[0:arg.len];
         n += arg.len;
@@ -246,7 +246,7 @@ fn long? DirEntry.last_modified(&self)
     return stat::last_modified(fullpath)!;
 }
 
-fn usz? DirEntry.size(&self)
+fn sz? DirEntry.size(&self)
 {
     char[256] buf;
     String fullpath = bcat(&buf, self.path, "/", self.name);
@@ -289,6 +289,6 @@ fn bool is_link(String path) => stat::is_link(path);
 fn bool is_readable(String path) => stat::is_readable(path);
 fn bool is_writeable(String path) => stat::is_writeable(path);
 
-fn usz? read_link(String link, char[] output) => stat::read_link(link, output);
+fn sz? read_link(String link, char[] output) => stat::read_link(link, output);
 
 fn void? change_mode(String path, Mode_t mode) @maydiscard => stat::change_mode(path, mode);

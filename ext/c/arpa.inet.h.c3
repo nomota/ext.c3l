@@ -73,8 +73,8 @@ extern fn uint inet_lnaof(InAddr in_addr);
 extern fn uint inet_netof(InAddr in_addr);
 
 // Darwin-specific functions
-extern fn char* inet_net_ntop(int af, void* src, int bits, char* dst, usz size);
-extern fn int inet_net_pton(int af, char* src, void* dst, usz size);
+extern fn char* inet_net_ntop(int af, void* src, int bits, char* dst, sz size);
+extern fn int inet_net_pton(int af, char* src, void* dst, sz size);
 extern fn uint inet_nsap_addr(char* ascii, char* binary, int maxlen);
 extern fn char* inet_nsap_ntoa(int binlen, char* binary, char* ascii);
 
@@ -121,11 +121,11 @@ extern fn uint inet_lnaof(InAddr in_addr);
 extern fn uint inet_netof(InAddr in_addr);
 
 // FreeBSD-specific functions
-extern fn char* inet_net_ntop(int af, void* src, int bits, char* dst, usz size);
-extern fn int inet_net_pton(int af, char* src, void* dst, usz size);
+extern fn char* inet_net_ntop(int af, void* src, int bits, char* dst, sz size);
+extern fn int inet_net_pton(int af, char* src, void* dst, sz size);
 extern fn uint inet_nsap_addr(char* ascii, char* binary, int maxlen);
 extern fn char* inet_nsap_ntoa(int binlen, char* binary, char* ascii);
-extern fn char* inet_cidr_ntop(int af, void* src, int bits, char* dst, usz size);
+extern fn char* inet_cidr_ntop(int af, void* src, int bits, char* dst, sz size);
 extern fn int inet_cidr_pton(int af, char* src, void* dst, int* bits);
 
 // ========== Type Definitions ==========
@@ -171,11 +171,11 @@ extern fn uint inet_lnaof(InAddr in_addr);
 extern fn uint inet_netof(InAddr in_addr);
 
 // NetBSD-specific functions
-extern fn char* inet_net_ntop(int af, void* src, int bits, char* dst, usz size);
-extern fn int inet_net_pton(int af, char* src, void* dst, usz size);
+extern fn char* inet_net_ntop(int af, void* src, int bits, char* dst, sz size);
+extern fn int inet_net_pton(int af, char* src, void* dst, sz size);
 extern fn uint inet_nsap_addr(char* ascii, char* binary, int maxlen);
 extern fn char* inet_nsap_ntoa(int binlen, char* binary, char* ascii);
-extern fn char* inet_cidr_ntop(int af, void* src, int bits, char* dst, usz size);
+extern fn char* inet_cidr_ntop(int af, void* src, int bits, char* dst, sz size);
 extern fn int inet_cidr_pton(int af, char* src, void* dst, int* bits);
 
 // NetBSD-specific: presentation format with scope
@@ -224,8 +224,8 @@ extern fn uint inet_lnaof(InAddr in_addr);
 extern fn uint inet_netof(InAddr in_addr);
 
 // OpenBSD-specific functions
-extern fn char* inet_net_ntop(int af, void* src, int bits, char* dst, usz size);
-extern fn int inet_net_pton(int af, char* src, void* dst, usz size);
+extern fn char* inet_net_ntop(int af, void* src, int bits, char* dst, sz size);
+extern fn int inet_net_pton(int af, char* src, void* dst, sz size);
 extern fn uint inet_nsap_addr(char* ascii, char* binary, int maxlen);
 extern fn char* inet_nsap_ntoa(int binlen, char* binary, char* ascii);
 

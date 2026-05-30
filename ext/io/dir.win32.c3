@@ -30,7 +30,7 @@ fn Char16*? utf8to16(String path, Char16[] wpath) @private
     
     wpath[0:p2.len] = p2[0:p2.len];
     wpath[p2.len] = 0;
-    for (usz i = 0; i < p2.len; i++) {
+    for (sz i = 0; i < p2.len; i++) {
         if (p2[i] == (Char16)'/') {
             wpath[i] = (Char16)'\\';
         }
@@ -99,13 +99,13 @@ fn void? make_dir(String path, bool recursive = false, CUInt mode = 0o755) @mayd
     
     // Recursive: create parent directories
     Char16[MAX_PATH] temp;
-    for (usz i = 0; i < path.len; i++) {
+    for (sz i = 0; i < path.len; i++) {
         temp[i] = (Char16)path[i];
     }
     temp[path.len] = 0;
     
     // Skip leading path components (drive letter, UNC paths)
-    usz start = 0;
+    sz start = 0;
     
     // Handle drive letter (C:\)
     if (path.len >= 2 && temp[1] == ':') {
@@ -138,7 +138,7 @@ fn void? make_dir(String path, bool recursive = false, CUInt mode = 0o755) @mayd
     }
     
     // create each component
-    for (usz i = start; i <= path.len; i++) 
+    for (sz i = start; i <= path.len; i++) 
     {
         // Process at '\' or '/' or end of string
         if (i == path.len || temp[i] == '\\' || temp[i] == '/') {
@@ -183,7 +183,7 @@ fn List{String}? list_dir(Allocator allocx, String path)
     
     char[MAX_PATH] p1;
     p1[0:path.len] = path[0:path.len];
-    usz pos = path.len;
+    sz pos = path.len;
     if (p1[pos-1] != '/' && p1[pos-1] != '\\') {
         p1[pos++] = '\\';
     }
@@ -213,7 +213,7 @@ fn List{String}? list_dir(Allocator allocx, String path)
     while (true) {
         // Skip "." and ".."
         Char16* wname = &find_data.cFileName[0];
-        usz n = 0;
+        sz n = 0;
         while (wname[n] != 0) { n++; }
         
         char[MAX_PATH] name_buf;
@@ -264,7 +264,7 @@ fn DirIterator? scan_dir(Allocator allocx, String path)
     
     char[MAX_PATH] p1;
     p1[0:path.len] = path[0:path.len];
-    usz pos = path.len;
+    sz pos = path.len;
     if (p1[pos-1] != '/' && p1[pos-1] != '\\') {
         p1[pos++] = '\\';
     }
@@ -272,8 +272,8 @@ fn DirIterator? scan_dir(Allocator allocx, String path)
     
     Char16[MAX_PATH + 2] p2;
     Char16* spath = utf8to16((String)p1[0..pos], &p2)!;
-    usz len = 0;
-    for (usz i = 0; i < MAX_PATH; i++) {
+    sz len = 0;
+    for (sz i = 0; i < MAX_PATH; i++) {
         if (p2[i] == 0) {
             len = i; break;
         }
@@ -314,7 +314,7 @@ fn DirEntry? DirIterator.next(&self)
         
                 // Skip "." and ".."
         Char16* wname = &find_data.cFileName[0];
-        usz n = 0;
+        sz n = 0;
         while (wname[n] != 0) { n++; }
         
         char[MAX_PATH] name_buf;
@@ -340,7 +340,7 @@ fn void DirEntry.free(&self)
 
 fn String bcat(char[] buf, String... args)
 {
-    usz n = 0;
+    sz n = 0;
     foreach (arg: args) {
         buf[n:arg.len] = arg[0:arg.len];
         n += arg.len;
@@ -356,7 +356,7 @@ fn long? DirEntry.last_modified(&self)
     return stat::last_modified(fullpath)!;
 }
 
-fn usz? DirEntry.size(&self)
+fn sz? DirEntry.size(&self)
 {
     char[256] buf;
     String fullpath = bcat(&buf, self.path, "\\", self.name);
@@ -399,7 +399,7 @@ fn bool is_link(String path) => stat::is_link(path);
 fn bool is_readable(String path) => stat::is_readable(path);
 fn bool is_writeable(String path) => stat::is_writeable(path);
 
-fn usz? read_link(String link, char[] output) => stat::read_link(link, output);
+fn sz? read_link(String link, char[] output) => stat::read_link(link, output);
 
 fn void? change_mode(String path, Mode_t mode) @maydiscard => stat::change_mode(path, mode);
 

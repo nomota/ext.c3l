@@ -10,12 +10,12 @@ extern fn int accept(int sockfd, SockAddr* addr, SockLen* addrlen);
 extern fn int connect(int sockfd, SockAddr* addr, SockLen addrlen);
 
 // Data transfer
-extern fn isz send(int sockfd, void* buf, usz len, int flags);
-extern fn isz recv(int sockfd, void* buf, usz len, int flags);
-extern fn isz sendto(int sockfd, void* buf, usz len, int flags, SockAddr* dest_addr, SockLen addrlen);
-extern fn isz recvfrom(int sockfd, void* buf, usz len, int flags, SockAddr* src_addr, SockLen* addrlen);
-extern fn isz sendmsg(int sockfd, MsgHdr* msg, int flags);
-extern fn isz recvmsg(int sockfd, MsgHdr* msg, int flags);
+extern fn sz send(int sockfd, void* buf, sz len, int flags);
+extern fn sz recv(int sockfd, void* buf, sz len, int flags);
+extern fn sz sendto(int sockfd, void* buf, sz len, int flags, SockAddr* dest_addr, SockLen addrlen);
+extern fn sz recvfrom(int sockfd, void* buf, sz len, int flags, SockAddr* src_addr, SockLen* addrlen);
+extern fn sz sendmsg(int sockfd, MsgHdr* msg, int flags);
+extern fn sz recvmsg(int sockfd, MsgHdr* msg, int flags);
 
 // Socket options
 extern fn int setsockopt(int sockfd, int level, int optname, void* optval, SockLen optlen);
@@ -30,11 +30,11 @@ extern fn int getsockname(int sockfd, SockAddr* addr, SockLen* addrlen);
 extern fn int getpeername(int sockfd, SockAddr* addr, SockLen* addrlen);
 
 // Control message macros (helper functions)
-macro usz cmsg_align(usz len) => (((len) + usz.sizeof - 1) & ~(usz.sizeof - 1));
-macro usz cmsg_space(usz len) => (cmsg_align(CMsgHdr.sizeof) + cmsg_align(len));
-macro usz cmsg_len(usz len) => (cmsg_align(CMsgHdr.sizeof) + (len));
-macro CMsgHdr* cmsg_firsthdr(MsgHdr* msg) => ((msg).msg_controllen >= CMsgHdr.sizeof ? (CMsgHdr*)(msg).msg_control : (CMsgHdr*)0);
-macro char* cmsg_data(CMsgHdr* cmsg) => ((char*)(cmsg) + cmsg_align(CMsgHdr.sizeof));
+macro sz cmsg_align(sz len) => (((len) + sz::size - 1) & ~(sz::size - 1));
+macro sz cmsg_space(sz len) => (cmsg_align(CMsgHdr::size) + cmsg_align(len));
+macro sz cmsg_len(sz len) => (cmsg_align(CMsgHdr::size) + (len));
+macro CMsgHdr* cmsg_firsthdr(MsgHdr* msg) => ((msg).msg_controllen >= CMsgHdr::size ? (CMsgHdr*)(msg).msg_control : (CMsgHdr*)0);
+macro char* cmsg_data(CMsgHdr* cmsg) => ((char*)(cmsg) + cmsg_align(CMsgHdr::size));
 
 alias SockLen = uint;
 
@@ -198,13 +198,13 @@ struct SockAddr {
 struct SockAddrStorage {
     ushort ss_family;
     ulong __ss_align;
-    char[128 - ushort.sizeof - ulong.sizeof] __ss_padding;
+    char[128 - ushort::size - ulong::size] __ss_padding;
 }
 
 // I/O vector
 struct IoVec {
     void* iov_base;
-    usz iov_len;
+    sz iov_len;
 }
 
 // Message header
@@ -212,9 +212,9 @@ struct MsgHdr {
     void* msg_name;
     SockLen msg_namelen;
     IoVec* msg_iov;
-    usz msg_iovlen;
+    sz msg_iovlen;
     void* msg_control;
-    usz msg_controllen;
+    sz msg_controllen;
     int msg_flags;
 }
 
@@ -226,7 +226,7 @@ struct MMsgHdr {
 
 // Control message header
 struct CMsgHdr {
-    usz cmsg_len;
+    sz cmsg_len;
     int cmsg_level;
     int cmsg_type;
 }
@@ -402,13 +402,13 @@ struct SockAddrStorage {
     char ss_family;
     char[6] __ss_pad1;
     long __ss_align;
-    char[128 - 2 - 6 - long.sizeof] __ss_pad2;
+    char[128 - 2 - 6 - long::size] __ss_pad2;
 }
 
 // I/O vector
 struct IoVec {
     void* iov_base;
-    usz iov_len;
+    sz iov_len;
 }
 
 // Message header
@@ -594,13 +594,13 @@ struct SockAddrStorage {
     char ss_family;
     char[6] __ss_pad1;
     long __ss_align;
-    char[128 - 2 - 6 - long.sizeof] __ss_pad2;
+    char[128 - 2 - 6 - long::size] __ss_pad2;
 }
 
 // I/O vector
 struct IoVec {
     void* iov_base;
-    usz iov_len;
+    sz iov_len;
 }
 
 // Message header
@@ -780,13 +780,13 @@ struct SockAddrStorage {
     char ss_family;
     char[6] __ss_pad1;
     long __ss_align;
-    char[128 - 2 - 6 - long.sizeof] __ss_pad2;
+    char[128 - 2 - 6 - long::size] __ss_pad2;
 }
 
 // I/O vector
 struct IoVec {
     void* iov_base;
-    usz iov_len;
+    sz iov_len;
 }
 
 // Message header
@@ -958,13 +958,13 @@ struct SockAddrStorage {
     char ss_family;
     char[6] __ss_pad1;
     long __ss_align;
-    char[256 - 2 - 6 - long.sizeof] __ss_pad2;
+    char[256 - 2 - 6 - long::size] __ss_pad2;
 }
 
 // I/O vector
 struct IoVec {
     void* iov_base;
-    usz iov_len;
+    sz iov_len;
 }
 
 // Message header

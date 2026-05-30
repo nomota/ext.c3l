@@ -33,7 +33,7 @@ bool b = stat::is_link(String path); // missing in std lib
 bool b = stat::is_readable(String psth); // missing in std lib
 bool b = stat::is_writeable(String path); // missing in std lib
 bool b = stat::is_executable(String path); // missing in std lib
-usz? n = stat::read_link(String path, char[] output); // missing in std lib
+sz? n = stat::read_link(String path, char[] output); // missing in std lib
 Mode_t prev = stat::umask(Mode_t mode); // missing in std lib
 void? stat::change_mode(String path, Mode_t mode) @maydiscard; // missing in std lib
 void? stat::link(String file, String link);
@@ -52,15 +52,15 @@ Available functions are:
 import ext::io::cfile;
 
 cfile::File? fp = cfile::open(String file, String mode);
-usz? n = fp.read(char[] buf) @dynamic;
+sz? n = fp.read(char[] buf) @dynamic;
 char? c = fp.read_byte() @dynamic;
-usz? n = fp.write(char[] buf) @dynamic;
+sz? n = fp.write(char[] buf) @dynamic;
 void? fp.write_byte(char c) @dynamic;
-usz? n = fp.readline(char[] buf);
-usz? n = fp.printf(String format, args...);
+sz? n = fp.readline(char[] buf);
+sz? n = fp.printf(String format, args...);
 void fp.flush();
 void fp.close();
-usz? fp.seek(long pos, int whence) maydiscard;
+sz? fp.seek(long pos, int whence) maydiscard;
 long? pos = fp.tell();
 bool b = fp.eof();
 
@@ -71,7 +71,7 @@ void? cfile::rename(String file, String target) @maydiscard;
 void? cfile::copy(String file, String target) @maydiscard;
 
 bool b = cfile::exists(String file);
-usz? n = cfile::size(String file);
+sz? n = cfile::size(String file);
 long? mtime = cfile::last_modified(String file); // missing in std lib
 bool b = cfile::is_dir(String file);
 bool b = cfile::is_file(String file);
@@ -79,7 +79,7 @@ bool b = cfile::is_link(String file); // missing in std lib
 bool b = cfile::is_readable(String file); // missing in std lib
 bool b = cfile::is_writeable(String file); // missing in std lib
 bool b = cfile::is_executable(String file); // missing in std lib
-usz? n = cfile::read_link(String file, char[] output); // missing in std lib
+sz? n = cfile::read_link(String file, char[] output); // missing in std lib
 void? cfile::change_mode(String file, Mode_t mode) @maydiscard; // missing in std lib
 ```
 
@@ -108,7 +108,7 @@ bool b = dir::is_file(String path);
 bool b = dir::is_link(String path); // missing in std lib
 bool b = dir::is_readable(String path); // missing in std lib
 bool b = dir::is_writeable(String path); // missing in std lib
-usz? n = dir::read_link(String path, char[] output); // missing in std lib
+sz? n = dir::read_link(String path, char[] output); // missing in std lib
 void? dir::change_mode(String path, Mode_t mode) @maydiscard; // missing in std lib
 
 DirIterator? iter = dir::scan_dir(Allocator allocx, String path);
@@ -117,7 +117,7 @@ DirEntry entry = iter.next();
 void? entry.free() @maydiscard;
 String name = entry.name; // filename
 long? mtime = entry.last_modified();
-usz? size = entry.size();
+sz? size = entry.size();
 bool b = entry.is_file();
 bool b = entry.is_dir();
 bool b = entry.is_link();
@@ -128,8 +128,8 @@ Back to [ext.c3l](../../README.md) library.
 ### Example
 
 Examples
-* [../../examples/io/cfile_example.c3](../../examples/io/cfile_example.c3)
-* [../../examples/io/scan_dir.c3](../../examples/io/scan_dir.c3)
+* [../../test/io/cfile_example.c3](../../test/io/cfile_example.c3)
+* [../../test/io/scan_dir.c3](../../test/io/scan_dir.c3)
 
 ```c3
 import ext::io::stat;

@@ -41,7 +41,7 @@ struct TLSPRFSeedChunk {
     <* Pointer to the chunk data (may be null when len is zero). *>
     void* data;
     <* Chunk length (in bytes). *>
-    usz   len;
+    sz   len;
 }
 
 // ============================================================================
@@ -64,11 +64,11 @@ struct TLSPRFSeedChunk {
 *>
 alias TLSPRFImplFn = fn void(
     void*              dst,
-    usz                len,
+    sz                len,
     void*              secret,
-    usz                secret_len,
+    sz                secret_len,
     char*              label,
-    usz                seed_num,
+    sz                seed_num,
     TLSPRFSeedChunk*   seed);
 
 // ============================================================================
@@ -92,11 +92,11 @@ alias TLSPRFImplFn = fn void(
 *>
 extern fn void tls10_prf(
     void*              dst,
-    usz                len,
+    sz                len,
     void*              secret,
-    usz                secret_len,
+    sz                secret_len,
     char*              label,
-    usz                seed_num,
+    sz                seed_num,
     TLSPRFSeedChunk*   seed);
 
 <*
@@ -116,11 +116,11 @@ extern fn void tls10_prf(
 *>
 extern fn void tls12_sha256_prf(
     void*              dst,
-    usz                len,
+    sz                len,
     void*              secret,
-    usz                secret_len,
+    sz                secret_len,
     char*              label,
-    usz                seed_num,
+    sz                seed_num,
     TLSPRFSeedChunk*   seed);
 
 <*
@@ -140,9 +140,9 @@ extern fn void tls12_sha256_prf(
 *>
 extern fn void tls12_sha384_prf(
     void*              dst,
-    usz                len,
+    sz                len,
     void*              secret,
-    usz                secret_len,
+    sz                secret_len,
     char*              label,
-    usz                seed_num,
+    sz                seed_num,
     TLSPRFSeedChunk*   seed);

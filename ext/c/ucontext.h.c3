@@ -319,7 +319,7 @@ struct UContext @cname("ucontext") {
     signal::SigSet      uc_sigmask;  // Signals blocked in this context
     signal::Stack       uc_stack;    // Stack used by this context
     UContext*       uc_link;      // Context to resume when this one returns
-    usz             uc_mcsize;    // Size of machine context (bytes)
+    sz             uc_mcsize;    // Size of machine context (bytes)
     MContext*       uc_mcontext;  // Pointer to machine context
 }
 

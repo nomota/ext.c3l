@@ -169,7 +169,7 @@ Async I/O suspends only the current task.
 
 ```c3
 char[1024] buf;
-usz n = stream.read(buf[..])!;
+sz n = stream.read(buf[..])!;
 ```
 
 While this task waits for data, other tasks may run.

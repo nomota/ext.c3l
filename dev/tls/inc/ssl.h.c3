@@ -271,7 +271,7 @@ const ERR_SEND_FATAL_ALERT = 512;
   param record_len   incoming record length.
   returns 1 if valid length, 0 otherwise.
 *>
-alias CheckLengthFn = fn int(SSLRecInClass** ctx, usz record_len);
+alias CheckLengthFn = fn int(SSLRecInClass** ctx, sz record_len);
 
 <*
   Decrypt the incoming record.
@@ -292,7 +292,7 @@ alias CheckLengthFn = fn int(SSLRecInClass** ctx, usz record_len);
   param len           pointer to payload length (updated).
   returns pointer to plaintext, or null on error.
 *>
-alias DecryptFn = fn char* (SSLRecInClass** ctx, int record_type, uint version, void* payload, usz* len);
+alias DecryptFn = fn char* (SSLRecInClass** ctx, int record_type, uint version, void* payload, sz* len);
 
 <*
   Decryption engine for SSL.
@@ -308,7 +308,7 @@ struct SSLRecInClass {
     <*
       Context size (in bytes).
     *>
-    usz context_size;
+    sz context_size;
 
     CheckLengthFn check_length;
     DecryptFn decrypt;
@@ -331,7 +331,7 @@ struct SSLRecInClass {
   param start   pointer to start of plaintext offset (updated).
   param end     pointer to end of plaintext offset (updated).
 *>
-alias MaxPlaintextFn = fn void(SSLRecOutClass** ctx, usz* start, usz* end);
+alias MaxPlaintextFn = fn void(SSLRecOutClass** ctx, sz* start, sz* end);
 
 <*
   Perform record encryption.
@@ -350,7 +350,7 @@ alias MaxPlaintextFn = fn void(SSLRecOutClass** ctx, usz* start, usz* end);
   param len           pointer to plaintext length (updated).
   returns pointer to start of built record.
 *>
-alias EncryptFn = fn char* (SSLRecOutClass** ctx, int record_type, uint version, void* plaintext, usz* len);
+alias EncryptFn = fn char* (SSLRecOutClass** ctx, int record_type, uint version, void* plaintext, sz* len);
 
 <*
   Encryption engine for SSL.
@@ -366,7 +366,7 @@ struct SSLRecOutClass {
     <*
       Context size (in bytes).
     *>
-    usz context_size;
+    sz context_size;
 
     MaxPlaintextFn max_plaintext;
     EncryptFn encrypt;
@@ -405,7 +405,7 @@ extern SSLRecOutClass sslrec_out_clear_vtable;
   param mac_out_len   HMAC output length (in bytes).
   param iv            initial IV (or null).
 *>
-alias SSLRecInCBCInitFn = fn void(SSLRecInCBCClass** ctx, BlockCBCDecClass* bc_impl, void* bc_key, usz bc_key_len, HashClass* dig_impl, void* mac_key, usz mac_key_len, usz mac_out_len, void* iv);
+alias SSLRecInCBCInitFn = fn void(SSLRecInCBCClass** ctx, BlockCBCDecClass* bc_impl, void* bc_key, sz bc_key_len, HashClass* dig_impl, void* mac_key, sz mac_key_len, sz mac_out_len, void* iv);
 
 <*
   Record decryption engine class, for CBC mode.
@@ -440,7 +440,7 @@ struct SSLRecInCBCClass {
   param mac_out_len   HMAC output length (in bytes).
   param iv            initial IV (or null).
 *>
-alias SSLRecOutCBCInitFn = fn void(SSLRecOutCBCClass** ctx, BlockCBCEncClass* bc_impl, void* bc_key, usz bc_key_len, HashClass* dig_impl, void* mac_key, usz mac_key_len, usz mac_out_len, void* iv);
+alias SSLRecOutCBCInitFn = fn void(SSLRecOutCBCClass** ctx, BlockCBCEncClass* bc_impl, void* bc_key, sz bc_key_len, HashClass* dig_impl, void* mac_key, sz mac_key_len, sz mac_out_len, void* iv);
 
 <*
   Record encryption engine class, for CBC mode.
@@ -482,7 +482,7 @@ struct SSLRecInCBCContext {
     }
 
     HmacKeyContext mac;
-    usz mac_len;
+    sz mac_len;
     char[16] iv;
     int explicit_iv;
 }
@@ -514,7 +514,7 @@ struct SSLRecOutCBCContext {
     }
 
     HmacKeyContext mac;
-    usz mac_len;
+    sz mac_len;
     char[16] iv;
     int explicit_iv;
 }
@@ -536,7 +536,7 @@ extern SSLRecOutCBCClass sslrec_out_cbc_vtable;
   param bc_key_len    block cipher key length (in bytes).
 *>
 */
-//alias SSLRecInCTRInitFn = fn void(SSLRecInCTRClass** ctx, BlockCTRClass* bc_impl, void* bc_key, usz bc_key_len);
+//alias SSLRecInCTRInitFn = fn void(SSLRecInCTRClass** ctx, BlockCTRClass* bc_impl, void* bc_key, sz bc_key_len);
 
 /*
 <*
@@ -568,7 +568,7 @@ struct SSLRecInCTRClass {
   param bc_key_len    block cipher key length (in bytes).
 *>
 */
-// alias SSLRecOutCTRInitFn = fn void(SSLRecOutCTRClass** ctx, BlockCTRClass* bc_impl, void* bc_key, usz bc_key_len);
+// alias SSLRecOutCTRInitFn = fn void(SSLRecOutCTRClass** ctx, BlockCTRClass* bc_impl, void* bc_key, sz bc_key_len);
 
 /*
 <*
@@ -646,7 +646,7 @@ struct SSLRecOutCTRContext {
   param bc_key_len    block cipher key length (in bytes).
   param ghash         GHASH implementation.
 *>
-alias SSLRecInGCMInitFn = fn void(SSLRecInGCMClass** ctx, BlockCTRClass* bc_impl, void* bc_key, usz bc_key_len, GHashFn ghash, void* iv);
+alias SSLRecInGCMInitFn = fn void(SSLRecInGCMClass** ctx, BlockCTRClass* bc_impl, void* bc_key, sz bc_key_len, GHashFn ghash, void* iv);
 
 <*
   Record decryption engine class, for GCM mode.
@@ -675,7 +675,7 @@ struct SSLRecInGCMClass {
   param bc_key_len    block cipher key length (in bytes).
   param ghash         GHASH implementation.
 *>
-alias SSLRecOutGCMInitFn = fn void(SSLRecOutGCMClass** ctx, BlockCTRClass* bc_impl, void* bc_key, usz bc_key_len, GHashFn ghash, void* iv);
+alias SSLRecOutGCMInitFn = fn void(SSLRecOutGCMClass** ctx, BlockCTRClass* bc_impl, void* bc_key, sz bc_key_len, GHashFn ghash, void* iv);
 
 <*
   Record encryption engine class, for GCM mode.
@@ -743,7 +743,7 @@ extern SSLRecOutGCMClass sslrec_out_gcm_vtable;
   param bc_key_len    block cipher key length (in bytes).
   param tag_len       authentication tag length (in bytes).
 *>
-alias SSLRecInCCMInitFn = fn void(SSLRecInCCMClass** ctx, BlockCTRCBCClass* bc_impl, void* bc_key, usz bc_key_len, void* iv, usz tag_len);
+alias SSLRecInCCMInitFn = fn void(SSLRecInCCMClass** ctx, BlockCTRCBCClass* bc_impl, void* bc_key, sz bc_key_len, void* iv, sz tag_len);
 
 <*
   Record decryption engine class, for CCM mode.
@@ -772,7 +772,7 @@ struct SSLRecInCCMClass {
   param bc_key_len    block cipher key length (in bytes).
   param tag_len       authentication tag length (in bytes).
 *>
-alias SSLRecOutCCMInitFn = fn void(SSLRecOutCCMClass** ctx, BlockCTRCBCClass* bc_impl, void* bc_key, usz bc_key_len, void* iv, usz tag_len);
+alias SSLRecOutCCMInitFn = fn void(SSLRecOutCCMClass** ctx, BlockCTRCBCClass* bc_impl, void* bc_key, sz bc_key_len, void* iv, sz tag_len);
 
 <*
   Record encryption engine class, for CCM mode.
@@ -813,7 +813,7 @@ struct SSLRecCCMContext {
         AESGenCTRCBCKeys aes;
     }
     char[4] iv;
-    usz tag_len;
+    sz tag_len;
 }
 
 <*
@@ -1066,8 +1066,8 @@ struct SSLEngineContext {
     //
     char* ibuf;
     char* obuf;
-    usz ibuf_len;
-    usz obuf_len;
+    sz ibuf_len;
+    sz obuf_len;
 
     //
     // Maximum fragment length applies to outgoing records; incoming
@@ -1082,12 +1082,12 @@ struct SSLEngineContext {
     //
     // Buffering management registers.
     //
-    usz ixa;
-    usz ixb;
-    usz ixc;
-    usz oxa;
-    usz oxb;
-    usz oxc;
+    sz ixa;
+    sz ixb;
+    sz ixc;
+    sz oxa;
+    sz oxb;
+    sz oxc;
     char iomode;
     char incrypt;
 
@@ -1238,8 +1238,8 @@ struct SSLEngineContext {
     char* hbuf_in;
     char* hbuf_out;
     char* saved_hbuf_out;
-    usz hlen_in;
-    usz hlen_out;
+    sz hlen_in;
+    sz hlen_out;
 
     HSRunFn hsrun;
 
@@ -1286,9 +1286,9 @@ struct SSLEngineContext {
     // If chain_len is 0, then chain may be null.
     //
     X509Certificate* chain;
-    usz chain_len;
+    sz chain_len;
     char* cert_cur;
-    usz cert_len;
+    sz cert_len;
 
     //
     // List of supported protocol names (ALPN extension). If unset,
@@ -1466,7 +1466,7 @@ fn void ssl_engine_set_versions(SSLEngineContext* cc, uint version_min, uint ver
   param suites       cipher suites.
   param suites_num   number of cipher suites.
 *>
-extern fn void ssl_engine_set_suites(SSLEngineContext* cc, ushort* suites, usz suites_num);
+extern fn void ssl_engine_set_suites(SSLEngineContext* cc, ushort* suites, sz suites_num);
 
 <*
   Set the X.509 engine.
@@ -1488,7 +1488,7 @@ fn void ssl_engine_set_x509(SSLEngineContext* cc, X509Class** x509ctx) @inline
   param names   list of protocol names (zero-terminated).
   param num     number of protocol names (MUST be 1 or more).
 *>
-fn void ssl_engine_set_protocol_names(SSLEngineContext* ctx, char** names, usz num) @inline
+fn void ssl_engine_set_protocol_names(SSLEngineContext* ctx, char** names, sz num) @inline
 {
     ctx.protocol_names = names;
     ctx.protocol_names_num = (ushort)num;
@@ -1755,7 +1755,7 @@ fn void ssl_engine_set_ecdsa(SSLEngineContext* cc, ECDSAVrfy impl) @inline
   param buf     buffer.
   param buf_len buffer length (in bytes).
 *>
-extern fn void ssl_engine_set_buffer(SSLEngineContext* cc, void* buf, usz buf_len, int bidi);
+extern fn void ssl_engine_set_buffer(SSLEngineContext* cc, void* buf, sz buf_len, int bidi);
 
 <*
   Set the buffer for a bidirectional engine.
@@ -1767,7 +1767,7 @@ extern fn void ssl_engine_set_buffer(SSLEngineContext* cc, void* buf, usz buf_le
   param buf     buffer.
   param buf_len buffer length (in bytes).
 *>
-extern fn void ssl_engine_set_buffers_bidi(SSLEngineContext* cc, void* ibuf, usz ibuf_len, void* obuf, usz obuf_len);
+extern fn void ssl_engine_set_buffers_bidi(SSLEngineContext* cc, void* ibuf, sz ibuf_len, void* obuf, sz obuf_len);
 
 /*
 <*
@@ -1779,7 +1779,7 @@ extern fn void ssl_engine_set_buffers_bidi(SSLEngineContext* cc, void* ibuf, usz
   param buf     buffer.
   param buf_len buffer length (in bytes).
 *>
-//fn void ssl_engine_set_buffer_mono(SSLEngineContext* cc, void* buf, usz buf_len) @inline
+//fn void ssl_engine_set_buffer_mono(SSLEngineContext* cc, void* buf, sz buf_len) @inline
 //{
 //    ssl_engine_set_buffer(cc, buf, buf_len, 0);
 //}
@@ -1856,7 +1856,7 @@ fn int ssl_engine_last_error(SSLEngineContext* cc) @inline
   param len   receives the available length.
   returns buffer pointer.
 *>
-extern fn char* ssl_engine_sendrec_buf(SSLEngineContext* cc, usz* len);
+extern fn char* ssl_engine_sendrec_buf(SSLEngineContext* cc, sz* len);
 
 <*
   Acknowledge bytes sent to the transport layer.
@@ -1864,7 +1864,7 @@ extern fn char* ssl_engine_sendrec_buf(SSLEngineContext* cc, usz* len);
   param cc    SSL engine context.
   param len   number of bytes sent.
 *>
-extern fn void ssl_engine_sendrec_ack(SSLEngineContext* cc, usz len);
+extern fn void ssl_engine_sendrec_ack(SSLEngineContext* cc, sz len);
 
 <*
   Get the transport-layer input buffer.
@@ -1877,7 +1877,7 @@ extern fn void ssl_engine_sendrec_ack(SSLEngineContext* cc, usz len);
   param len   receives the available length.
   returns buffer pointer.
 *>
-extern fn char* ssl_engine_recvrec_buf(SSLEngineContext* cc, usz* len);
+extern fn char* ssl_engine_recvrec_buf(SSLEngineContext* cc, sz* len);
 
 <*
   Acknowledge bytes received from the transport layer.
@@ -1885,7 +1885,7 @@ extern fn char* ssl_engine_recvrec_buf(SSLEngineContext* cc, usz* len);
   param cc    SSL engine context.
   param len   number of bytes received.
 *>
-extern fn void ssl_engine_recvrec_ack(SSLEngineContext* cc, usz len);
+extern fn void ssl_engine_recvrec_ack(SSLEngineContext* cc, sz len);
 
 <*
   Get the application-data receive buffer.
@@ -1897,7 +1897,7 @@ extern fn void ssl_engine_recvrec_ack(SSLEngineContext* cc, usz len);
   param len   receives the available length.
   returns buffer pointer.
 *>
-extern fn char* ssl_engine_recvapp_buf(SSLEngineContext* cc, usz* len);
+extern fn char* ssl_engine_recvapp_buf(SSLEngineContext* cc, sz* len);
 
 <*
   Acknowledge consumed application-data bytes.
@@ -1905,7 +1905,7 @@ extern fn char* ssl_engine_recvapp_buf(SSLEngineContext* cc, usz* len);
   param cc    SSL engine context.
   param len   number of consumed bytes.
 *>
-extern fn void ssl_engine_recvapp_ack(SSLEngineContext* cc, usz len);
+extern fn void ssl_engine_recvapp_ack(SSLEngineContext* cc, sz len);
 
 <*
   Get the application-data output buffer.
@@ -1917,7 +1917,7 @@ extern fn void ssl_engine_recvapp_ack(SSLEngineContext* cc, usz len);
   param len   receives the available length.
   returns buffer pointer.
 *>
-extern fn char* ssl_engine_sendapp_buf(SSLEngineContext* cc, usz* len);
+extern fn char* ssl_engine_sendapp_buf(SSLEngineContext* cc, sz* len);
 
 <*
   Acknowledge produced application-data bytes.
@@ -1925,7 +1925,7 @@ extern fn char* ssl_engine_sendapp_buf(SSLEngineContext* cc, usz* len);
   param cc    SSL engine context.
   param len   number of produced bytes.
 *>
-extern fn void ssl_engine_sendapp_ack(SSLEngineContext* cc, usz len);
+extern fn void ssl_engine_sendapp_ack(SSLEngineContext* cc, sz len);
 
 <*
   Flush buffered application data.
@@ -2020,12 +2020,12 @@ fn char* ssl_engine_get_server_name(SSLEngineContext* cc) @inline
 <*
   Read callback.
 *>
-alias SSLIOReadFn = fn int(void* ctx, char* data, usz len);
+alias SSLIOReadFn = fn int(void* ctx, char* data, sz len);
 
 <*
   Write callback.
 *>
-alias SSLIOWriteFn = fn int(void* ctx, char* data, usz len);
+alias SSLIOWriteFn = fn int(void* ctx, char* data, sz len);
 
 
 
@@ -2068,7 +2068,7 @@ extern fn void sslio_init(SSLIOContext* cc, SSLEngineContext* engine, SSLIOReadF
   param len   maximum number of bytes.
   returns number of bytes read, or -1 on error.
 *>
-extern fn int sslio_read(SSLIOContext* cc, void* dst, usz len);
+extern fn int sslio_read(SSLIOContext* cc, void* dst, sz len);
 
 <*
   Write application data.
@@ -2078,7 +2078,7 @@ extern fn int sslio_read(SSLIOContext* cc, void* dst, usz len);
   param len   number of bytes to write.
   returns number of bytes written, or -1 on error.
 *>
-extern fn int sslio_write(SSLIOContext* cc, void* src, usz len);
+extern fn int sslio_write(SSLIOContext* cc, void* src, sz len);
 
 <*
   Flush pending outgoing data.
@@ -2111,7 +2111,7 @@ struct SSLClientCertificate {
     int auth_type;
     int hash_id;
     X509Certificate* chain;
-    usz chain_len;
+    sz chain_len;
 }
 
 <*
@@ -2132,7 +2132,7 @@ alias StartNameListFn = fn void(SSLClientCertificateClass** pctx);
   param pctx   certificate handler context.
   param len    encoded name length (in bytes).
 *>
-alias StartNameFn = fn void(SSLClientCertificateClass** pctx, usz len);
+alias StartNameFn = fn void(SSLClientCertificateClass** pctx, sz len);
 
 <*
   Receive some more bytes for the current trust anchor name.
@@ -2145,7 +2145,7 @@ alias StartNameFn = fn void(SSLClientCertificateClass** pctx, usz len);
   param data   anchor name chunk.
   param len    anchor name chunk length (in bytes).
 *>
-alias AppendNameFn = fn void(SSLClientCertificateClass** pctx, char* data, usz len);
+alias AppendNameFn = fn void(SSLClientCertificateClass** pctx, char* data, sz len);
 
 <*
   End current trust anchor name.
@@ -2201,7 +2201,7 @@ alias ChooseFn1 = fn void(SSLClientCertificateClass** pctx, SSLClientContext* cc
   param len    public key point length / X coordinate length.
   returns 1 on success, 0 on error.
 *>
-alias DoKeyxFn1 = fn uint(SSLClientCertificateClass** pctx, char* data, usz* len);
+alias DoKeyxFn1 = fn uint(SSLClientCertificateClass** pctx, char* data, sz* len);
 
 <*
   Perform a signature (client authentication).
@@ -2218,7 +2218,7 @@ alias DoKeyxFn1 = fn uint(SSLClientCertificateClass** pctx, char* data, usz* len
   param len       total buffer length (in bytes).
   returns signature length (in bytes) on success, or 0 on error.
 *>
-alias DoSignFn1 = fn usz(SSLClientCertificateClass** pctx, int hash_id, usz hv_len, char* data, usz len);
+alias DoSignFn1 = fn sz(SSLClientCertificateClass** pctx, int hash_id, sz hv_len, char* data, sz len);
 
 
 
@@ -2236,7 +2236,7 @@ struct SSLClientCertificateClass {
     <*
       Context size (in bytes).
     *>
-    usz context_size;
+    sz context_size;
 
     StartNameListFn start_name_list;
     StartNameFn start_name;
@@ -2463,7 +2463,7 @@ struct SSLServerChoices {
     <*
       Certificate chain length (number of certificates).
     *>
-    usz chain_len;
+    sz chain_len;
 }
 
 
@@ -2485,7 +2485,7 @@ alias ChooseFn2 = fn int(SSLServerPolicyClass** pctx, SSLServerContext* cc, SSLS
   param len    key exchange data length (in bytes).
   returns 1 on success, 0 on error.
 *>
-alias DoKeyxFn2 = fn uint(SSLServerPolicyClass** pctx, char* data, usz* len);
+alias DoKeyxFn2 = fn uint(SSLServerPolicyClass** pctx, char* data, sz* len);
 
 <*
   Perform a signature (for a ServerKeyExchange message).
@@ -2497,7 +2497,7 @@ alias DoKeyxFn2 = fn uint(SSLServerPolicyClass** pctx, char* data, usz* len);
   param len       total buffer length (in bytes).
   returns signature length (in bytes), or 0 on error.
 *>
-alias DoSignFn2 = fn usz(SSLServerPolicyClass** pctx, uint algo_id, char* data, usz hv_len, usz len);
+alias DoSignFn2 = fn sz(SSLServerPolicyClass** pctx, uint algo_id, char* data, sz hv_len, sz len);
 
 
 
@@ -2517,7 +2517,7 @@ struct SSLServerPolicyClass {
     <*
       Context size (in bytes).
     *>
-    usz context_size;
+    sz context_size;
 
 
     ChooseFn2 choose;
@@ -2542,7 +2542,7 @@ struct SSLServerPolicyRSAContext {
     SSLServerPolicyClass* vtable;
 
     X509Certificate* chain;
-    usz chain_len;
+    sz chain_len;
     RSAPrivateKey* sk;
     uint allowed_usages;
     RSAPrivate irsacore;
@@ -2570,7 +2570,7 @@ struct SSLServerPolicyECContext {
     SSLServerPolicyClass* vtable;
 
     X509Certificate* chain;
-    usz chain_len;
+    sz chain_len;
     ECPrivateKey* sk;
     uint allowed_usages;
     uint cert_issuer_key_type;
@@ -2613,7 +2613,7 @@ struct SSLSessionCacheClass {
     <*
       Context size (in bytes).
     *>
-    usz context_size;
+    sz context_size;
 
 
     SaveFn save;
@@ -2641,8 +2641,8 @@ struct SSLSessionCacheLRU {
     SSLSessionCacheClass* vtable;
 
     char* store;
-    usz store_len;
-    usz store_ptr;
+    sz store_len;
+    sz store_ptr;
     char[32] index_key;
     HashClass* hash;
     int init_done;
@@ -2662,7 +2662,7 @@ struct SSLSessionCacheLRU {
   param store       storage space for cached entries.
   param store_len   storage space length (in bytes).
 *>
-extern fn void ssl_session_cache_lru_init(SSLSessionCacheLRU* cc, char* store, usz store_len);
+extern fn void ssl_session_cache_lru_init(SSLSessionCacheLRU* cc, char* store, sz store_len);
 
 <*
   Forget an entry in an LRU session cache.
@@ -2726,21 +2726,21 @@ struct SSLServerContext {
     }
 
     char[70] ecdhe_key;
-    usz ecdhe_key_len;
+    sz ecdhe_key_len;
 
     <*
       Trust anchor names for client authentication.
     *>
     X500Name* ta_names;
     X509TrustAnchor* tas;
-    usz num_tas;
+    sz num_tas;
     
-    usz cur_dn_index;
+    sz cur_dn_index;
     char* cur_dn;
-    usz cur_dn_len;
+    sz cur_dn_len;
     
     char[64] hash_cv;
-    usz hash_cv_len;
+    sz hash_cv_len;
     int hash_cv_id;
 }
 
@@ -2765,7 +2765,7 @@ fn uint ssl_server_get_client_max_version(SSLServerContext* cc) @inline
   param num   destination for number of suites.
   returns translated cipher suite array.
 *>
-fn SuiteTranslated* ssl_server_get_client_suites(SSLServerContext* cc, usz* num) @inline
+fn SuiteTranslated* ssl_server_get_client_suites(SSLServerContext* cc, sz* num) @inline
 {
     *num = cc.client_suites_num;
     return &cc.client_suites[0];
@@ -2819,7 +2819,7 @@ fn void ssl_server_set_policy(SSLServerContext* cc, SSLServerPolicyClass** pctx)
   param irsacore    RSA core implementation.
   param irsasign    RSA signature implementation.
 *>
-extern fn void ssl_server_set_single_rsa(SSLServerContext* cc, X509Certificate* chain, usz chain_len, RSAPrivateKey* sk, RSAPrivate irsacore, RSAPKCS1Sign irsasign);
+extern fn void ssl_server_set_single_rsa(SSLServerContext* cc, X509Certificate* chain, sz chain_len, RSAPrivateKey* sk, RSAPrivate irsacore, RSAPKCS1Sign irsasign);
 
 <*
   Set a single EC server certificate and key.
@@ -2843,7 +2843,7 @@ extern fn void ssl_server_set_single_rsa(SSLServerContext* cc, X509Certificate* 
   param iec                    EC core implementation.
   param iecdsa                 ECDSA signature implementation ("asn1" format).
 *>
-extern fn void ssl_server_set_single_ec(SSLServerContext* cc, X509Certificate* chain, usz chain_len, ECPrivateKey* sk, uint allowed_usages, uint cert_issuer_key_type, ECImpl* iec, ECDSASign iecdsa);
+extern fn void ssl_server_set_single_ec(SSLServerContext* cc, X509Certificate* chain, sz chain_len, ECPrivateKey* sk, uint allowed_usages, uint cert_issuer_key_type, ECImpl* iec, ECDSASign iecdsa);
 
 <*
   Activate client certificate authentication.
@@ -2857,7 +2857,7 @@ extern fn void ssl_server_set_single_ec(SSLServerContext* cc, X509Certificate* c
   param ta_names   encoded trust anchor names.
   param num        number of encoded trust anchor names.
 *>
-fn void ssl_server_set_trust_anchor_names(SSLServerContext* cc, X500Name* ta_names, usz num) @inline
+fn void ssl_server_set_trust_anchor_names(SSLServerContext* cc, X500Name* ta_names, sz num) @inline
 {
     cc.ta_names = ta_names;
     cc.tas = null;
@@ -2877,7 +2877,7 @@ fn void ssl_server_set_trust_anchor_names(SSLServerContext* cc, X500Name* ta_nam
   param tas   trust anchors (only names are used).
   param num   number of trust anchors.
 *>
-fn void ssl_server_set_trust_anchor_names_alt(SSLServerContext* cc, X509TrustAnchor* tas, usz num) @inline
+fn void ssl_server_set_trust_anchor_names_alt(SSLServerContext* cc, X509TrustAnchor* tas, sz num) @inline
 {
     cc.ta_names = null;
     cc.tas = tas;
@@ -2919,7 +2919,7 @@ struct SSLClientCertificateRSAContext {
     SSLClientCertificateClass* vtable;
 
     X509Certificate* chain;
-    usz chain_len;
+    sz chain_len;
     RSAPrivateKey* sk;
     RSAPKCS1Sign irsasign;
 }
@@ -2940,7 +2940,7 @@ struct SSLClientCertificateECContext {
     SSLClientCertificateClass* vtable;
 
     X509Certificate* chain;
-    usz chain_len;
+    sz chain_len;
     ECPrivateKey* sk;
     uint allowed_usages;
     uint issuer_key_type;
@@ -3020,7 +3020,7 @@ fn int ssl_client_get_server_curve(SSLClientContext* cc) @inline
   param trust_anchors       trust anchors to use.
   param trust_anchors_num   number of trust anchors.
 *>
-extern fn void ssl_client_init_full(SSLClientContext* cc, X509MinimalContext* xc, X509TrustAnchor* trust_anchors, usz trust_anchors_num);
+extern fn void ssl_client_init_full(SSLClientContext* cc, X509MinimalContext* xc, X509TrustAnchor* trust_anchors, sz trust_anchors_num);
 
 <*
   Clear the complete contents of a SSL client context.
@@ -3118,7 +3118,7 @@ fn void ssl_client_forget_session(SSLClientContext* cc) @inline
   param sk          client RSA private key.
   param irsasign    RSA signature implementation.
 *>
-extern fn void ssl_client_set_single_rsa(SSLClientContext* cc, X509Certificate* chain, usz chain_len, RSAPrivateKey* sk, RSAPKCS1Sign irsasign);
+extern fn void ssl_client_set_single_rsa(SSLClientContext* cc, X509Certificate* chain, sz chain_len, RSAPrivateKey* sk, RSAPKCS1Sign irsasign);
 
 <*
   Set client certificate chain and key (single EC case).
@@ -3132,7 +3132,7 @@ extern fn void ssl_client_set_single_rsa(SSLClientContext* cc, X509Certificate* 
   param iec                    EC core implementation.
   param iecdsa                 ECDSA signature implementation.
 *>
-extern fn void ssl_client_set_single_ec(SSLClientContext* cc, X509Certificate* chain, usz chain_len, ECPrivateKey* sk, uint allowed_usages, uint cert_issuer_key_type, ECImpl* iec, ECDSASign iecdsa);
+extern fn void ssl_client_set_single_ec(SSLClientContext* cc, X509Certificate* chain, sz chain_len, ECPrivateKey* sk, uint allowed_usages, uint cert_issuer_key_type, ECImpl* iec, ECDSASign iecdsa);
 
 <*
   Get the embedded engine context from a client context.
@@ -3158,22 +3158,22 @@ extern fn void ssl_engine_set_default_ec(SSLEngineContext* cc);
 extern fn void ssl_engine_set_default_rsavrfy(SSLEngineContext* cc);
 extern fn void ssl_engine_set_default_ecdsa(SSLEngineContext* cc);
 
-extern fn void ssl_engine_inject_entropy(SSLEngineContext* cc, void* data, usz len);
-extern fn int  ssl_key_export(SSLEngineContext* cc, void* dst, usz len, char* label, void* context, usz context_len);
+extern fn void ssl_engine_inject_entropy(SSLEngineContext* cc, void* data, sz len);
+extern fn int  ssl_key_export(SSLEngineContext* cc, void* dst, sz len, char* label, void* context, sz context_len);
 
-extern fn void ssl_server_init_full_rsa(SSLServerContext* cc, X509Certificate* chain, usz chain_len, RSAPrivateKey* sk);
-extern fn void ssl_server_init_full_ec(SSLServerContext* cc, X509Certificate* chain, usz chain_len, uint cert_issuer_key_type, ECPrivateKey* sk);
-extern fn void ssl_server_init_minr2g(SSLServerContext* cc, X509Certificate* chain, usz chain_len, RSAPrivateKey* sk);
-extern fn void ssl_server_init_mine2g(SSLServerContext* cc, X509Certificate* chain, usz chain_len, RSAPrivateKey* sk);
-extern fn void ssl_server_init_minf2g(SSLServerContext* cc, X509Certificate* chain, usz chain_len, ECPrivateKey* sk);
-extern fn void ssl_server_init_minu2g(SSLServerContext* cc, X509Certificate* chain, usz chain_len, ECPrivateKey* sk);
-extern fn void ssl_server_init_minv2g(SSLServerContext* cc, X509Certificate* chain, usz chain_len, ECPrivateKey* sk);
-extern fn void ssl_server_init_mine2c(SSLServerContext* cc, X509Certificate* chain, usz chain_len, RSAPrivateKey* sk);
-extern fn void ssl_server_init_minf2c(SSLServerContext* cc, X509Certificate* chain, usz chain_len, ECPrivateKey* sk);
+extern fn void ssl_server_init_full_rsa(SSLServerContext* cc, X509Certificate* chain, sz chain_len, RSAPrivateKey* sk);
+extern fn void ssl_server_init_full_ec(SSLServerContext* cc, X509Certificate* chain, sz chain_len, uint cert_issuer_key_type, ECPrivateKey* sk);
+extern fn void ssl_server_init_minr2g(SSLServerContext* cc, X509Certificate* chain, sz chain_len, RSAPrivateKey* sk);
+extern fn void ssl_server_init_mine2g(SSLServerContext* cc, X509Certificate* chain, sz chain_len, RSAPrivateKey* sk);
+extern fn void ssl_server_init_minf2g(SSLServerContext* cc, X509Certificate* chain, sz chain_len, ECPrivateKey* sk);
+extern fn void ssl_server_init_minu2g(SSLServerContext* cc, X509Certificate* chain, sz chain_len, ECPrivateKey* sk);
+extern fn void ssl_server_init_minv2g(SSLServerContext* cc, X509Certificate* chain, sz chain_len, ECPrivateKey* sk);
+extern fn void ssl_server_init_mine2c(SSLServerContext* cc, X509Certificate* chain, sz chain_len, RSAPrivateKey* sk);
+extern fn void ssl_server_init_minf2c(SSLServerContext* cc, X509Certificate* chain, sz chain_len, ECPrivateKey* sk);
 
 extern fn void ssl_server_zero(SSLServerContext* cc);
-extern fn int  sslio_read_all(SSLIOContext* cc, void* dst, usz len);
-extern fn int  sslio_write_all(SSLIOContext* cc, void* src, usz len);
+extern fn int  sslio_read_all(SSLIOContext* cc, void* dst, sz len);
+extern fn int  sslio_write_all(SSLIOContext* cc, void* src, sz len);
 
 fn ECImpl*       ssl_engine_get_ec(SSLEngineContext* cc) @inline { return cc.iec; }
 fn RSAPKCS1Vrfy  ssl_engine_get_rsavrfy(SSLEngineContext* cc) @inline { return cc.irsavrfy; }

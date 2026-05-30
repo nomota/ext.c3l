@@ -70,8 +70,8 @@ fn ushort range_mask(uint from, uint to) @inline
 // =======================================
 
 struct Scanner {
-    usz  in_string;     // 1 when the last chunk ended inside a string
-    usz  prev_escaped;  // 1 when the last byte of the previous chunk was an odd backslash run
+    sz  in_string;     // 1 when the last chunk ended inside a string
+    sz  prev_escaped;  // 1 when the last byte of the previous chunk was an odd backslash run
     bool in_comment;    // true when inside a // line comment
     bool prev_boundary; // true when the last byte of the previous chunk was a structural char or whitespace
 }
@@ -96,8 +96,8 @@ fn ushort Scanner.string_mask(&self, Chunk* v)
     ushort s = pxor ^ real_quotes;
 
     // Carry: pxor MSB tells whether we exit this chunk still inside a string
-    self.in_string = (usz)(pxor >> 15);
-    self.prev_escaped = (usz)(bs   >> 15);
+    self.in_string = (sz)(pxor >> 15);
+    self.prev_escaped = (sz)(bs   >> 15);
 
     return s;
 }
@@ -160,12 +160,12 @@ fn ushort Scanner.pseudo_structural(&self, Chunk* v, ushort str_mask, ushort ws,
 // =======================================
 
 // returned indices need to be free'd
-fn usz[] scan(Allocator alloc, char[] input, bool allow_comma=true, bool allow_comment=true)
+fn sz[] scan(Allocator alloc, char[] input, bool allow_comma=true, bool allow_comment=true)
 {
-    usz n = input.len;
-    usz nchunks = (n + CHUNK - 1) / CHUNK;
+    sz n = input.len;
+    sz nchunks = (n + CHUNK - 1) / CHUNK;
 
-    List{usz} indices;
+    List{sz} indices;
     
     // The very start of the input acts as a boundary so the first
     // bare value character is correctly detected as pseudo-structural.
@@ -173,10 +173,10 @@ fn usz[] scan(Allocator alloc, char[] input, bool allow_comma=true, bool allow_c
 
     char[CHUNK] tail = {};
 
-    for (usz ci = 0; ci < nchunks; ci++)
+    for (sz ci = 0; ci < nchunks; ci++)
     {
-        usz   base = ci * CHUNK;
-        usz   avail = (n - base < CHUNK) ? n - base : CHUNK;
+        sz   base = ci * CHUNK;
+        sz   avail = (n - base < CHUNK) ? n - base : CHUNK;
         char* buf = input.ptr + base;
 
         if (avail < CHUNK)
@@ -241,28 +241,28 @@ enum TapeType : char {
 //   END_OBJECT/ARRAY     offset = tape index of the matching START entry
 struct TapeEntry {
     TapeType type;
-    usz offset;
-    usz length;
+    sz offset;
+    sz length;
 }
 
 struct Parser {
     char[] input;
-    usz[] indices; // structural index list from Stage 1
-    usz idx; // cursor into indices[]
+    sz[] indices; // structural index list from Stage 1
+    sz idx; // cursor into indices[]
     TapeEntry[] tape;
-    usz tape_pos;
-    usz[] scope_stack;
-    usz depth;
+    sz tape_pos;
+    sz[] scope_stack;
+    sz depth;
     bool allow_comma;
     bool allow_comment;
 }
 
-fn void Parser.emit(&self, TapeType t, usz offset, usz length) @inline
+fn void Parser.emit(&self, TapeType t, sz offset, sz length) @inline
 {
     self.tape[self.tape_pos++] = { t, offset, length };
 }
 
-fn void Parser.patch_offset(&self, usz tape_idx, usz new_offset) @inline
+fn void Parser.patch_offset(&self, sz tape_idx, sz new_offset) @inline
 {
     self.tape[tape_idx].offset = new_offset;
 }
@@ -271,8 +271,8 @@ fn void Parser.patch_offset(&self, usz tape_idx, usz new_offset) @inline
 // NOTE: does NOT advance idx — the caller must consume the closing delimiter.
 fn void Parser.close_scope(&self, TapeType close_type)
 {
-    usz open_tape = self.scope_stack[--self.depth];
-    usz close_tape = self.tape_pos;
+    sz open_tape = self.scope_stack[--self.depth];
+    sz close_tape = self.tape_pos;
     self.patch_offset(open_tape, close_tape); // START.offset -> END tape index
     self.emit(close_type, open_tape, 0);       // END.offset -> START tape index
 }
@@ -286,9 +286,9 @@ fn char Parser.peek(&self) @inline
 
 // ---- end-of-value scanners ----
 
-fn usz find_string_end(char[] input, usz start) @private
+fn sz find_string_end(char[] input, sz start) @private
 {
-    usz i = start;
+    sz i = start;
     while (i < input.len)
     {
         if (input[i] == '\\') { i += 2; continue; }
@@ -299,24 +299,24 @@ fn usz find_string_end(char[] input, usz start) @private
 }
 
 const bool[256] NUM = {
-    [(usz)'0'] = true, [(usz)'1'] = true,
-    [(usz)'2'] = true, [(usz)'3'] = true,
-    [(usz)'4'] = true, [(usz)'5'] = true,
-    [(usz)'6'] = true, [(usz)'7'] = true,
-    [(usz)'8'] = true, [(usz)'9'] = true,
-    [(usz)'e'] = true, [(usz)'E'] = true,
-    [(usz)'+'] = true, [(usz)'-'] = true,
-    [(usz)'.'] = true,
+    [(sz)'0'] = true, [(sz)'1'] = true,
+    [(sz)'2'] = true, [(sz)'3'] = true,
+    [(sz)'4'] = true, [(sz)'5'] = true,
+    [(sz)'6'] = true, [(sz)'7'] = true,
+    [(sz)'8'] = true, [(sz)'9'] = true,
+    [(sz)'e'] = true, [(sz)'E'] = true,
+    [(sz)'+'] = true, [(sz)'-'] = true,
+    [(sz)'.'] = true,
 };
 
 fn bool isnum(char c) @inline @private
 {
-    return NUM[(usz)c];
+    return NUM[(sz)c];
 }
 
-fn usz find_number_end(char[] input, usz start) @private
+fn sz find_number_end(char[] input, sz start) @private
 {
-    usz i = start;
+    sz i = start;
     while (i < input.len)
     {
         if (! isnum(input[i])) {
@@ -336,9 +336,9 @@ fn usz find_number_end(char[] input, usz start) @private
 // Emits a STRING entry for the string whose opening " is at indices[idx].
 fn bool Parser.parse_string_val(&self)
 {
-    usz pos = self.indices[self.idx];
-    usz start = pos + 1;
-    usz end = find_string_end(self.input, start);
+    sz pos = self.indices[self.idx];
+    sz start = pos + 1;
+    sz end = find_string_end(self.input, start);
     self.emit(TapeType.STRING, start, end - start);
     self.idx++; // consume the opening " structural index
     return true;
@@ -347,8 +347,8 @@ fn bool Parser.parse_string_val(&self)
 // Emits a NUMBER entry for the literal starting at indices[idx].
 fn bool Parser.parse_number_val(&self)
 {
-    usz pos = self.indices[self.idx];
-    usz end = find_number_end(self.input, pos);
+    sz pos = self.indices[self.idx];
+    sz end = find_number_end(self.input, pos);
     self.emit(TapeType.NUMBER, pos, end - pos);
     self.idx++;
     return true;
@@ -357,10 +357,10 @@ fn bool Parser.parse_number_val(&self)
 // Emits a keyword entry (true/false/null) after validating the literal bytes.
 fn bool Parser.parse_literal_val(&self, char[] expected, TapeType t)
 {
-    usz pos = self.indices[self.idx];
-    usz len = expected.len;
+    sz pos = self.indices[self.idx];
+    sz len = expected.len;
     if (pos + len > self.input.len) return false;
-    for (usz i = 0; i < len; i++) {
+    for (sz i = 0; i < len; i++) {
         if (self.input[pos + i] != expected[i]) return false;
     }
     self.emit(t, pos, len);
@@ -372,7 +372,7 @@ fn bool Parser.parse_value(&self)
 {
     if (self.at_end()) return false;
 
-    usz  pos = self.indices[self.idx];
+    sz  pos = self.indices[self.idx];
     char c = self.input[pos];
 
     switch (c)
@@ -393,7 +393,7 @@ fn bool Parser.parse_value(&self)
 
 fn bool Parser.parse_object(&self)
 {
-    usz open_tape = self.tape_pos;
+    sz open_tape = self.tape_pos;
     self.emit(TapeType.START_OBJECT, 0, 0);
     self.scope_stack[self.depth++] = open_tape;
     self.idx++; // consume '{'
@@ -410,9 +410,9 @@ fn bool Parser.parse_object(&self)
     {
         // Key must be a string
         if (self.at_end() || self.peek() != '"') return false;
-        usz kpos = self.indices[self.idx];
-        usz kstart = kpos + 1;
-        usz kend = find_string_end(self.input, kstart);
+        sz kpos = self.indices[self.idx];
+        sz kstart = kpos + 1;
+        sz kend = find_string_end(self.input, kstart);
         self.emit(TapeType.STRING, kstart, kend - kstart);
         self.idx++; // consume key '"'
 
@@ -445,7 +445,7 @@ fn bool Parser.parse_object(&self)
 
 fn bool Parser.parse_array(&self)
 {
-    usz open_tape = self.tape_pos;
+    sz open_tape = self.tape_pos;
     self.emit(TapeType.START_ARRAY, 0, 0);
     self.scope_stack[self.depth++] = open_tape;
     self.idx++; // consume '['
@@ -510,16 +510,16 @@ fn ParseResult? parse(Allocator alloc, char[] input, bool allow_comma=true, bool
 {
     if (input.len == 0) return EMPTY_INPUT~;
 
-    usz[] s1 = scan(alloc, input, allow_comma, allow_comment);
+    sz[] s1 = scan(alloc, input, allow_comma, allow_comment);
     defer alloc.free(s1);
     
     if (s1.len == 0) return NO_TOKENS~;
 
-    usz max_tape = s1.len + 4;
-    usz max_depth = s1.len / 2 + 2;
+    sz max_tape = s1.len + 4;
+    sz max_depth = s1.len / 2 + 2;
 
-    TapeEntry* tape_ptr = (TapeEntry*)alloc.malloc(TapeEntry.sizeof * max_tape)!;
-    usz* scope_ptr = (usz*)alloc.malloc(usz.sizeof * max_depth)!;
+    TapeEntry* tape_ptr = (TapeEntry*)alloc.malloc(TapeEntry::size * max_tape)!;
+    sz* scope_ptr = (sz*)alloc.malloc(sz::size * max_depth)!;
     defer alloc.free(scope_ptr);
     
     Parser p = {
@@ -550,7 +550,7 @@ struct JsonValue
 {
     char[] src; // slice of the original input (not owned)
     TapeEntry[] tape;
-    usz pos; // index of this value's tape entry
+    sz pos; // index of this value's tape entry
 }
 
 fn JsonValue ParseResult.root(&self) => { self.src, self.tape, 0 };
@@ -596,7 +596,7 @@ fn double? JsonValue.as_double(&self)
 
 // Return the tape index of the first entry that follows this value.
 // For objects and arrays this jumps past the entire subtree in O(1).
-fn usz next_tape_pos(TapeEntry[] tape, usz pos)
+fn sz next_tape_pos(TapeEntry[] tape, sz pos)
 {
     switch (tape[pos].type)
     {
@@ -613,7 +613,7 @@ fn bool str_equal(String a, String b) @inline
     return (a == b);
 /*
     if (a.len != b.len) return false;
-    for (usz i = 0; i < a.len; i++) {
+    for (sz i = 0; i < a.len; i++) {
         if (a[i] != b[i]) return false;
     }
     return true;
@@ -624,8 +624,8 @@ fn bool str_equal(String a, String b) @inline
 fn JsonValue? JsonValue.get(&self, String key)
 {
     if (!self.is_object()) return TYPE_MISMATCH~;
-    usz t = self.pos + 1;
-    usz end = self.tape[self.pos].offset; // END_OBJECT tape index
+    sz t = self.pos + 1;
+    sz end = self.tape[self.pos].offset; // END_OBJECT tape index
     while (t < end)
     {
         TapeEntry* ke = &self.tape[t];
@@ -637,12 +637,12 @@ fn JsonValue? JsonValue.get(&self, String key)
 }
 
 // Return the element at index i in a JSON array.
-fn JsonValue? JsonValue.at(&self, usz i)
+fn JsonValue? JsonValue.at(&self, sz i)
 {
     if (!self.is_array()) return TYPE_MISMATCH~;
-    usz t = self.pos + 1;
-    usz end = self.tape[self.pos].offset;
-    usz n = 0;
+    sz t = self.pos + 1;
+    sz end = self.tape[self.pos].offset;
+    sz n = 0;
     while (t < end)
     {
         if (n == i) return { self.src, self.tape, t };
@@ -653,13 +653,13 @@ fn JsonValue? JsonValue.at(&self, usz i)
 }
 
 // Number of elements (array) or key-value pairs (object).
-fn usz JsonValue.len(&self)
+fn sz JsonValue.len(&self)
 {
     if (!self.is_object() && !self.is_array()) return 0;
     bool is_obj = self.is_object();
-    usz  t = self.pos + 1;
-    usz  end = self.tape[self.pos].offset;
-    usz  count = 0;
+    sz  t = self.pos + 1;
+    sz  end = self.tape[self.pos].offset;
+    sz  count = 0;
     while (t < end)
     {
         if (is_obj) t++; // skip the key STRING entry
@@ -679,7 +679,7 @@ fn usz JsonValue.len(&self)
 fn void dump_tape(ParseResult* r)
 {
     io::printn("=== tape dump ===");
-    for (usz i = 0; i < r.tape.len; i++)
+    for (sz i = 0; i < r.tape.len; i++)
     {
         TapeEntry* e = &r.tape[i];
         switch (e.type)

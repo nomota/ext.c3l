@@ -121,7 +121,7 @@ alias HashInitFn     = fn void(HashClass** ctx);
   Inject data bytes into a running hash computation.
   If len is 0, data is ignored and nothing happens.
 *>
-alias HashUpdateFn   = fn void(HashClass** ctx, void* data, usz len);
+alias HashUpdateFn   = fn void(HashClass** ctx, void* data, sz len);
 
 <*
   Produce hash output into dst. The context is NOT modified,
@@ -160,7 +160,7 @@ struct HashClass {
       Size (in bytes) of the context structure for this hash function.
       Used by generic implementations for dynamic context allocation.
     *>
-    usz context_size;
+    sz context_size;
 
     <*
       Descriptor word encoding information about the hash function.
@@ -230,7 +230,7 @@ extern fn void md5_init(MD5Context* ctx);
   param data   pointer to the injected data.
   param len    injected data length (in bytes).
 *>
-extern fn void md5_update(MD5Context* ctx, void* data, usz len);
+extern fn void md5_update(MD5Context* ctx, void* data, sz len);
 
 <*
   Compute MD5 output.
@@ -292,7 +292,7 @@ extern fn void sha1_init(SHA1Context* ctx);
   Inject data bytes into a running SHA-1 computation.
   If len is 0, data is ignored and this function does nothing.
 *>
-extern fn void sha1_update(SHA1Context* ctx, void* data, usz len);
+extern fn void sha1_update(SHA1Context* ctx, void* data, sz len);
 
 <*
   Compute SHA-1 output. The context is not modified.
@@ -342,7 +342,7 @@ extern fn void sha224_init(SHA224Context* ctx);
   Inject data bytes into a running SHA-224 computation.
   If len is 0, data is ignored and this function does nothing.
 *>
-extern fn void sha224_update(SHA224Context* ctx, void* data, usz len);
+extern fn void sha224_update(SHA224Context* ctx, void* data, sz len);
 
 <*
   Compute SHA-224 output. The context is not modified.
@@ -423,7 +423,7 @@ extern fn void sha384_init(SHA384Context* ctx);
   Inject data bytes into a running SHA-384 computation.
   If len is 0, data is ignored and this function does nothing.
 *>
-extern fn void sha384_update(SHA384Context* ctx, void* data, usz len);
+extern fn void sha384_update(SHA384Context* ctx, void* data, sz len);
 
 <*
   Compute SHA-384 output. The context is not modified.
@@ -508,7 +508,7 @@ extern fn void md5sha1_init(MD5SHA1Context* ctx);
   Inject data bytes into a running MD5+SHA-1 computation.
   If len is 0, data is ignored and this function does nothing.
 *>
-extern fn void md5sha1_update(MD5SHA1Context* ctx, void* data, usz len);
+extern fn void md5sha1_update(MD5SHA1Context* ctx, void* data, sz len);
 
 <*
   Compute MD5+SHA-1 output (36 bytes: MD5 then SHA-1).
@@ -630,7 +630,7 @@ extern fn void multihash_init(MultiHashContext* ctx);
   param data   pointer to the injected data.
   param len    injected data length (in bytes).
 *>
-extern fn void multihash_update(MultiHashContext* ctx, void* data, usz len);
+extern fn void multihash_update(MultiHashContext* ctx, void* data, sz len);
 
 <*
   Compute a hash output from a multi-hasher.
@@ -645,7 +645,7 @@ extern fn void multihash_update(MultiHashContext* ctx, void* data, usz len);
   param dst   destination buffer for the hash output.
   returns the hash output length (in bytes), or 0.
 *>
-extern fn usz multihash_out(MultiHashContext* ctx, int id, void* dst);
+extern fn sz multihash_out(MultiHashContext* ctx, int id, void* dst);
 
 // ============================================================================
 // GHASH
@@ -667,13 +667,13 @@ extern fn usz multihash_out(MultiHashContext* ctx, int id, void* dst);
   param data   input data (may be null if len is 0).
   param len    input data length (in bytes).
 *>
-alias GHashFn = fn void(void* y, void* h, void* data, usz len);
+alias GHashFn = fn void(void* y, void* h, void* data, sz len);
 
 <*
   GHASH implementation using mixed 32-bit multiplications (32×32→64).
   Constant-time if multiplications are constant-time.
 *>
-extern fn void ghash_ctmul(void* y, void* h, void* data, usz len);
+extern fn void ghash_ctmul(void* y, void* h, void* data, sz len);
 
 <*
   GHASH implementation using strict 32-bit multiplications (32×32→32).
@@ -681,14 +681,14 @@ extern fn void ghash_ctmul(void* y, void* h, void* data, usz len);
   where the 32-bit multiply does not produce the upper 32 bits.
   Constant-time if multiplications are constant-time.
 *>
-extern fn void ghash_ctmul32(void* y, void* h, void* data, usz len);
+extern fn void ghash_ctmul32(void* y, void* h, void* data, sz len);
 
 <*
   GHASH implementation using 64-bit multiplications (64×64→64).
   Substantially faster than the 32-bit variants on most 64-bit platforms.
   Constant-time if multiplications are constant-time.
 *>
-extern fn void ghash_ctmul64(void* y, void* h, void* data, usz len);
+extern fn void ghash_ctmul64(void* y, void* h, void* data, sz len);
 
 <*
   GHASH implementation using the pclmulqdq opcode (x86 AES-NI).
@@ -698,7 +698,7 @@ extern fn void ghash_ctmul64(void* y, void* h, void* data, usz len);
   an unsupported CPU will raise an illegal instruction exception.
   Use ghash_pclmul_get() to safely obtain this pointer.
 *>
-extern fn void ghash_pclmul(void* y, void* h, void* data, usz len);
+extern fn void ghash_pclmul(void* y, void* h, void* data, sz len);
 
 <*
   Obtain the pclmul GHASH implementation if available.
@@ -716,7 +716,7 @@ extern fn GHashFn ghash_pclmul_get();
   Only available on POWER8 (and later) platforms. Use ghash_pwr8_get()
   to safely obtain this pointer.
 *>
-extern fn void ghash_pwr8(void* y, void* h, void* data, usz len);
+extern fn void ghash_pwr8(void* y, void* h, void* data, sz len);
 
 <*
   Obtain the pwr8 GHASH implementation if available.

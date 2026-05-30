@@ -19,8 +19,8 @@ import c::sys::stat;
 import ext::debug;
 import ext::mem;
 
-const usz MAX_EVENTS = 4096;
-const usz MAX_FD_WATCH  = 20_000;
+const sz MAX_EVENTS = 4096;
+const sz MAX_FD_WATCH  = 20_000;
 
 alias Fd = int;
 
@@ -48,7 +48,7 @@ struct FdWatch @local
 struct IoContext @local
 {
     FdWatch[MAX_FD_WATCH] fd_table;
-    usz fd_count;
+    sz fd_count;
     Fd poll_fd; // epoll fd or kqueue fd
 
     // poll wake pipe
@@ -69,7 +69,7 @@ fn void init()
         .wake_r = fd_null(),
         .wake_w = fd_null(),
     };    
-    for (usz i = 0; i < MAX_FD_WATCH; i++) 
+    for (sz i = 0; i < MAX_FD_WATCH; i++) 
     {
         ctx.fd_table[i] = {};
     }
@@ -126,7 +126,7 @@ fn bool set_nonblocking(Fd fd)
 
 fn FdWatch* find_or_create(Fd fd) @local
 {
-    @assert(fd >= 0 && (usz)fd < MAX_FD_WATCH);
+    @assert(fd >= 0 && (sz)fd < MAX_FD_WATCH);
     FdWatch* w = &ctx.fd_table[fd];
     if (!w.active)
     {
@@ -146,7 +146,7 @@ fn FdWatch* find_or_create(Fd fd) @local
 
 fn FdWatch* find(Fd fd) @private
 {
-    if (fd < 0 || (usz)fd >= MAX_FD_WATCH) return null;
+    if (fd < 0 || (sz)fd >= MAX_FD_WATCH) return null;
     FdWatch* w = &ctx.fd_table[fd];
     return w.active ? w : null;
 }
@@ -189,7 +189,7 @@ fn void kqueue_ctl(FdWatch* w, bool want_read, bool want_write) @private
 {
     $if env::DARWIN || env::FREEBSD || env::OPENBSD || env::NETBSD:
         event::Kevent[4] changes;
-        usz n = 0;
+        sz n = 0;
         if (want_read)
         {
             event::ev_set(&changes[n++], w.fd, event::EVFILT_READ, event::EV_ADD | event::EV_ENABLE, 0, 0, null);
@@ -339,7 +339,7 @@ fn void? poll_wakeup_handler() @maydiscard
 
     while (true)
     {
-        usz? n = unistd::read(ctx.wake_r, &buf[0], buf.len);
+        sz? n = unistd::read(ctx.wake_r, &buf[0], buf.len);
 
         if (catch err = n)
         {
@@ -357,7 +357,7 @@ fn void? poll_wakeup_handler() @maydiscard
 
 fn bool pending() @inline 
 {
-    for (usz i = 0; i < MAX_FD_WATCH; i++)
+    for (sz i = 0; i < MAX_FD_WATCH; i++)
     {
         FdWatch* w = &ctx.fd_table[i];
         if (!w.active) continue;
@@ -529,7 +529,7 @@ fn void poll(ulong timeout_us) @if(false)
     select::fd_zero(&wfds);
     select::fd_zero(&efds);
     int maxfd = -1;
-    for (usz i = 0; i < MAX_FD_WATCH; i++)
+    for (sz i = 0; i < MAX_FD_WATCH; i++)
     {
         FdWatch* w = &ctx.fd_table[i];
         if (!w.active) continue;
@@ -548,7 +548,7 @@ fn void poll(ulong timeout_us) @if(false)
     if (maxfd < 0) return;
     select::TimeVal tv = { (long)(timeout_us / 1_000_000), (long)(timeout_us % 1_000_000) };
     select::select(maxfd + 1, &rfds, &wfds, &efds, &tv);
-    for (usz i = 0; i < MAX_FD_WATCH; i++)
+    for (sz i = 0; i < MAX_FD_WATCH; i++)
     {
         FdWatch* w = &ctx.fd_table[i];
         if (!w.active) continue;
@@ -588,25 +588,25 @@ fn bool would_block() @inline
     return e == errno::EAGAIN || e == errno::EWOULDBLOCK;
 }
 
-fn usz? async_read(Fd fd, char[] buf) 
+fn sz? async_read(Fd fd, char[] buf) 
 {
     while (true)
     {
-        isz n = unistd::read(fd, buf.ptr, buf.len);
-        if (n >= 0) return (usz)n;
+        sz n = unistd::read(fd, buf.ptr, buf.len);
+        if (n >= 0) return (sz)n;
         if (!would_block()) return errno::get_fault()~;
 
         wait_readable(fd)!;
     }
 }
 
-fn usz? async_write(Fd fd, char[] buf) 
+fn sz? async_write(Fd fd, char[] buf) 
 {
-    usz total = 0;
+    sz total = 0;
     while (total < buf.len)
     {
-        isz n = unistd::write(fd, buf.ptr + total, buf.len - total);
-        if (n > 0) { total += (usz)n; continue; }
+        sz n = unistd::write(fd, buf.ptr + total, buf.len - total);
+        if (n > 0) { total += (sz)n; continue; }
         if (n == 0) break;
         if (!would_block())
         {
@@ -619,7 +619,7 @@ fn usz? async_write(Fd fd, char[] buf)
     return total;
 }
 
-fn usz? async_recvfrom(Fd fd, char[] buf, char* ip_str, usz* ip_len, ushort* port) 
+fn sz? async_recvfrom(Fd fd, char[] buf, char* ip_str, sz* ip_len, ushort* port) 
 {
     if (ip_str == null) return errno::E_INVALID_ARG~;
     if (ip_len == null) return errno::E_INVALID_ARG~;
@@ -628,9 +628,9 @@ fn usz? async_recvfrom(Fd fd, char[] buf, char* ip_str, usz* ip_len, ushort* por
     while (true)
     {
         socket::SockAddrStorage ss;
-        socket::SockLen sslen = $sizeof(ss);
+        socket::SockLen sslen = @sizeof(ss);
 
-        isz n = socket::recvfrom(fd, buf.ptr, buf.len, 0, (socket::SockAddr*)&ss, &sslen);
+        sz n = socket::recvfrom(fd, buf.ptr, buf.len, 0, (socket::SockAddr*)&ss, &sslen);
         if (n >= 0)
         {
             // sender addr extraction
@@ -638,18 +638,18 @@ fn usz? async_recvfrom(Fd fd, char[] buf, char* ip_str, usz* ip_len, ushort* por
             {
                 in::SockAddrIn6* a6 = (in::SockAddrIn6*)&ss;
                 in::inet_ntop(socket::AF_INET6, &a6.sin6_addr, ip_str, 46);
-                *ip_len = (usz)string::strlen(ip_str);
+                *ip_len = (sz)string::strlen(ip_str);
                 *port = in::ntohs(a6.sin6_port);
             }
             else
             {
                 in::SockAddrIn* a4 = (in::SockAddrIn*)&ss;
                 in::inet_ntop(socket::AF_INET, &a4.sin_addr, ip_str, 16);
-                *ip_len = (usz)string::strlen(ip_str);
+                *ip_len = (sz)string::strlen(ip_str);
                 *port = in::ntohs(a4.sin_port);
             }
 
-            return (usz)n;
+            return (sz)n;
         }
 
         if (!would_block()) return errno::get_fault()~;
@@ -658,7 +658,7 @@ fn usz? async_recvfrom(Fd fd, char[] buf, char* ip_str, usz* ip_len, ushort* por
     }
 }
 
-fn usz? async_sendto(Fd fd, char[] buf, char* ip_str, ushort port) 
+fn sz? async_sendto(Fd fd, char[] buf, char* ip_str, ushort port) 
 {
     socket::SockAddr* dest_addr;
     socket::SockLen dest_len;
@@ -675,7 +675,7 @@ fn usz? async_sendto(Fd fd, char[] buf, char* ip_str, ushort port)
         a6.sin6_family = (ushort)socket::AF_INET6;
         a6.sin6_port = in::htons(port);
         dest_addr = (socket::SockAddr*)&a6;
-        dest_len = $sizeof(a6);
+        dest_len = @sizeof(a6);
     }
     else 
     {
@@ -686,13 +686,13 @@ fn usz? async_sendto(Fd fd, char[] buf, char* ip_str, ushort port)
             return errno::get_fault()~;
         }
         dest_addr = (socket::SockAddr*)&a4;
-        dest_len = $sizeof(a4);
+        dest_len = @sizeof(a4);
     }
 
     while (true)
     {
-        isz n = socket::sendto(fd, buf.ptr, buf.len, 0, dest_addr, dest_len);
-        if (n >= 0) return (usz)n;
+        sz n = socket::sendto(fd, buf.ptr, buf.len, 0, dest_addr, dest_len);
+        if (n >= 0) return (sz)n;
 
         if (!would_block()) return errno::get_fault()~;
 
@@ -733,13 +733,13 @@ struct Arg @local
     int whence;
     long offset;
     char[] buf;
-    usz result;
+    sz result;
     int permission;
 }
 
 fn char* str2cptr(String str, char[] buf) @inline @private
 {
-    usz len = (str.len <= buf.len-1)? str.len: buf.len-1;
+    sz len = (str.len <= buf.len-1)? str.len: buf.len-1;
     buf[0:len] = str[0:len];
     buf[len] = 0;
     return &buf[0];
@@ -976,19 +976,19 @@ fn void* file_read_blocking(void* v_arg) @local
 {
     Arg* arg = (Arg*)v_arg;
 
-    isz n = unistd::read(arg.fd, arg.buf.ptr, arg.buf.len);
+    sz n = unistd::read(arg.fd, arg.buf.ptr, arg.buf.len);
     if (n < 0)
     {
         arg.error = errno::get_fault();
         return v_arg;
     }
 
-    arg.result = (usz)n;
+    arg.result = (sz)n;
 
     return v_arg;
 }
 
-fn usz? file_read(Fd fd, char[] buf)
+fn sz? file_read(Fd fd, char[] buf)
 {
     if (buf.len == 0) return 0;
 
@@ -1010,15 +1010,15 @@ fn void* file_write_blocking(void* v_arg) @local
 {
     Arg* arg = (Arg*)v_arg;
 
-    usz total = 0;
+    sz total = 0;
 
     while (total < arg.buf.len)
     {
-        isz n = unistd::write(arg.fd, arg.buf.ptr + total, arg.buf.len - total);
+        sz n = unistd::write(arg.fd, arg.buf.ptr + total, arg.buf.len - total);
 
         if (n > 0)
         {
-            total += (usz)n;
+            total += (sz)n;
             continue;
         }
 
@@ -1038,7 +1038,7 @@ fn void* file_write_blocking(void* v_arg) @local
     return v_arg;
 }
 
-fn usz? file_write(Fd fd, char[] buf)
+fn sz? file_write(Fd fd, char[] buf)
 {
     if (buf.len == 0) return 0;
 

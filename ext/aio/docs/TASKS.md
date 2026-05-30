@@ -181,7 +181,7 @@ fn void? worker(void* arg)
     aio::sleep(1000)!;
 
     char[1024] buf;
-    usz n = stream.read(buf[..])!;
+    sz n = stream.read(buf[..])!;
 }
 ```
 

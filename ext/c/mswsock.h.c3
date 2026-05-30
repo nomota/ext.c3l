@@ -82,7 +82,7 @@ alias LPTransmitPacketsElement = TransmitPacketsElement*;
 
 // WSACMSGHDR / CMSGHDR
 struct WsaCmsgHdr @cname("WSACMSGHDR") {
-    usz cmsg_len;
+    sz cmsg_len;
     int cmsg_level;
     int cmsg_type;
 }

@@ -8,7 +8,7 @@ alias Byte = char;
 alias Word = ushort;
 alias DWord = uint;
 alias QWord = ulong;
-alias DWordPtr = usz;
+alias DWordPtr = sz;
 alias Long = int;
 alias ULong = uint;
 alias LongLong = long;
@@ -52,421 +52,421 @@ alias HAccel = void*;
 alias HGlobal = void*;
 alias HLocal = void*;
 
-// ============================================================
+// 
 // Constants - Handle Values
-// ============================================================
+// 
 
-const Handle INVALID_HANDLE_VALUE       = (Handle)(uptr)uptr.max;
-const Handle NULL_HANDLE                = (Handle)0;
+const Handle INVALID_HANDLE_VALUE = (Handle)(uptr)uptr::max;
+const Handle NULL_HANDLE = (Handle)0;
 
-// ============================================================
+// 
 // Constants - INFINITE / Timeout
-// ============================================================
+// 
 
-const uint INFINITE                     = 0xFFFFFFFF;
-const uint IGNORE                       = 0;
+const uint INFINITE = 0xFFFFFFFF;
+const uint IGNORE = 0;
 
-// ============================================================
+// 
 // Constants - Wait Results
-// ============================================================
+// 
 
-const DWord WAIT_FAILED                 = 0xFFFFFFFF;
-const DWord WAIT_OBJECT_0               = 0x00000000;
-const DWord WAIT_ABANDONED              = 0x00000080;
-const DWord WAIT_ABANDONED_0            = 0x00000080;
-const DWord WAIT_IO_COMPLETION          = 0x000000C0;
-const DWord WAIT_TIMEOUT                = 0x00000102;
+const DWord WAIT_FAILED = 0xFFFFFFFF;
+const DWord WAIT_OBJECT_0 = 0x00000000;
+const DWord WAIT_ABANDONED = 0x00000080;
+const DWord WAIT_ABANDONED_0 = 0x00000080;
+const DWord WAIT_IO_COMPLETION = 0x000000C0;
+const DWord WAIT_TIMEOUT = 0x00000102;
 
-// ============================================================
+// 
 // Constants - File Attributes
-// ============================================================
+// 
 
-const DWord FILE_ATTRIBUTE_READONLY             = 0x00000001;
-const DWord FILE_ATTRIBUTE_HIDDEN               = 0x00000002;
-const DWord FILE_ATTRIBUTE_SYSTEM               = 0x00000004;
-const DWord FILE_ATTRIBUTE_DIRECTORY            = 0x00000010;
-const DWord FILE_ATTRIBUTE_ARCHIVE              = 0x00000020;
-const DWord FILE_ATTRIBUTE_DEVICE               = 0x00000040;
-const DWord FILE_ATTRIBUTE_NORMAL               = 0x00000080;
-const DWord FILE_ATTRIBUTE_TEMPORARY            = 0x00000100;
-const DWord FILE_ATTRIBUTE_SPARSE_FILE          = 0x00000200;
-const DWord FILE_ATTRIBUTE_REPARSE_POINT        = 0x00000400;
-const DWord FILE_ATTRIBUTE_COMPRESSED           = 0x00000800;
-const DWord FILE_ATTRIBUTE_OFFLINE              = 0x00001000;
-const DWord FILE_ATTRIBUTE_NOT_CONTENT_INDEXED  = 0x00002000;
-const DWord FILE_ATTRIBUTE_ENCRYPTED            = 0x00004000;
-const DWord FILE_ATTRIBUTE_VIRTUAL              = 0x00010000;
-const DWord FILE_ATTRIBUTE_RECALL_ON_OPEN       = 0x00040000;
+const DWord FILE_ATTRIBUTE_READONLY = 0x00000001;
+const DWord FILE_ATTRIBUTE_HIDDEN = 0x00000002;
+const DWord FILE_ATTRIBUTE_SYSTEM = 0x00000004;
+const DWord FILE_ATTRIBUTE_DIRECTORY = 0x00000010;
+const DWord FILE_ATTRIBUTE_ARCHIVE = 0x00000020;
+const DWord FILE_ATTRIBUTE_DEVICE = 0x00000040;
+const DWord FILE_ATTRIBUTE_NORMAL = 0x00000080;
+const DWord FILE_ATTRIBUTE_TEMPORARY = 0x00000100;
+const DWord FILE_ATTRIBUTE_SPARSE_FILE = 0x00000200;
+const DWord FILE_ATTRIBUTE_REPARSE_POINT = 0x00000400;
+const DWord FILE_ATTRIBUTE_COMPRESSED = 0x00000800;
+const DWord FILE_ATTRIBUTE_OFFLINE = 0x00001000;
+const DWord FILE_ATTRIBUTE_NOT_CONTENT_INDEXED = 0x00002000;
+const DWord FILE_ATTRIBUTE_ENCRYPTED = 0x00004000;
+const DWord FILE_ATTRIBUTE_VIRTUAL = 0x00010000;
+const DWord FILE_ATTRIBUTE_RECALL_ON_OPEN = 0x00040000;
 const DWord FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS= 0x00400000;
-const DWord INVALID_FILE_ATTRIBUTES             = 0xFFFFFFFF;
+const DWord INVALID_FILE_ATTRIBUTES = 0xFFFFFFFF;
 
-// ============================================================
+// 
 // Constants - File Flags
-// ============================================================
+// 
 
-const DWord FILE_FLAG_WRITE_THROUGH         = 0x80000000;
-const DWord FILE_FLAG_OVERLAPPED            = 0x40000000;
-const DWord FILE_FLAG_NO_BUFFERING          = 0x20000000;
-const DWord FILE_FLAG_RANDOM_ACCESS         = 0x10000000;
-const DWord FILE_FLAG_SEQUENTIAL_SCAN       = 0x08000000;
-const DWord FILE_FLAG_DELETE_ON_CLOSE       = 0x04000000;
-const DWord FILE_FLAG_BACKUP_SEMANTICS      = 0x02000000;
-const DWord FILE_FLAG_POSIX_SEMANTICS       = 0x01000000;
-const DWord FILE_FLAG_SESSION_AWARE         = 0x00800000;
-const DWord FILE_FLAG_OPEN_REPARSE_POINT    = 0x00200000;
-const DWord FILE_FLAG_OPEN_NO_RECALL        = 0x00100000;
-const DWord FILE_FLAG_FIRST_PIPE_INSTANCE   = 0x00080000;
+const DWord FILE_FLAG_WRITE_THROUGH = 0x80000000;
+const DWord FILE_FLAG_OVERLAPPED = 0x40000000;
+const DWord FILE_FLAG_NO_BUFFERING = 0x20000000;
+const DWord FILE_FLAG_RANDOM_ACCESS = 0x10000000;
+const DWord FILE_FLAG_SEQUENTIAL_SCAN = 0x08000000;
+const DWord FILE_FLAG_DELETE_ON_CLOSE = 0x04000000;
+const DWord FILE_FLAG_BACKUP_SEMANTICS = 0x02000000;
+const DWord FILE_FLAG_POSIX_SEMANTICS = 0x01000000;
+const DWord FILE_FLAG_SESSION_AWARE = 0x00800000;
+const DWord FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000;
+const DWord FILE_FLAG_OPEN_NO_RECALL = 0x00100000;
+const DWord FILE_FLAG_FIRST_PIPE_INSTANCE = 0x00080000;
 
-// ============================================================
+// 
 // Constants - File Access Rights
-// ============================================================
+// 
 
-const DWord GENERIC_READ                = 0x80000000;
-const DWord GENERIC_WRITE               = 0x40000000;
-const DWord GENERIC_EXECUTE             = 0x20000000;
-const DWord GENERIC_ALL                 = 0x10000000;
+const DWord GENERIC_READ = 0x80000000;
+const DWord GENERIC_WRITE = 0x40000000;
+const DWord GENERIC_EXECUTE = 0x20000000;
+const DWord GENERIC_ALL = 0x10000000;
 
-const DWord FILE_READ_DATA              = 0x0001;
-const DWord FILE_LIST_DIRECTORY         = 0x0001;
-const DWord FILE_WRITE_DATA             = 0x0002;
-const DWord FILE_ADD_FILE               = 0x0002;
-const DWord FILE_APPEND_DATA            = 0x0004;
-const DWord FILE_ADD_SUBDIRECTORY       = 0x0004;
-const DWord FILE_CREATE_PIPE_INSTANCE   = 0x0004;
-const DWord FILE_READ_EA                = 0x0008;
-const DWord FILE_WRITE_EA               = 0x0010;
-const DWord FILE_EXECUTE                = 0x0020;
-const DWord FILE_TRAVERSE               = 0x0020;
-const DWord FILE_DELETE_CHILD           = 0x0040;
-const DWord FILE_READ_ATTRIBUTES        = 0x0080;
-const DWord FILE_WRITE_ATTRIBUTES       = 0x0100;
-const DWord FILE_ALL_ACCESS             = 0x001F01FF;
+const DWord FILE_READ_DATA = 0x0001;
+const DWord FILE_LIST_DIRECTORY = 0x0001;
+const DWord FILE_WRITE_DATA = 0x0002;
+const DWord FILE_ADD_FILE = 0x0002;
+const DWord FILE_APPEND_DATA = 0x0004;
+const DWord FILE_ADD_SUBDIRECTORY = 0x0004;
+const DWord FILE_CREATE_PIPE_INSTANCE = 0x0004;
+const DWord FILE_READ_EA = 0x0008;
+const DWord FILE_WRITE_EA = 0x0010;
+const DWord FILE_EXECUTE = 0x0020;
+const DWord FILE_TRAVERSE = 0x0020;
+const DWord FILE_DELETE_CHILD = 0x0040;
+const DWord FILE_READ_ATTRIBUTES = 0x0080;
+const DWord FILE_WRITE_ATTRIBUTES = 0x0100;
+const DWord FILE_ALL_ACCESS = 0x001F01FF;
 
-// ============================================================
+// 
 // Constants - File Share Mode
-// ============================================================
+// 
 
-const DWord FILE_SHARE_NONE             = 0x00000000;
-const DWord FILE_SHARE_READ             = 0x00000001;
-const DWord FILE_SHARE_WRITE            = 0x00000002;
-const DWord FILE_SHARE_DELETE           = 0x00000004;
+const DWord FILE_SHARE_NONE = 0x00000000;
+const DWord FILE_SHARE_READ = 0x00000001;
+const DWord FILE_SHARE_WRITE = 0x00000002;
+const DWord FILE_SHARE_DELETE = 0x00000004;
 
-// ============================================================
+// 
 // Constants - File Creation Disposition
-// ============================================================
+// 
 
-const DWord CREATE_NEW                  = 1;
-const DWord CREATE_ALWAYS               = 2;
-const DWord OPEN_EXISTING               = 3;
-const DWord OPEN_ALWAYS                 = 4;
-const DWord TRUNCATE_EXISTING           = 5;
+const DWord CREATE_NEW = 1;
+const DWord CREATE_ALWAYS = 2;
+const DWord OPEN_EXISTING = 3;
+const DWord OPEN_ALWAYS = 4;
+const DWord TRUNCATE_EXISTING = 5;
 
-// ============================================================
+// 
 // Constants - File Move Method (SetFilePointer)
-// ============================================================
+// 
 
-const DWord FILE_BEGIN                  = 0;
-const DWord FILE_CURRENT                = 1;
-const DWord FILE_END                    = 2;
+const DWord FILE_BEGIN = 0;
+const DWord FILE_CURRENT = 1;
+const DWord FILE_END = 2;
 
-// ============================================================
+// 
 // Constants - Standard Handles
-// ============================================================
+// 
 
-const DWord STD_INPUT_HANDLE            = (DWord)-10;
-const DWord STD_OUTPUT_HANDLE           = (DWord)-11;
-const DWord STD_ERROR_HANDLE            = (DWord)-12;
+const DWord STD_INPUT_HANDLE = (DWord)-10;
+const DWord STD_OUTPUT_HANDLE = (DWord)-11;
+const DWord STD_ERROR_HANDLE = (DWord)-12;
 
-// ============================================================
+// 
 // Constants - Global/Local Memory Flags
-// ============================================================
+// 
 
-const uint GMEM_FIXED                   = 0x0000;
-const uint GMEM_MOVEABLE                = 0x0002;
-const uint GMEM_NOCOMPACT               = 0x0010;
-const uint GMEM_NODISCARD               = 0x0020;
-const uint GMEM_ZEROINIT                = 0x0040;
-const uint GMEM_MODIFY                  = 0x0080;
-const uint GMEM_DISCARDABLE             = 0x0100;
-const uint GMEM_NOT_BANKED              = 0x1000;
-const uint GMEM_SHARE                   = 0x2000;
-const uint GMEM_DDESHARE                = 0x2000;
-const uint GMEM_NOTIFY                  = 0x4000;
-const uint GMEM_LOWER                   = GMEM_NOT_BANKED;
-const uint GMEM_VALID_FLAGS             = 0x7F72;
-const uint GMEM_INVALID_HANDLE          = 0x8000;
-const uint GHND                         = (GMEM_MOVEABLE | GMEM_ZEROINIT);
-const uint GPTR                         = (GMEM_FIXED | GMEM_ZEROINIT);
+const uint GMEM_FIXED = 0x0000;
+const uint GMEM_MOVEABLE = 0x0002;
+const uint GMEM_NOCOMPACT = 0x0010;
+const uint GMEM_NODISCARD = 0x0020;
+const uint GMEM_ZEROINIT = 0x0040;
+const uint GMEM_MODIFY = 0x0080;
+const uint GMEM_DISCARDABLE = 0x0100;
+const uint GMEM_NOT_BANKED = 0x1000;
+const uint GMEM_SHARE = 0x2000;
+const uint GMEM_DDESHARE = 0x2000;
+const uint GMEM_NOTIFY = 0x4000;
+const uint GMEM_LOWER = GMEM_NOT_BANKED;
+const uint GMEM_VALID_FLAGS = 0x7F72;
+const uint GMEM_INVALID_HANDLE = 0x8000;
+const uint GHND = (GMEM_MOVEABLE | GMEM_ZEROINIT);
+const uint GPTR = (GMEM_FIXED | GMEM_ZEROINIT);
 
-const uint LMEM_FIXED                   = 0x0000;
-const uint LMEM_MOVEABLE                = 0x0002;
-const uint LMEM_NOCOMPACT               = 0x0010;
-const uint LMEM_NODISCARD               = 0x0020;
-const uint LMEM_ZEROINIT                = 0x0040;
-const uint LMEM_MODIFY                  = 0x0080;
-const uint LMEM_DISCARDABLE             = 0x0F00;
-const uint LMEM_VALID_FLAGS             = 0x0F72;
-const uint LMEM_INVALID_HANDLE          = 0x8000;
-const uint LHND                         = (LMEM_MOVEABLE | LMEM_ZEROINIT);
-const uint LPTR                         = (LMEM_FIXED | LMEM_ZEROINIT);
-const uint NONZEROLHND                  = LMEM_MOVEABLE;
-const uint NONZEROLPTR                  = LMEM_FIXED;
+const uint LMEM_FIXED = 0x0000;
+const uint LMEM_MOVEABLE = 0x0002;
+const uint LMEM_NOCOMPACT = 0x0010;
+const uint LMEM_NODISCARD = 0x0020;
+const uint LMEM_ZEROINIT = 0x0040;
+const uint LMEM_MODIFY = 0x0080;
+const uint LMEM_DISCARDABLE = 0x0F00;
+const uint LMEM_VALID_FLAGS = 0x0F72;
+const uint LMEM_INVALID_HANDLE = 0x8000;
+const uint LHND = (LMEM_MOVEABLE | LMEM_ZEROINIT);
+const uint LPTR = (LMEM_FIXED | LMEM_ZEROINIT);
+const uint NONZEROLHND = LMEM_MOVEABLE;
+const uint NONZEROLPTR = LMEM_FIXED;
 
-// ============================================================
+// 
 // Constants - Virtual Memory
-// ============================================================
+// 
 
-const DWord MEM_COMMIT                  = 0x00001000;
-const DWord MEM_RESERVE                 = 0x00002000;
-const DWord MEM_DECOMMIT                = 0x00004000;
-const DWord MEM_RELEASE                 = 0x00008000;
-const DWord MEM_FREE                    = 0x00010000;
-const DWord MEM_PRIVATE                 = 0x00020000;
-const DWord MEM_MAPPED                  = 0x00040000;
-const DWord MEM_RESET                   = 0x00080000;
-const DWord MEM_TOP_DOWN                = 0x00100000;
-const DWord MEM_WRITE_WATCH             = 0x00200000;
-const DWord MEM_PHYSICAL                = 0x00400000;
-const DWord MEM_ROTATE                  = 0x00800000;
-const DWord MEM_LARGE_PAGES             = 0x20000000;
-const DWord MEM_4MB_PAGES               = 0x80000000;
-const DWord MEM_64K_PAGES               = (MEM_LARGE_PAGES | MEM_PHYSICAL);
-const DWord MEM_RESET_UNDO              = 0x01000000;
+const DWord MEM_COMMIT = 0x00001000;
+const DWord MEM_RESERVE = 0x00002000;
+const DWord MEM_DECOMMIT = 0x00004000;
+const DWord MEM_RELEASE = 0x00008000;
+const DWord MEM_FREE = 0x00010000;
+const DWord MEM_PRIVATE = 0x00020000;
+const DWord MEM_MAPPED = 0x00040000;
+const DWord MEM_RESET = 0x00080000;
+const DWord MEM_TOP_DOWN = 0x00100000;
+const DWord MEM_WRITE_WATCH = 0x00200000;
+const DWord MEM_PHYSICAL = 0x00400000;
+const DWord MEM_ROTATE = 0x00800000;
+const DWord MEM_LARGE_PAGES = 0x20000000;
+const DWord MEM_4MB_PAGES = 0x80000000;
+const DWord MEM_64K_PAGES = (MEM_LARGE_PAGES | MEM_PHYSICAL);
+const DWord MEM_RESET_UNDO = 0x01000000;
 const DWord MEM_UNMAP_WITH_TRANSIENT_BOOST = 0x00000001;
-const DWord MEM_COALESCE_PLACEHOLDERS   = 0x00000001;
-const DWord MEM_PRESERVE_PLACEHOLDER    = 0x00000002;
-const DWord MEM_REPLACE_PLACEHOLDER     = 0x00004000;
+const DWord MEM_COALESCE_PLACEHOLDERS = 0x00000001;
+const DWord MEM_PRESERVE_PLACEHOLDER = 0x00000002;
+const DWord MEM_REPLACE_PLACEHOLDER = 0x00004000;
 
 // Page Protection
-const DWord PAGE_NOACCESS               = 0x01;
-const DWord PAGE_READONLY               = 0x02;
-const DWord PAGE_READWRITE              = 0x04;
-const DWord PAGE_WRITECOPY              = 0x08;
-const DWord PAGE_EXECUTE                = 0x10;
-const DWord PAGE_EXECUTE_READ           = 0x20;
-const DWord PAGE_EXECUTE_READWRITE      = 0x40;
-const DWord PAGE_EXECUTE_WRITECOPY      = 0x80;
-const DWord PAGE_GUARD                  = 0x100;
-const DWord PAGE_NOCACHE                = 0x200;
-const DWord PAGE_WRITECOMBINE           = 0x400;
-const DWord PAGE_TARGETS_INVALID        = 0x40000000;
-const DWord PAGE_TARGETS_NO_UPDATE      = 0x40000000;
+const DWord PAGE_NOACCESS = 0x01;
+const DWord PAGE_READONLY = 0x02;
+const DWord PAGE_READWRITE = 0x04;
+const DWord PAGE_WRITECOPY = 0x08;
+const DWord PAGE_EXECUTE = 0x10;
+const DWord PAGE_EXECUTE_READ = 0x20;
+const DWord PAGE_EXECUTE_READWRITE = 0x40;
+const DWord PAGE_EXECUTE_WRITECOPY = 0x80;
+const DWord PAGE_GUARD = 0x100;
+const DWord PAGE_NOCACHE = 0x200;
+const DWord PAGE_WRITECOMBINE = 0x400;
+const DWord PAGE_TARGETS_INVALID = 0x40000000;
+const DWord PAGE_TARGETS_NO_UPDATE = 0x40000000;
 
-// ============================================================
+// 
 // Constants - FormatMessage
-// ============================================================
+// 
 
-const DWord FORMAT_MESSAGE_ALLOCATE_BUFFER  = 0x00000100;
-const DWord FORMAT_MESSAGE_IGNORE_INSERTS   = 0x00000200;
-const DWord FORMAT_MESSAGE_FROM_STRING      = 0x00000400;
-const DWord FORMAT_MESSAGE_FROM_HMODULE     = 0x00000800;
-const DWord FORMAT_MESSAGE_FROM_SYSTEM      = 0x00001000;
-const DWord FORMAT_MESSAGE_ARGUMENT_ARRAY   = 0x00002000;
-const DWord FORMAT_MESSAGE_MAX_WIDTH_MASK   = 0x000000FF;
+const DWord FORMAT_MESSAGE_ALLOCATE_BUFFER = 0x00000100;
+const DWord FORMAT_MESSAGE_IGNORE_INSERTS = 0x00000200;
+const DWord FORMAT_MESSAGE_FROM_STRING = 0x00000400;
+const DWord FORMAT_MESSAGE_FROM_HMODULE = 0x00000800;
+const DWord FORMAT_MESSAGE_FROM_SYSTEM = 0x00001000;
+const DWord FORMAT_MESSAGE_ARGUMENT_ARRAY = 0x00002000;
+const DWord FORMAT_MESSAGE_MAX_WIDTH_MASK = 0x000000FF;
 
-// ============================================================
+// 
 // Constants - Process Creation Flags
-// ============================================================
+// 
 
-const DWord DEBUG_PROCESS                       = 0x00000001;
-const DWord DEBUG_ONLY_THIS_PROCESS             = 0x00000002;
-const DWord CREATE_SUSPENDED                    = 0x00000004;
-const DWord DETACHED_PROCESS                    = 0x00000008;
-const DWord CREATE_NEW_CONSOLE                  = 0x00000010;
-const DWord NORMAL_PRIORITY_CLASS               = 0x00000020;
-const DWord IDLE_PRIORITY_CLASS                 = 0x00000040;
-const DWord HIGH_PRIORITY_CLASS                 = 0x00000080;
-const DWord REALTIME_PRIORITY_CLASS             = 0x00000100;
-const DWord CREATE_NEW_PROCESS_GROUP            = 0x00000200;
-const DWord CREATE_UNICODE_ENVIRONMENT          = 0x00000400;
-const DWord CREATE_SEPARATE_WOW_VDM             = 0x00000800;
-const DWord CREATE_SHARED_WOW_VDM               = 0x00001000;
-const DWord CREATE_FORCEDOS                     = 0x00002000;
-const DWord BELOW_NORMAL_PRIORITY_CLASS         = 0x00004000;
-const DWord ABOVE_NORMAL_PRIORITY_CLASS         = 0x00008000;
-const DWord INHERIT_PARENT_AFFINITY             = 0x00010000;
-const DWord INHERIT_CALLER_PRIORITY             = 0x00020000;
-const DWord CREATE_PROTECTED_PROCESS            = 0x00040000;
-const DWord EXTENDED_STARTUPINFO_PRESENT        = 0x00080000;
-const DWord PROCESS_MODE_BACKGROUND_BEGIN       = 0x00100000;
-const DWord PROCESS_MODE_BACKGROUND_END         = 0x00200000;
-const DWord CREATE_SECURE_PROCESS               = 0x00400000;
-const DWord CREATE_BREAKAWAY_FROM_JOB           = 0x01000000;
-const DWord CREATE_PRESERVE_CODE_AUTHZ_LEVEL    = 0x02000000;
-const DWord CREATE_DEFAULT_ERROR_MODE           = 0x04000000;
-const DWord CREATE_NO_WINDOW                    = 0x08000000;
-const DWord PROFILE_USER                        = 0x10000000;
-const DWord PROFILE_KERNEL                      = 0x20000000;
-const DWord PROFILE_SERVER                      = 0x40000000;
-const DWord CREATE_IGNORE_SYSTEM_DEFAULT        = 0x80000000;
+const DWord DEBUG_PROCESS = 0x00000001;
+const DWord DEBUG_ONLY_THIS_PROCESS = 0x00000002;
+const DWord CREATE_SUSPENDED = 0x00000004;
+const DWord DETACHED_PROCESS = 0x00000008;
+const DWord CREATE_NEW_CONSOLE = 0x00000010;
+const DWord NORMAL_PRIORITY_CLASS = 0x00000020;
+const DWord IDLE_PRIORITY_CLASS = 0x00000040;
+const DWord HIGH_PRIORITY_CLASS = 0x00000080;
+const DWord REALTIME_PRIORITY_CLASS = 0x00000100;
+const DWord CREATE_NEW_PROCESS_GROUP = 0x00000200;
+const DWord CREATE_UNICODE_ENVIRONMENT = 0x00000400;
+const DWord CREATE_SEPARATE_WOW_VDM = 0x00000800;
+const DWord CREATE_SHARED_WOW_VDM = 0x00001000;
+const DWord CREATE_FORCEDOS = 0x00002000;
+const DWord BELOW_NORMAL_PRIORITY_CLASS = 0x00004000;
+const DWord ABOVE_NORMAL_PRIORITY_CLASS = 0x00008000;
+const DWord INHERIT_PARENT_AFFINITY = 0x00010000;
+const DWord INHERIT_CALLER_PRIORITY = 0x00020000;
+const DWord CREATE_PROTECTED_PROCESS = 0x00040000;
+const DWord EXTENDED_STARTUPINFO_PRESENT = 0x00080000;
+const DWord PROCESS_MODE_BACKGROUND_BEGIN = 0x00100000;
+const DWord PROCESS_MODE_BACKGROUND_END = 0x00200000;
+const DWord CREATE_SECURE_PROCESS = 0x00400000;
+const DWord CREATE_BREAKAWAY_FROM_JOB = 0x01000000;
+const DWord CREATE_PRESERVE_CODE_AUTHZ_LEVEL = 0x02000000;
+const DWord CREATE_DEFAULT_ERROR_MODE = 0x04000000;
+const DWord CREATE_NO_WINDOW = 0x08000000;
+const DWord PROFILE_USER = 0x10000000;
+const DWord PROFILE_KERNEL = 0x20000000;
+const DWord PROFILE_SERVER = 0x40000000;
+const DWord CREATE_IGNORE_SYSTEM_DEFAULT = 0x80000000;
 
-// ============================================================
+// 
 // Constants - Thread Priority
-// ============================================================
+// 
 
-const int THREAD_PRIORITY_IDLE              = -15;
-const int THREAD_PRIORITY_LOWEST            = -2;
-const int THREAD_PRIORITY_BELOW_NORMAL      = -1;
-const int THREAD_PRIORITY_NORMAL            = 0;
-const int THREAD_PRIORITY_ABOVE_NORMAL      = 1;
-const int THREAD_PRIORITY_HIGHEST           = 2;
-const int THREAD_PRIORITY_TIME_CRITICAL     = 15;
-const int THREAD_PRIORITY_ERROR_RETURN      = 0x7FFFFFFF;
+const int THREAD_PRIORITY_IDLE = -15;
+const int THREAD_PRIORITY_LOWEST = -2;
+const int THREAD_PRIORITY_BELOW_NORMAL = -1;
+const int THREAD_PRIORITY_NORMAL = 0;
+const int THREAD_PRIORITY_ABOVE_NORMAL = 1;
+const int THREAD_PRIORITY_HIGHEST = 2;
+const int THREAD_PRIORITY_TIME_CRITICAL = 15;
+const int THREAD_PRIORITY_ERROR_RETURN = 0x7FFFFFFF;
 
-// ============================================================
+// 
 // Constants - Startup Info Flags
-// ============================================================
+// 
 
-const DWord STARTF_USESHOWWINDOW        = 0x00000001;
-const DWord STARTF_USESIZE              = 0x00000002;
-const DWord STARTF_USEPOSITION          = 0x00000004;
-const DWord STARTF_USECOUNTCHARS        = 0x00000008;
-const DWord STARTF_USEFILLATTRIBUTE     = 0x00000010;
-const DWord STARTF_RUNFULLSCREEN        = 0x00000020;
-const DWord STARTF_FORCEONFEEDBACK      = 0x00000040;
-const DWord STARTF_FORCEOFFFEEDBACK     = 0x00000080;
-const DWord STARTF_USESTDHANDLES        = 0x00000100;
-const DWord STARTF_USEHOTKEY            = 0x00000200;
-const DWord STARTF_TITLEISLINKNAME      = 0x00000800;
-const DWord STARTF_TITLEISAPPID         = 0x00001000;
-const DWord STARTF_PREVENTPINNING       = 0x00002000;
-const DWord STARTF_UNTRUSTEDSOURCE      = 0x00008000;
+const DWord STARTF_USESHOWWINDOW = 0x00000001;
+const DWord STARTF_USESIZE = 0x00000002;
+const DWord STARTF_USEPOSITION = 0x00000004;
+const DWord STARTF_USECOUNTCHARS = 0x00000008;
+const DWord STARTF_USEFILLATTRIBUTE = 0x00000010;
+const DWord STARTF_RUNFULLSCREEN = 0x00000020;
+const DWord STARTF_FORCEONFEEDBACK = 0x00000040;
+const DWord STARTF_FORCEOFFFEEDBACK = 0x00000080;
+const DWord STARTF_USESTDHANDLES = 0x00000100;
+const DWord STARTF_USEHOTKEY = 0x00000200;
+const DWord STARTF_TITLEISLINKNAME = 0x00000800;
+const DWord STARTF_TITLEISAPPID = 0x00001000;
+const DWord STARTF_PREVENTPINNING = 0x00002000;
+const DWord STARTF_UNTRUSTEDSOURCE = 0x00008000;
 
-// ============================================================
+// 
 // Constants - Error Modes
-// ============================================================
+// 
 
-const DWord SEM_FAILCRITICALERRORS      = 0x0001;
-const DWord SEM_NOGPFAULTERRORBOX       = 0x0002;
-const DWord SEM_NOALIGNMENTFAULTEXCEPT  = 0x0004;
-const DWord SEM_NOOPENFILEERRORBOX      = 0x8000;
+const DWord SEM_FAILCRITICALERRORS = 0x0001;
+const DWord SEM_NOGPFAULTERRORBOX = 0x0002;
+const DWord SEM_NOALIGNMENTFAULTEXCEPT = 0x0004;
+const DWord SEM_NOOPENFILEERRORBOX = 0x8000;
 
-// ============================================================
+// 
 // Constants - Pipe
-// ============================================================
+// 
 
-const DWord PIPE_ACCESS_INBOUND         = 0x00000001;
-const DWord PIPE_ACCESS_OUTBOUND        = 0x00000002;
-const DWord PIPE_ACCESS_DUPLEX          = 0x00000003;
+const DWord PIPE_ACCESS_INBOUND = 0x00000001;
+const DWord PIPE_ACCESS_OUTBOUND = 0x00000002;
+const DWord PIPE_ACCESS_DUPLEX = 0x00000003;
 
-const DWord PIPE_TYPE_BYTE              = 0x00000000;
-const DWord PIPE_TYPE_MESSAGE           = 0x00000004;
-const DWord PIPE_READMODE_BYTE          = 0x00000000;
-const DWord PIPE_READMODE_MESSAGE       = 0x00000002;
-const DWord PIPE_WAIT                   = 0x00000000;
-const DWord PIPE_NOWAIT                 = 0x00000001;
-const DWord PIPE_ACCEPT_REMOTE_CLIENTS  = 0x00000000;
-const DWord PIPE_REJECT_REMOTE_CLIENTS  = 0x00000008;
+const DWord PIPE_TYPE_BYTE = 0x00000000;
+const DWord PIPE_TYPE_MESSAGE = 0x00000004;
+const DWord PIPE_READMODE_BYTE = 0x00000000;
+const DWord PIPE_READMODE_MESSAGE = 0x00000002;
+const DWord PIPE_WAIT = 0x00000000;
+const DWord PIPE_NOWAIT = 0x00000001;
+const DWord PIPE_ACCEPT_REMOTE_CLIENTS = 0x00000000;
+const DWord PIPE_REJECT_REMOTE_CLIENTS = 0x00000008;
 
-const DWord PIPE_UNLIMITED_INSTANCES    = 255;
+const DWord PIPE_UNLIMITED_INSTANCES = 255;
 
-const DWord NMPWAIT_WAIT_FOREVER        = 0xFFFFFFFF;
-const DWord NMPWAIT_NOWAIT              = 0x00000001;
-const DWord NMPWAIT_USE_DEFAULT_WAIT    = 0x00000000;
+const DWord NMPWAIT_WAIT_FOREVER = 0xFFFFFFFF;
+const DWord NMPWAIT_NOWAIT = 0x00000001;
+const DWord NMPWAIT_USE_DEFAULT_WAIT = 0x00000000;
 
-// ============================================================
+// 
 // Constants - Drive Types
-// ============================================================
+// 
 
-const uint DRIVE_UNKNOWN                = 0;
-const uint DRIVE_NO_ROOT_DIR            = 1;
-const uint DRIVE_REMOVABLE              = 2;
-const uint DRIVE_FIXED                  = 3;
-const uint DRIVE_REMOTE                 = 4;
-const uint DRIVE_CDROM                  = 5;
-const uint DRIVE_RAMDISK                = 6;
+const uint DRIVE_UNKNOWN = 0;
+const uint DRIVE_NO_ROOT_DIR = 1;
+const uint DRIVE_REMOVABLE = 2;
+const uint DRIVE_FIXED = 3;
+const uint DRIVE_REMOTE = 4;
+const uint DRIVE_CDROM = 5;
+const uint DRIVE_RAMDISK = 6;
 
-// ============================================================
+// 
 // Constants - File Type
-// ============================================================
+// 
 
-const DWord FILE_TYPE_UNKNOWN           = 0x0000;
-const DWord FILE_TYPE_DISK              = 0x0001;
-const DWord FILE_TYPE_CHAR              = 0x0002;
-const DWord FILE_TYPE_PIPE              = 0x0003;
-const DWord FILE_TYPE_REMOTE            = 0x8000;
+const DWord FILE_TYPE_UNKNOWN = 0x0000;
+const DWord FILE_TYPE_DISK = 0x0001;
+const DWord FILE_TYPE_CHAR = 0x0002;
+const DWord FILE_TYPE_PIPE = 0x0003;
+const DWord FILE_TYPE_REMOTE = 0x8000;
 
-// ============================================================
+// 
 // Constants - File Mapping
-// ============================================================
+// 
 
-const DWord PAGE_READONLY_SECTION       = 0x02;
-const DWord PAGE_READWRITE_SECTION      = 0x04;
-const DWord PAGE_WRITECOPY_SECTION      = 0x08;
-const DWord PAGE_EXECUTE_SECTION        = 0x10;
-const DWord PAGE_EXECUTE_READ_SECTION   = 0x20;
+const DWord PAGE_READONLY_SECTION = 0x02;
+const DWord PAGE_READWRITE_SECTION = 0x04;
+const DWord PAGE_WRITECOPY_SECTION = 0x08;
+const DWord PAGE_EXECUTE_SECTION = 0x10;
+const DWord PAGE_EXECUTE_READ_SECTION = 0x20;
 const DWord PAGE_EXECUTE_READWRITE_SECTION = 0x40;
 
-const DWord SEC_COMMIT                  = 0x08000000;
-const DWord SEC_IMAGE                   = 0x01000000;
-const DWord SEC_IMAGE_NO_EXECUTE        = 0x11000000;
-const DWord SEC_LARGE_PAGES             = 0x80000000;
-const DWord SEC_NOCACHE                 = 0x10000000;
-const DWord SEC_RESERVE                 = 0x04000000;
-const DWord SEC_WRITECOMBINE            = 0x40000000;
+const DWord SEC_COMMIT = 0x08000000;
+const DWord SEC_IMAGE = 0x01000000;
+const DWord SEC_IMAGE_NO_EXECUTE = 0x11000000;
+const DWord SEC_LARGE_PAGES = 0x80000000;
+const DWord SEC_NOCACHE = 0x10000000;
+const DWord SEC_RESERVE = 0x04000000;
+const DWord SEC_WRITECOMBINE = 0x40000000;
 
-const DWord FILE_MAP_WRITE              = 0x0002;
-const DWord FILE_MAP_READ               = 0x0004;
-const DWord FILE_MAP_ALL_ACCESS         = 0x000F001F;
-const DWord FILE_MAP_EXECUTE            = 0x0020;
-const DWord FILE_MAP_COPY               = 0x00000001;
-const DWord FILE_MAP_RESERVE            = 0x80000000;
-const DWord FILE_MAP_TARGETS_INVALID    = 0x40000000;
-const DWord FILE_MAP_LARGE_PAGES        = 0x20000000;
+const DWord FILE_MAP_WRITE = 0x0002;
+const DWord FILE_MAP_READ = 0x0004;
+const DWord FILE_MAP_ALL_ACCESS = 0x000F001F;
+const DWord FILE_MAP_EXECUTE = 0x0020;
+const DWord FILE_MAP_COPY = 0x00000001;
+const DWord FILE_MAP_RESERVE = 0x80000000;
+const DWord FILE_MAP_TARGETS_INVALID = 0x40000000;
+const DWord FILE_MAP_LARGE_PAGES = 0x20000000;
 
-// ============================================================
+// 
 // Constants - Mutex / Event / Semaphore
-// ============================================================
+// 
 
-const DWord MUTEX_MODIFY_STATE          = 0x0001;
-const DWord MUTEX_ALL_ACCESS            = 0x1F0001;
-const DWord EVENT_MODIFY_STATE          = 0x0002;
-const DWord EVENT_ALL_ACCESS            = 0x1F0003;
-const DWord SEMAPHORE_MODIFY_STATE      = 0x0002;
-const DWord SEMAPHORE_ALL_ACCESS        = 0x1F0003;
+const DWord MUTEX_MODIFY_STATE = 0x0001;
+const DWord MUTEX_ALL_ACCESS = 0x1F0001;
+const DWord EVENT_MODIFY_STATE = 0x0002;
+const DWord EVENT_ALL_ACCESS = 0x1F0003;
+const DWord SEMAPHORE_MODIFY_STATE = 0x0002;
+const DWord SEMAPHORE_ALL_ACCESS = 0x1F0003;
 
-// ============================================================
+// 
 // Constants - CopyFile / MoveFile Flags
-// ============================================================
+// 
 
-const DWord MOVEFILE_REPLACE_EXISTING       = 0x00000001;
-const DWord MOVEFILE_COPY_ALLOWED           = 0x00000002;
-const DWord MOVEFILE_DELAY_UNTIL_REBOOT     = 0x00000004;
-const DWord MOVEFILE_WRITE_THROUGH          = 0x00000008;
-const DWord MOVEFILE_CREATE_HARDLINK        = 0x00000010;
-const DWord MOVEFILE_FAIL_IF_NOT_TRACKABLE  = 0x00000020;
+const DWord MOVEFILE_REPLACE_EXISTING = 0x00000001;
+const DWord MOVEFILE_COPY_ALLOWED = 0x00000002;
+const DWord MOVEFILE_DELAY_UNTIL_REBOOT = 0x00000004;
+const DWord MOVEFILE_WRITE_THROUGH = 0x00000008;
+const DWord MOVEFILE_CREATE_HARDLINK = 0x00000010;
+const DWord MOVEFILE_FAIL_IF_NOT_TRACKABLE = 0x00000020;
 
-// ============================================================
+// 
 // Constants - GetTempPath / GetTempFileName
-// ============================================================
+// 
 
-const DWord MAX_PATH                    = 260;
+const DWord MAX_PATH = 260;
 
-// ============================================================
+// 
 // Constants - Console
-// ============================================================
+// 
 
-const DWord ATTACH_PARENT_PROCESS       = 0xFFFFFFFF;
+const DWord ATTACH_PARENT_PROCESS = 0xFFFFFFFF;
 
-// ============================================================
+// 
 // Constants - Fiber
-// ============================================================
+// 
 
-const DWord FIBER_FLAG_FLOAT_SWITCH     = 0x1;
+const DWord FIBER_FLAG_FLOAT_SWITCH = 0x1;
 
-// ============================================================
+// 
 // Typedefs - Basic Types (from wintypes)
-// ============================================================
+// 
 
 // These should be defined in your wintypes module, referenced here for clarity:
 // Handle, DWord, Word, Bool, LPStr, LPWStr, LPCStr, LPCWStr, WChar, Char
 // HModule, HInstance, HLocal, HGlobal, HFile
 
-alias HFile   = Handle;
+alias HFile = Handle;
 
-// ============================================================
+// 
 // Structs - Security
-// ============================================================
+// 
 
 struct SecurityAttributes {
     DWord nLength;
@@ -474,9 +474,9 @@ struct SecurityAttributes {
     Bool bInheritHandle;
 }
 
-// ============================================================
+// 
 // Structs - Overlapped I/O
-// ============================================================
+// 
 
 struct Overlapped {
     uptr    internal;
@@ -498,9 +498,9 @@ struct OverlappedEntry {
     DWord dwNumberOfBytesTransferred;
 }
 
-// ============================================================
+// 
 // Structs - FileTime / System Time
-// ============================================================
+// 
 
 struct FileTime {
     DWord dwLowDateTime;
@@ -528,9 +528,9 @@ struct TimeZoneInformation {
     int     daylightBias;
 }
 
-// ============================================================
+// 
 // Structs - FindData
-// ============================================================
+// 
 
 struct Win32FindDataA {
     DWord dwFileAttributes;
@@ -558,9 +558,9 @@ struct Win32FindDataW {
     WChar[14] cAlternateFileName;
 }
 
-// ============================================================
+// 
 // Structs - Startup Info
-// ============================================================
+// 
 
 struct StartupInfoA {
     DWord cb;
@@ -604,9 +604,9 @@ struct StartupInfoW {
     Handle  hStdError;
 }
 
-// ============================================================
+// 
 // Structs - Process Information
-// ============================================================
+// 
 
 struct ProcessInformation {
     Handle  hProcess;
@@ -615,9 +615,9 @@ struct ProcessInformation {
     DWord dwThreadId;
 }
 
-// ============================================================
+// 
 // Structs - Memory
-// ============================================================
+// 
 
 struct MemoryBasicInformation {
     void*   baseAddress;
@@ -651,9 +651,9 @@ struct MemoryBasicInformation64 {
     DWord __alignment_2;
 }
 
-// ============================================================
+// 
 // Structs - System Info
-// ============================================================
+// 
 
 struct SystemInfo {
     union {
@@ -674,9 +674,9 @@ struct SystemInfo {
     Word  wProcessorRevision;
 }
 
-// ============================================================
+// 
 // Structs - Pipe
-// ============================================================
+// 
 
 struct SecurityDescriptor {
     char    revision;
@@ -688,9 +688,9 @@ struct SecurityDescriptor {
     void*   dacl;
 }
 
-// ============================================================
+// 
 // Structs - File Notification
-// ============================================================
+// 
 
 struct FileNotifyInformation {
     DWord nextEntryOffset;
@@ -700,25 +700,25 @@ struct FileNotifyInformation {
 }
 
 // File Notify Actions
-const DWord FILE_ACTION_ADDED               = 0x00000001;
-const DWord FILE_ACTION_REMOVED             = 0x00000002;
-const DWord FILE_ACTION_MODIFIED            = 0x00000003;
-const DWord FILE_ACTION_RENAMED_OLD_NAME    = 0x00000004;
-const DWord FILE_ACTION_RENAMED_NEW_NAME    = 0x00000005;
+const DWord FILE_ACTION_ADDED = 0x00000001;
+const DWord FILE_ACTION_REMOVED = 0x00000002;
+const DWord FILE_ACTION_MODIFIED = 0x00000003;
+const DWord FILE_ACTION_RENAMED_OLD_NAME = 0x00000004;
+const DWord FILE_ACTION_RENAMED_NEW_NAME = 0x00000005;
 
 // File Notify Change Flags
-const DWord FILE_NOTIFY_CHANGE_FILE_NAME    = 0x00000001;
-const DWord FILE_NOTIFY_CHANGE_DIR_NAME     = 0x00000002;
-const DWord FILE_NOTIFY_CHANGE_ATTRIBUTES   = 0x00000004;
-const DWord FILE_NOTIFY_CHANGE_SIZE         = 0x00000008;
-const DWord FILE_NOTIFY_CHANGE_LAST_WRITE   = 0x00000010;
-const DWord FILE_NOTIFY_CHANGE_LAST_ACCESS  = 0x00000020;
-const DWord FILE_NOTIFY_CHANGE_CREATION     = 0x00000040;
-const DWord FILE_NOTIFY_CHANGE_SECURITY     = 0x00000100;
+const DWord FILE_NOTIFY_CHANGE_FILE_NAME = 0x00000001;
+const DWord FILE_NOTIFY_CHANGE_DIR_NAME = 0x00000002;
+const DWord FILE_NOTIFY_CHANGE_ATTRIBUTES = 0x00000004;
+const DWord FILE_NOTIFY_CHANGE_SIZE = 0x00000008;
+const DWord FILE_NOTIFY_CHANGE_LAST_WRITE = 0x00000010;
+const DWord FILE_NOTIFY_CHANGE_LAST_ACCESS = 0x00000020;
+const DWord FILE_NOTIFY_CHANGE_CREATION = 0x00000040;
+const DWord FILE_NOTIFY_CHANGE_SECURITY = 0x00000100;
 
-// ============================================================
+// 
 // Structs - Condition Variable / Critical Section
-// ============================================================
+// 
 
 struct CriticalSection {
     void*   debugInfo;
@@ -737,28 +737,28 @@ struct SRWLock {
     void*   ptr;
 }
 
-// ============================================================
+// 
 // Callback Types
-// ============================================================
+// 
 
-alias LPThreadStartRoutine  = fn DWord (void* lp_parameter);
+alias LPThreadStartRoutine = fn DWord (void* lp_parameter);
 alias LPFiberStartRoutine = fn void (void* lp_fiber_parameter);
-alias TimerAPCRoutine  = fn void (void* arg_to_completion_routine, DWord timer_low_value, DWord timer_high_value);
-alias FileIOCompletionRoutine  = fn void (DWord dw_error_code, DWord dw_number_of_bytes_transferred, Overlapped* lp_overlapped);
-alias HandlerRoutine  = fn Bool (DWord ctrl_type);
+alias TimerAPCRoutine = fn void (void* arg_to_completion_routine, DWord timer_low_value, DWord timer_high_value);
+alias FileIOCompletionRoutine = fn void (DWord dw_error_code, DWord dw_number_of_bytes_transferred, Overlapped* lp_overlapped);
+alias HandlerRoutine = fn Bool (DWord ctrl_type);
 
-// ============================================================
+// 
 // Functions - Error Handling
-// ============================================================
+// 
 
 extern fn DWord getLastError() @cname("GetLastError");
 extern fn void setLastError(DWord dw_err_code) @cname("SetLastError");
 extern fn DWord formatMessageA(DWord dw_flags, void* lp_source, DWord dw_message_id, DWord dw_language_id, char* lp_buffer, DWord n_size, void* arguments) @cname("FormatMessageA");
 extern fn DWord formatMessageW(DWord dw_flags, void* lp_source, DWord dw_message_id, DWord dw_language_id, WChar* lp_buffer, DWord n_size, void* arguments) @cname("FormatMessageW");
 
-// ============================================================
+// 
 // Functions - Handle
-// ============================================================
+// 
 
 extern fn Bool closeHandle(Handle h_object) @cname("CloseHandle");
 extern fn Bool duplicateHandle(Handle h_source_process_handle, Handle h_source_handle, Handle h_target_process_handle, Handle* lp_target_handle, DWord dw_desired_access, Bool b_inherit_handle, DWord dw_options) @cname("DuplicateHandle");
@@ -766,9 +766,9 @@ extern fn Bool setHandleInformation(Handle h_object, DWord dw_mask, DWord dw_fla
 extern fn Bool getHandleInformation(Handle h_object, DWord* lp_flags) @cname("GetHandleInformation");
 extern fn Bool compareObjectHandles(Handle h_first, Handle h_second) @cname("CompareObjectHandles");
 
-// ============================================================
+// 
 // Functions - File Operations
-// ============================================================
+// 
 
 extern fn Handle createFileA(char* lp_file_name, DWord dw_desired_access, DWord dw_share_mode, SecurityAttributes* lp_security_attributes, DWord dw_creation_disposition, DWord dw_flags_and_attributes, Handle h_template_file) @cname("CreateFileA");
 extern fn Handle createFileW(WChar* lp_file_name, DWord dw_desired_access, DWord dw_share_mode, SecurityAttributes* lp_security_attributes, DWord dw_creation_disposition, DWord dw_flags_and_attributes, Handle h_template_file) @cname("CreateFileW");
@@ -804,9 +804,9 @@ extern fn Bool moveFileExW(WChar* lp_existing_file_name, WChar* lp_new_file_name
 extern fn Bool createHardLinkA(char* lp_file_name, char* lp_existing_file_name, SecurityAttributes* lp_security_attributes) @cname("CreateHardLinkA");
 extern fn Bool createHardLinkW(WChar* lp_file_name, WChar* lp_existing_file_name, SecurityAttributes* lp_security_attributes) @cname("CreateHardLinkW");
 
-// ============================================================
+// 
 // Functions - File Search / Directory
-// ============================================================
+// 
 
 extern fn Handle findFirstFileA(char* lp_file_name, Win32FindDataA* lp_find_file_data) @cname("FindFirstFileA");
 extern fn Handle findFirstFileW(WChar* lp_file_name, Win32FindDataW* lp_find_file_data) @cname("FindFirstFileW");
@@ -841,9 +841,9 @@ extern fn Bool getDiskFreeSpaceW(WChar* lp_root_path_name, DWord* lp_sectors_per
 extern fn Bool getDiskFreeSpaceExA(char* lp_directory_name, ulong* lp_free_bytes_available, ulong* lp_total_number_of_bytes, ulong* lp_total_number_of_free_bytes) @cname("GetDiskFreeSpaceExA");
 extern fn Bool getDiskFreeSpaceExW(WChar* lp_directory_name, ulong* lp_free_bytes_available, ulong* lp_total_number_of_bytes, ulong* lp_total_number_of_free_bytes) @cname("GetDiskFreeSpaceExW");
 
-// ============================================================
+// 
 // Functions - File Change Notification
-// ============================================================
+// 
 
 extern fn Handle findFirstChangeNotificationA(char* lp_path_name, Bool b_watch_subtree, DWord dw_notify_filter) @cname("FindFirstChangeNotificationA");
 extern fn Handle findFirstChangeNotificationW(WChar* lp_path_name, Bool b_watch_subtree, DWord dw_notify_filter) @cname("FindFirstChangeNotificationW");
@@ -851,9 +851,9 @@ extern fn Bool findNextChangeNotification(Handle h_change_handle) @cname("FindNe
 extern fn Bool findCloseChangeNotification(Handle h_change_handle) @cname("FindCloseChangeNotification");
 extern fn Bool readDirectoryChangesW(Handle h_directory, void* lp_buffer, DWord n_buffer_length, Bool b_watch_subtree, DWord dw_notify_filter, DWord* lp_bytes_returned, Overlapped* lp_overlapped, FileIOCompletionRoutine lp_completion_routine) @cname("ReadDirectoryChangesW");
 
-// ============================================================
+// 
 // Functions - Memory Management
-// ============================================================
+// 
 
 extern fn void*  virtualAlloc(void* lp_address, uptr dw_size, DWord fl_allocation_type, DWord fl_protect) @cname("VirtualAlloc");
 extern fn void* virtualAllocEx(Handle h_process, void* lp_address, uptr dw_size, DWord fl_allocation_type, DWord fl_protect) @cname("VirtualAllocEx");
@@ -882,9 +882,9 @@ extern fn uptr localSize(HLocal h_mem) @cname("LocalSize");
 
 extern fn uptr getLargePageMinimum() @cname("GetLargePageMinimum");
 
-// ============================================================
+// 
 // Functions - Memory Mapped Files
-// ============================================================
+// 
 
 extern fn Handle createFileMappingA(Handle h_file, SecurityAttributes* lp_file_mapping_attributes, DWord fl_protect, DWord dw_maximum_size_high, DWord dw_maximum_size_low, char* lp_name) @cname("CreateFileMappingA");
 extern fn Handle createFileMappingW(Handle h_file, SecurityAttributes* lp_file_mapping_attributes, DWord fl_protect, DWord dw_maximum_size_high, DWord dw_maximum_size_low, WChar* lp_name) @cname("CreateFileMappingW");
@@ -895,9 +895,9 @@ extern fn void* mapViewOfFileEx(Handle h_file_mapping_object, DWord dw_desired_a
 extern fn Bool unmapViewOfFile(void* lp_base_address) @cname("UnmapViewOfFile");
 extern fn Bool flushViewOfFile(void* lp_base_address, uptr dw_number_of_bytes_to_flush) @cname("FlushViewOfFile");
 
-// ============================================================
+// 
 // Functions - Synchronization
-// ============================================================
+// 
 
 extern fn void sleep(DWord dw_milliseconds) @cname("Sleep");
 extern fn DWord sleepEx(DWord dw_milliseconds, Bool b_alertable) @cname("SleepEx");
@@ -961,19 +961,25 @@ extern fn Bool sleepConditionVariableSRW(ConditionVariable* condition_variable, 
 extern fn void wakeConditionVariable(ConditionVariable* condition_variable) @cname("WakeConditionVariable");
 extern fn void wakeAllConditionVariable(ConditionVariable* condition_variable) @cname("WakeAllConditionVariable");
 
+//
 // interlocked
-extern fn int interlockedIncrement(int* lp_addend) @cname("InterlockedIncrement");
-extern fn int interlockedDecrement(int* lp_addend) @cname("InterlockedDecrement");
-extern fn int interlockedExchange(int* target, int value) @cname("InterlockedExchange");
-extern fn int interlockedCompareExchange(int* destination, int exchange, int comperand) @cname("InterlockedCompareExchange");
-extern fn long interlockedIncrement64(long* lp_addend) @cname("InterlockedIncrement64");
-extern fn long interlockedDecrement64(long* lp_addend) @cname("InterlockedDecrement64");
-extern fn long interlockedExchange64(long* target, long value) @cname("InterlockedExchange64");
-extern fn long interlockedCompareExchange64(long* destination, long exchange, long comperand) @cname("InterlockedCompareExchange64");
+// Mapped to C3's atomic Operations
+// 
+import std::atomic;
 
-// ============================================================
+fn long interlockedAdd(long* lp_addend, long value) => atomic::fetch_add(lp_addend, value);
+fn long interlockedIncrement(long* lp_addend) => atomic::fetch_add(lp_addend, 1);
+fn long interlockedDecrement(long* lp_addend) => atomic::fetch_add(lp_addend, -1);
+fn long interlockedExchange(long* target, long value) => mem::compare_exchange(target, *target, value);
+fn long interlockedCompareExchange(long* destination, long exchange, long comperand) => mem::compare_exchange(destination, exchange, comperand);
+fn long interlockedIncrement64(long* lp_addend) => atomic::fetch_add(lp_addend, 1);
+fn long interlockedDecrement64(long* lp_addend) => atomic::fetch_add(lp_addend, -1);
+fn long interlockedExchange64(long* target, long value) => mem::compare_exchange(target, *target, value);
+fn long interlockedCompareExchange64(long* destination, long exchange, long comperand) => mem::compare_exchange(destination, exchange, comperand);
+
+// 
 // Functions - Process and Thread
-// ============================================================
+// 
 
 extern fn Handle getCurrentProcess() @cname("GetCurrentProcess");
 extern fn DWord getCurrentProcessId() @cname("GetCurrentProcessId");
@@ -1012,9 +1018,9 @@ extern fn void switchToFiber(void* lp_fiber) @cname("SwitchToFiber");
 extern fn void* getFiberData() @cname("GetFiberData");
 extern fn void* getCurrentFiber() @cname("GetCurrentFiber");
 
-// ============================================================
+// 
 // Functions - Pipe
-// ============================================================
+// 
 
 extern fn Bool createPipe(Handle* h_read_pipe, Handle* h_write_pipe, SecurityAttributes* lp_pipe_attributes, DWord n_size) @cname("CreatePipe");
 extern fn Handle createNamedPipeA(char* lp_name, DWord dw_open_mode, DWord dw_pipe_mode, DWord n_max_instances, DWord n_out_buffer_size, DWord n_in_buffer_size, DWord n_default_time_out, SecurityAttributes* lp_security_attributes) @cname("CreateNamedPipeA");
@@ -1028,9 +1034,9 @@ extern fn Bool transactNamedPipe(Handle h_named_pipe, void* lp_in_buffer, DWord 
 extern fn Bool getNamedPipeInfo(Handle h_named_pipe, DWord* lp_flags, DWord* lp_out_buffer_size, DWord* lp_in_buffer_size, DWord* lp_max_instances) @cname("GetNamedPipeInfo");
 extern fn Bool setNamedPipeHandleState(Handle h_named_pipe, DWord* lp_mode, DWord* lp_max_collection_count, DWord* lp_collect_data_timeout) @cname("SetNamedPipeHandleState");
 
-// ============================================================
+// 
 // Functions - Console
-// ============================================================
+// 
 
 extern fn Handle getStdHandle(DWord n_std_handle) @cname("GetStdHandle");
 extern fn Bool setStdHandle(DWord n_std_handle, Handle h_handle) @cname("SetStdHandle");
@@ -1038,9 +1044,9 @@ extern fn Bool allocConsole() @cname("AllocConsole");
 extern fn Bool freeConsole() @cname("FreeConsole");
 extern fn Bool attachConsole(DWord dw_process_id) @cname("AttachConsole");
 
-// ============================================================
+// 
 // Functions - Module / Library
-// ============================================================
+// 
 
 extern fn HModule loadLibraryA(char* lp_lib_file_name) @cname("LoadLibraryA");
 extern fn HModule loadLibraryW(WChar* lp_lib_file_name) @cname("LoadLibraryW");
@@ -1053,9 +1059,9 @@ extern fn DWord getModuleFileNameW(HModule h_module, WChar* lp_filename, DWord n
 extern fn HModule getModuleHandleA(char* lp_module_name) @cname("GetModuleHandleA");
 extern fn HModule getModuleHandleW(WChar* lp_module_name) @cname("GetModuleHandleW");
 
-// ============================================================
+// 
 // Functions - Time
-// ============================================================
+// 
 
 extern fn void getSystemTime(SystemTime* lp_system_time) @cname("GetSystemTime");
 extern fn void getLocalTime(SystemTime* lp_system_time) @cname("GetLocalTime");
@@ -1073,9 +1079,9 @@ extern fn Bool localFileTimeToFileTime(FileTime* lp_local_file_time, FileTime* l
 extern fn int compareFileTime(FileTime* lp_file_time_1, FileTime* lp_file_time_2) @cname("CompareFileTime");
 extern fn Bool getTimeZoneInformation(TimeZoneInformation* lp_time_zone_information) @cname("GetTimeZoneInformation");
 
-// ============================================================
+// 
 // Functions - System Info
-// ============================================================
+// 
 
 extern fn void getSystemInfo(SystemInfo* lp_system_info) @cname("GetSystemInfo");
 extern fn void getNativeSystemInfo(SystemInfo* lp_system_info) @cname("GetNativeSystemInfo");
@@ -1091,9 +1097,9 @@ extern fn DWord getComputerNameW(WChar* lp_buffer, DWord* n_size) @cname("GetCom
 extern fn Bool setComputerNameA(char* lp_computer_name) @cname("SetComputerNameA");
 extern fn Bool setComputerNameW(WChar* lp_computer_name) @cname("SetComputerNameW");
 
-// ============================================================
+// 
 // Functions - Environment
-// ============================================================
+// 
 
 extern fn DWord getEnvironmentVariableA(char* lp_name, char* lp_buffer, DWord n_size) @cname("GetEnvironmentVariableA");
 extern fn DWord getEnvironmentVariableW(WChar* lp_name, WChar* lp_buffer, DWord n_size) @cname("GetEnvironmentVariableW");
@@ -1106,21 +1112,21 @@ extern fn Bool freeEnvironmentStringsW(WChar* lp_sz_environment_block) @cname("F
 extern fn DWord expandEnvironmentStringsA(char* lp_src, char* lp_dst, DWord n_size) @cname("ExpandEnvironmentStringsA");
 extern fn DWord expandEnvironmentStringsW(WChar* lp_src, WChar* lp_dst, DWord n_size) @cname("ExpandEnvironmentStringsW");
 
-// ============================================================
+// 
 // Functions - I/O Completion Port
-// ============================================================
+// 
 
 extern fn Handle createIoCompletionPort(Handle h_file_handle, Handle h_existing_completion_port, uptr completion_key, DWord dw_number_of_concurrent_threads) @cname("CreateIoCompletionPort");
 extern fn Bool getQueuedCompletionStatus(Handle h_completion_port, DWord* lp_number_of_bytes_transferred, uptr* lp_completion_key, Overlapped** lp_overlapped, DWord dw_milliseconds) @cname("GetQueuedCompletionStatus");
 extern fn Bool postQueuedCompletionStatus(Handle h_completion_port, DWord dw_number_of_bytes_transferred, uptr dw_completion_key, Overlapped* lp_overlapped) @cname("PostQueuedCompletionStatus");
-extern fn Bool getQueuedCompletionStatusEx(Handle h_completion_port, OverlappedEntry* lp_completion_port_entries,  ulong ul_count, ulong* ul_num_entries_removed, DWord dw_milliseconds, Bool f_alertable) @cname("GetQueuedCompletionStatusEx");
+extern fn Bool getQueuedCompletionStatusEx(Handle h_completion_port, OverlappedEntry* lp_completion_port_entries,  DWord ul_count, DWord* ul_num_entries_removed, DWord dw_milliseconds, Bool f_alertable) @cname("GetQueuedCompletionStatusEx");
 extern fn Bool cancelIo(Handle h_file) @cname("CancelIo");
 extern fn Bool cancelIoEx(Handle h_file, Overlapped* lp_overlapped) @cname("CancelIoEx");
 extern fn Bool cancelSynchronousIo(Handle h_thread) @cname("CancelSynchronousIo");
 
-// ============================================================
+// 
 // Functions - Misc
-// ============================================================
+// 
 
 extern fn void outputDebugStringA(char* lp_output_string) @cname("OutputDebugStringA");
 extern fn void outputDebugStringW(WChar* lp_output_string) @cname("OutputDebugStringW");
@@ -1139,155 +1145,156 @@ extern fn void raiseException(DWord dw_exception_code, DWord dw_exception_flags,
 
 
 
-// ============================================================
+// 
 // Constants - Common Error Codes
-// ============================================================
+// 
 
-const DWord ERROR_SUCCESS                       = 0;
-const DWord ERROR_INVALID_FUNCTION             = 1;
-const DWord ERROR_FILE_NOT_FOUND               = 2;
-const DWord ERROR_PATH_NOT_FOUND               = 3;
-const DWord ERROR_TOO_MANY_OPEN_FILES          = 4;
-const DWord ERROR_ACCESS_DENIED                = 5;
-const DWord ERROR_INVALID_HANDLE               = 6;
-const DWord ERROR_NOT_ENOUGH_MEMORY            = 8;
-const DWord ERROR_INVALID_DATA                 = 13;
-const DWord ERROR_OUTOFMEMORY                  = 14;
-const DWord ERROR_INVALID_DRIVE                = 15;
-const DWord ERROR_NO_MORE_FILES                = 18;
-const DWord ERROR_NOT_READY                    = 21;
-const DWord ERROR_BAD_LENGTH                   = 24;
-const DWord ERROR_SHARING_VIOLATION            = 32;
-const DWord ERROR_LOCK_VIOLATION               = 33;
-const DWord ERROR_HANDLE_EOF                   = 38;
-const DWord ERROR_NOT_SUPPORTED                = 50;
-const DWord ERROR_FILE_EXISTS                  = 80;
-const DWord ERROR_INVALID_PARAMETER            = 87;
-const DWord ERROR_BROKEN_PIPE                  = 109;
-const DWord ERROR_OPEN_FAILED                  = 110;
-const DWord ERROR_BUFFER_OVERFLOW              = 111;
-const DWord ERROR_DISK_FULL                    = 112;
-const DWord ERROR_CALL_NOT_IMPLEMENTED         = 120;
-const DWord ERROR_INSUFFICIENT_BUFFER          = 122;
-const DWord ERROR_INVALID_NAME                 = 123;
-const DWord ERROR_MOD_NOT_FOUND                = 126;
-const DWord ERROR_PROC_NOT_FOUND               = 127;
-const DWord ERROR_WAIT_NO_CHILDREN             = 128;
-const DWord ERROR_ALREADY_EXISTS               = 183;
-const DWord ERROR_ENVVAR_NOT_FOUND             = 203;
-const DWord ERROR_FILENAME_EXCED_RANGE         = 206;
-const DWord ERROR_DIRECTORY                    = 267;
-const DWord ERROR_OPERATION_ABORTED            = 995;
-const DWord ERROR_IO_INCOMPLETE                = 996;
-const DWord ERROR_IO_PENDING                   = 997;
-const DWord ERROR_NOACCESS                     = 998;
-const DWord ERROR_NO_MORE_ITEMS                = 259;
-const DWord ERROR_PARTIAL_COPY                 = 299;
-const DWord ERROR_TIMEOUT                      = 1460;
-const DWord ERROR_ABANDONED_WAIT_0             = 735;
-const DWord ERROR_NOT_OWNER                    = 288;
-const DWord ERROR_PIPE_BUSY                    = 231;
-const DWord ERROR_PIPE_NOT_CONNECTED           = 233;
-const DWord ERROR_MORE_DATA                    = 234;
-const DWord ERROR_NO_DATA                      = 232;
-const DWord ERROR_PIPE_CONNECTED               = 535;
-const DWord ERROR_PIPE_LISTENING               = 536;
-const DWord WAIT_OBJECT_0_ERROR                = 0x80070000; // HRESULT conversion
-const DWord ERROR_GEN_FAILURE                  = 31;
-const DWord ERROR_INVALID_BLOCK                = 9;
+const DWord ERROR_SUCCESS = 0;
+const DWord ERROR_INVALID_FUNCTION = 1;
+const DWord ERROR_FILE_NOT_FOUND = 2;
+const DWord ERROR_PATH_NOT_FOUND = 3;
+const DWord ERROR_TOO_MANY_OPEN_FILES = 4;
+const DWord ERROR_ACCESS_DENIED = 5;
+const DWord ERROR_INVALID_HANDLE = 6;
+const DWord ERROR_NOT_ENOUGH_MEMORY = 8;
+const DWord ERROR_INVALID_DATA = 13;
+const DWord ERROR_OUTOFMEMORY = 14;
+const DWord ERROR_INVALID_DRIVE = 15;
+const DWord ERROR_NO_MORE_FILES = 18;
+const DWord ERROR_NOT_READY = 21;
+const DWord ERROR_BAD_LENGTH = 24;
+const DWord ERROR_SHARING_VIOLATION = 32;
+const DWord ERROR_LOCK_VIOLATION = 33;
+const DWord ERROR_HANDLE_EOF = 38;
+const DWord ERROR_NOT_SUPPORTED = 50;
+const DWord ERROR_FILE_EXISTS = 80;
+const DWord ERROR_INVALID_PARAMETER = 87;
+const DWord ERROR_BROKEN_PIPE = 109;
+const DWord ERROR_OPEN_FAILED = 110;
+const DWord ERROR_BUFFER_OVERFLOW = 111;
+const DWord ERROR_DISK_FULL = 112;
+const DWord ERROR_CALL_NOT_IMPLEMENTED = 120;
+const DWord ERROR_SEM_TIMEOUT = 121;
+const DWord ERROR_INSUFFICIENT_BUFFER = 122;
+const DWord ERROR_INVALID_NAME = 123;
+const DWord ERROR_MOD_NOT_FOUND = 126;
+const DWord ERROR_PROC_NOT_FOUND = 127;
+const DWord ERROR_WAIT_NO_CHILDREN = 128;
+const DWord ERROR_ALREADY_EXISTS = 183;
+const DWord ERROR_ENVVAR_NOT_FOUND = 203;
+const DWord ERROR_FILENAME_EXCED_RANGE = 206;
+const DWord ERROR_DIRECTORY = 267;
+const DWord ERROR_OPERATION_ABORTED = 995;
+const DWord ERROR_IO_INCOMPLETE = 996;
+const DWord ERROR_IO_PENDING = 997;
+const DWord ERROR_NOACCESS = 998;
+const DWord ERROR_NO_MORE_ITEMS = 259;
+const DWord ERROR_PARTIAL_COPY = 299;
+const DWord ERROR_TIMEOUT = 1460;
+const DWord ERROR_ABANDONED_WAIT_0 = 735;
+const DWord ERROR_NOT_OWNER = 288;
+const DWord ERROR_PIPE_BUSY = 231;
+const DWord ERROR_PIPE_NOT_CONNECTED = 233;
+const DWord ERROR_MORE_DATA = 234;
+const DWord ERROR_NO_DATA = 232;
+const DWord ERROR_PIPE_CONNECTED = 535;
+const DWord ERROR_PIPE_LISTENING = 536;
+const DWord WAIT_OBJECT_0_ERROR = 0x80070000; // HRESULT conversion
+const DWord ERROR_GEN_FAILURE = 31;
+const DWord ERROR_INVALID_BLOCK = 9;
 
-// ============================================================
+// 
 // Constants - Process / Thread Access Rights
-// ============================================================
+// 
 
-const DWord PROCESS_TERMINATE                  = 0x0001;
-const DWord PROCESS_CREATE_THREAD              = 0x0002;
-const DWord PROCESS_SET_SESSIONID              = 0x0004;
-const DWord PROCESS_VM_OPERATION               = 0x0008;
-const DWord PROCESS_VM_READ                    = 0x0010;
-const DWord PROCESS_VM_WRITE                   = 0x0020;
-const DWord PROCESS_DUP_HANDLE                 = 0x0040;
-const DWord PROCESS_CREATE_PROCESS             = 0x0080;
-const DWord PROCESS_SET_QUOTA                  = 0x0100;
-const DWord PROCESS_SET_INFORMATION            = 0x0200;
-const DWord PROCESS_QUERY_INFORMATION          = 0x0400;
-const DWord PROCESS_SUSPEND_RESUME             = 0x0800;
-const DWord PROCESS_QUERY_LIMITED_INFORMATION  = 0x1000;
-const DWord PROCESS_ALL_ACCESS                 = 0x001FFFFF;
+const DWord PROCESS_TERMINATE = 0x0001;
+const DWord PROCESS_CREATE_THREAD = 0x0002;
+const DWord PROCESS_SET_SESSIONID = 0x0004;
+const DWord PROCESS_VM_OPERATION = 0x0008;
+const DWord PROCESS_VM_READ = 0x0010;
+const DWord PROCESS_VM_WRITE = 0x0020;
+const DWord PROCESS_DUP_HANDLE = 0x0040;
+const DWord PROCESS_CREATE_PROCESS = 0x0080;
+const DWord PROCESS_SET_QUOTA = 0x0100;
+const DWord PROCESS_SET_INFORMATION = 0x0200;
+const DWord PROCESS_QUERY_INFORMATION = 0x0400;
+const DWord PROCESS_SUSPEND_RESUME = 0x0800;
+const DWord PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+const DWord PROCESS_ALL_ACCESS = 0x001FFFFF;
 
-const DWord THREAD_TERMINATE                   = 0x0001;
-const DWord THREAD_SUSPEND_RESUME              = 0x0002;
-const DWord THREAD_GET_CONTEXT                 = 0x0008;
-const DWord THREAD_SET_CONTEXT                 = 0x0010;
-const DWord THREAD_QUERY_INFORMATION           = 0x0040;
-const DWord THREAD_SET_INFORMATION             = 0x0020;
-const DWord THREAD_SET_THREAD_TOKEN            = 0x0080;
-const DWord THREAD_IMPERSONATE                 = 0x0100;
-const DWord THREAD_DIRECT_IMPERSONATION        = 0x0200;
-const DWord THREAD_SET_LIMITED_INFORMATION     = 0x0400;
-const DWord THREAD_QUERY_LIMITED_INFORMATION   = 0x0800;
-const DWord THREAD_RESUME                      = 0x1000;
-const DWord THREAD_ALL_ACCESS                  = 0x001FFFFF;
+const DWord THREAD_TERMINATE = 0x0001;
+const DWord THREAD_SUSPEND_RESUME = 0x0002;
+const DWord THREAD_GET_CONTEXT = 0x0008;
+const DWord THREAD_SET_CONTEXT = 0x0010;
+const DWord THREAD_QUERY_INFORMATION = 0x0040;
+const DWord THREAD_SET_INFORMATION = 0x0020;
+const DWord THREAD_SET_THREAD_TOKEN = 0x0080;
+const DWord THREAD_IMPERSONATE = 0x0100;
+const DWord THREAD_DIRECT_IMPERSONATION = 0x0200;
+const DWord THREAD_SET_LIMITED_INFORMATION = 0x0400;
+const DWord THREAD_QUERY_LIMITED_INFORMATION = 0x0800;
+const DWord THREAD_RESUME = 0x1000;
+const DWord THREAD_ALL_ACCESS = 0x001FFFFF;
 
-// ============================================================
+// 
 // Constants - Heap Flags
-// ============================================================
+// 
 
-const DWord HEAP_NO_SERIALIZE                  = 0x00000001;
-const DWord HEAP_GROWABLE                      = 0x00000002;
-const DWord HEAP_GENERATE_EXCEPTIONS           = 0x00000004;
-const DWord HEAP_ZERO_MEMORY                   = 0x00000008;
-const DWord HEAP_REALLOC_IN_PLACE_ONLY         = 0x00000010;
-const DWord HEAP_TAIL_CHECKING_ENABLED         = 0x00000020;
-const DWord HEAP_FREE_CHECKING_ENABLED         = 0x00000040;
-const DWord HEAP_DISABLE_COALESCE_ON_FREE      = 0x00000080;
-const DWord HEAP_CREATE_ALIGN_16               = 0x00010000;
-const DWord HEAP_CREATE_ENABLE_TRACING         = 0x00020000;
-const DWord HEAP_CREATE_ENABLE_EXECUTE         = 0x00040000;
+const DWord HEAP_NO_SERIALIZE = 0x00000001;
+const DWord HEAP_GROWABLE = 0x00000002;
+const DWord HEAP_GENERATE_EXCEPTIONS = 0x00000004;
+const DWord HEAP_ZERO_MEMORY = 0x00000008;
+const DWord HEAP_REALLOC_IN_PLACE_ONLY = 0x00000010;
+const DWord HEAP_TAIL_CHECKING_ENABLED = 0x00000020;
+const DWord HEAP_FREE_CHECKING_ENABLED = 0x00000040;
+const DWord HEAP_DISABLE_COALESCE_ON_FREE = 0x00000080;
+const DWord HEAP_CREATE_ALIGN_16 = 0x00010000;
+const DWord HEAP_CREATE_ENABLE_TRACING = 0x00020000;
+const DWord HEAP_CREATE_ENABLE_EXECUTE = 0x00040000;
 
-// ============================================================
+// 
 // Constants - IOCP / Completion Notification Modes
-// ============================================================
+// 
 
 const char FILE_SKIP_COMPLETION_PORT_ON_SUCCESS = 0x1;
-const char FILE_SKIP_SET_EVENT_ON_HANDLE        = 0x2;
+const char FILE_SKIP_SET_EVENT_ON_HANDLE = 0x2;
 
-// ============================================================
+// 
 // Constants - Job Object
-// ============================================================
+// 
 
-const DWord JOB_OBJECT_ASSIGN_PROCESS          = 0x0001;
-const DWord JOB_OBJECT_SET_ATTRIBUTES          = 0x0002;
-const DWord JOB_OBJECT_QUERY                   = 0x0004;
-const DWord JOB_OBJECT_TERMINATE               = 0x0008;
+const DWord JOB_OBJECT_ASSIGN_PROCESS = 0x0001;
+const DWord JOB_OBJECT_SET_ATTRIBUTES = 0x0002;
+const DWord JOB_OBJECT_QUERY = 0x0004;
+const DWord JOB_OBJECT_TERMINATE = 0x0008;
 const DWord JOB_OBJECT_SET_SECURITY_ATTRIBUTES = 0x0010;
-const DWord JOB_OBJECT_ALL_ACCESS              = 0x001F001F;
+const DWord JOB_OBJECT_ALL_ACCESS = 0x001F001F;
 
-// ============================================================
+// 
 // Constants - DuplicateHandle Options
-// ============================================================
+// 
 
-const DWord DUPLICATE_CLOSE_SOURCE             = 0x00000001;
-const DWord DUPLICATE_SAME_ACCESS              = 0x00000002;
+const DWord DUPLICATE_CLOSE_SOURCE = 0x00000001;
+const DWord DUPLICATE_SAME_ACCESS = 0x00000002;
 
-// ============================================================
+// 
 // Constants - IsWow64Process / Machine
-// ============================================================
+// 
 
-const ushort PROCESSOR_ARCHITECTURE_INTEL       = 0;
-const ushort PROCESSOR_ARCHITECTURE_MIPS        = 1;
-const ushort PROCESSOR_ARCHITECTURE_ALPHA       = 2;
-const ushort PROCESSOR_ARCHITECTURE_PPC         = 3;
-const ushort PROCESSOR_ARCHITECTURE_SHX         = 4;
-const ushort PROCESSOR_ARCHITECTURE_ARM         = 5;
-const ushort PROCESSOR_ARCHITECTURE_IA64        = 6;
-const ushort PROCESSOR_ARCHITECTURE_AMD64       = 9;
-const ushort PROCESSOR_ARCHITECTURE_ARM64       = 12;
-const ushort PROCESSOR_ARCHITECTURE_UNKNOWN     = 0xFFFF;
+const ushort PROCESSOR_ARCHITECTURE_INTEL = 0;
+const ushort PROCESSOR_ARCHITECTURE_MIPS = 1;
+const ushort PROCESSOR_ARCHITECTURE_ALPHA = 2;
+const ushort PROCESSOR_ARCHITECTURE_PPC = 3;
+const ushort PROCESSOR_ARCHITECTURE_SHX = 4;
+const ushort PROCESSOR_ARCHITECTURE_ARM = 5;
+const ushort PROCESSOR_ARCHITECTURE_IA64 = 6;
+const ushort PROCESSOR_ARCHITECTURE_AMD64 = 9;
+const ushort PROCESSOR_ARCHITECTURE_ARM64 = 12;
+const ushort PROCESSOR_ARCHITECTURE_UNKNOWN = 0xFFFF;
 
-// ============================================================
+// 
 // Structs - File Information
-// ============================================================
+// 
 
 struct ByHandleFileInformation {
     DWord    dwFileAttributes;
@@ -1302,9 +1309,9 @@ struct ByHandleFileInformation {
     DWord    nFileIndexLow;
 }
 
-// ============================================================
+// 
 // Structs - Heap
-// ============================================================
+// 
 
 // PROCESS_HEAP_ENTRY
 struct ProcessHeapEntry {
@@ -1327,9 +1334,9 @@ struct ProcessHeapEntry {
     }
 }
 
-// ============================================================
+// 
 // Structs - Job Object
-// ============================================================
+// 
 
 struct JobObjectBasicLimitInformation {
     long    perProcessUserTimeLimit;
@@ -1367,9 +1374,9 @@ struct JobObjectExtendedLimitInformation {
 }
 
 
-// ============================================================
+// 
 // Structs - InitOnce (one-time initialization)
-// ============================================================
+// 
 
 struct InitOnce {
     void* ptr;
@@ -1378,13 +1385,13 @@ struct InitOnce {
 alias InitOnceCallback = fn Bool (InitOnce* init_once, void* parameter, void** context);
 
 // InitOnce flags
-const DWord INIT_ONCE_CHECK_ONLY               = 0x00000001;
-const DWord INIT_ONCE_ASYNC                    = 0x00000002;
-const DWord INIT_ONCE_INIT_FAILED              = 0x00000004;
+const DWord INIT_ONCE_CHECK_ONLY = 0x00000001;
+const DWord INIT_ONCE_ASYNC = 0x00000002;
+const DWord INIT_ONCE_INIT_FAILED = 0x00000004;
 
-// ============================================================
+// 
 // Functions - Overlapped Result
-// ============================================================
+// 
 
 extern fn Bool getOverlappedResult(
     Handle     h_file,
@@ -1401,9 +1408,9 @@ extern fn Bool getOverlappedResultEx(
     Bool       b_alertable
 ) @cname("GetOverlappedResultEx");
 
-// ============================================================
+// 
 // Functions - Process / Thread Open
-// ============================================================
+// 
 
 extern fn Handle openProcess(DWord dw_desired_access, Bool b_inherit_handle, DWord dw_process_id) @cname("OpenProcess");
 extern fn Handle openThread(DWord dw_desired_access, Bool b_inherit_handle, DWord dw_thread_id) @cname("OpenThread");
@@ -1422,16 +1429,16 @@ extern fn Bool setProcessWorkingSetSize(Handle h_process, uptr dw_minimum_workin
 extern fn int setThreadDescription(Handle h_thread, WChar* lp_thread_description) @cname("SetThreadDescription");
 extern fn int getThreadDescription(Handle h_thread, WChar** pp_sz_thread_description) @cname("GetThreadDescription");
 
-// ============================================================
+// 
 // Functions - IOCP Completion Notification
-// ============================================================
+// 
 
 extern fn Bool setFileCompletionNotificationModes(Handle file_handle, char flags) @cname("SetFileCompletionNotificationModes");
 extern fn Bool bindIoCompletionCallback(Handle file_handle, FileIOCompletionRoutine function, DWord flags) @cname("BindIoCompletionCallback");
 
-// ============================================================
+// 
 // Functions - Device I/O
-// ============================================================
+// 
 
 extern fn Bool deviceIoControl(
     Handle  h_device,
@@ -1444,9 +1451,9 @@ extern fn Bool deviceIoControl(
     Overlapped* lp_overlapped
 ) @cname("DeviceIoControl");
 
-// ============================================================
+// 
 // Functions - File Information
-// ============================================================
+// 
 
 extern fn Bool getFileInformationByHandle(Handle h_file, ByHandleFileInformation* lp_file_information) @cname("GetFileInformationByHandle");
 extern fn Bool setFileInformationByHandle(Handle h_file, int file_information_class, void* lp_file_information, DWord dw_buffer_size) @cname("SetFileInformationByHandle");
@@ -1454,16 +1461,16 @@ extern fn Bool getFileInformationByHandleEx(Handle h_file, int file_information_
 
 
 // CreateSymbolicLink
-const DWord SYMBOLIC_LINK_FLAG_FILE             = 0x0;
-const DWord SYMBOLIC_LINK_FLAG_DIRECTORY        = 0x1;
+const DWord SYMBOLIC_LINK_FLAG_FILE = 0x0;
+const DWord SYMBOLIC_LINK_FLAG_DIRECTORY = 0x1;
 const DWord SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE = 0x2;
 
 extern fn Bool createSymbolicLinkA(char* lp_symlink_file_name, char* lp_target_file_name, DWord dw_flags) @cname("CreateSymbolicLinkA");
 extern fn Bool createSymbolicLinkW(WChar* lp_symlink_file_name, WChar* lp_target_file_name, DWord dw_flags) @cname("CreateSymbolicLinkW");
 
-// ============================================================
+// 
 // Functions - Heap
-// ============================================================
+// 
 
 extern fn void* getProcessHeap() @cname("GetProcessHeap");
 extern fn DWord getProcessHeaps(DWord number_of_heaps, void** process_heaps) @cname("GetProcessHeaps");
@@ -1479,37 +1486,37 @@ extern fn Bool heapLock(void* h_heap) @cname("HeapLock");
 extern fn Bool heapUnlock(void* h_heap) @cname("HeapUnlock");
 extern fn Bool heapWalk(void* h_heap, ProcessHeapEntry* lp_entry) @cname("HeapWalk");
 
-// ============================================================
+// 
 // Functions - APC / Signaling
-// ============================================================
+// 
 
 alias APCProc = fn void (uptr dw_param);
 
 extern fn DWord queueUserAPC(APCProc pfn_apc, Handle h_thread, uptr dw_data) @cname("QueueUserAPC");
 extern fn DWord signalObjectAndWait(Handle h_object_to_signal, Handle h_object_to_wait_on, DWord dw_milliseconds, Bool b_alertable) @cname("SignalObjectAndWait");
 
-// ============================================================
+// 
 // Functions - Waitable Timer (Extended)
-// ============================================================
+// 
 
 extern fn Handle createWaitableTimerExA(SecurityAttributes* lp_timer_attributes, char* lp_timer_name, DWord dw_flags, DWord dw_desired_access) @cname("CreateWaitableTimerExA");
 extern fn Handle createWaitableTimerExW(SecurityAttributes* lp_timer_attributes, WChar* lp_timer_name, DWord dw_flags, DWord dw_desired_access) @cname("CreateWaitableTimerExW");
 
-const DWord CREATE_WAITABLE_TIMER_MANUAL_RESET  = 0x00000001;
+const DWord CREATE_WAITABLE_TIMER_MANUAL_RESET = 0x00000001;
 const DWord CREATE_WAITABLE_TIMER_HIGH_RESOLUTION = 0x00000002;
 
-// ============================================================
+// 
 // Functions - InitOnce (one-time initialization)
-// ============================================================
+// 
 
 extern fn void initOnceInitialize(InitOnce* init_once) @cname("InitOnceInitialize");
 extern fn Bool initOnceExecuteOnce(InitOnce* init_once, InitOnceCallback init_fn, void* parameter, void** context) @cname("InitOnceExecuteOnce");
 extern fn Bool initOnceBeginInitialize(InitOnce* lp_init_once, DWord dw_flags, Bool* f_pending, void** lp_context) @cname("InitOnceBeginInitialize");
 extern fn Bool initOnceComplete(InitOnce* lp_init_once, DWord dw_flags, void* lp_context) @cname("InitOnceComplete");
 
-// ============================================================
+// 
 // Functions - Job Object
-// ============================================================
+// 
 
 extern fn Handle createJobObjectA(SecurityAttributes* lp_job_attributes, char* lp_name) @cname("CreateJobObjectA");
 extern fn Handle createJobObjectW(SecurityAttributes* lp_job_attributes, WChar* lp_name) @cname("CreateJobObjectW");
@@ -1521,32 +1528,32 @@ extern fn Bool isProcessInJob(Handle process_handle, Handle job_handle, Bool* re
 extern fn Bool setInformationJobObject(Handle h_job, int job_object_information_class, void* lp_job_object_information, DWord cb_job_object_information_length) @cname("SetInformationJobObject");
 extern fn Bool queryInformationJobObject(Handle h_job, int job_object_information_class, void* lp_job_object_information, DWord cb_job_object_information_length, DWord* lp_return_length) @cname("QueryInformationJobObject");
 
-// ============================================================
+// 
 // Functions - Console I/O (보충)
-// ============================================================
+// 
 
 extern fn Bool writeConsoleA(Handle h_console_output, void* lp_buffer, DWord n_number_of_chars_to_write, DWord* lp_number_of_chars_written, void* lp_reserved) @cname("WriteConsoleA");
 extern fn Bool writeConsoleW(Handle h_console_output, void* lp_buffer, DWord n_number_of_chars_to_write, DWord* lp_number_of_chars_written, void* lp_reserved) @cname("WriteConsoleW");
 extern fn Bool readConsoleA(Handle h_console_input, void* lp_buffer, DWord n_number_of_chars_to_read, DWord* lp_number_of_chars_read, void* p_input_control) @cname("ReadConsoleA");
 extern fn Bool readConsoleW(Handle h_console_input, void* lp_buffer, DWord n_number_of_chars_to_read, DWord* lp_number_of_chars_read, void* p_input_control) @cname("ReadConsoleW");
 
-// ============================================================
+// 
 // Functions - High-Resolution Time
-// ============================================================
+// 
 
 extern fn void getSystemTimePreciseAsFileTime(FileTime* lp_system_time_as_file_time) @cname("GetSystemTimePreciseAsFileTime");
 
-// ============================================================
+// 
 // Functions - Wow64
-// ============================================================
+// 
 
 extern fn Bool wow64DisableWow64FsRedirection(void** old_value) @cname("Wow64DisableWow64FsRedirection");
 extern fn Bool wow64RevertWow64FsRedirection(void* ol_value) @cname("Wow64RevertWow64FsRedirection");
 extern fn Bool isWow64Process2(Handle h_process, ushort* p_process_machine, ushort* p_native_machine) @cname("IsWow64Process2");
 
-// ============================================================
+// 
 // Functions - Debug
-// ============================================================
+// 
 
 struct ExceptionRecord {
     DWord exceptionCode;
@@ -1631,19 +1638,19 @@ struct DebugEvent {
 }
 
 // Debug event codes
-const DWord EXCEPTION_DEBUG_EVENT       = 1;
-const DWord CREATE_THREAD_DEBUG_EVENT   = 2;
-const DWord CREATE_PROCESS_DEBUG_EVENT  = 3;
-const DWord EXIT_THREAD_DEBUG_EVENT     = 4;
-const DWord EXIT_PROCESS_DEBUG_EVENT    = 5;
-const DWord LOAD_DLL_DEBUG_EVENT        = 6;
-const DWord UNLOAD_DLL_DEBUG_EVENT      = 7;
-const DWord OUTPUT_DEBUG_STRING_EVENT   = 8;
-const DWord RIP_EVENT                   = 9;
+const DWord EXCEPTION_DEBUG_EVENT = 1;
+const DWord CREATE_THREAD_DEBUG_EVENT = 2;
+const DWord CREATE_PROCESS_DEBUG_EVENT = 3;
+const DWord EXIT_THREAD_DEBUG_EVENT = 4;
+const DWord EXIT_PROCESS_DEBUG_EVENT = 5;
+const DWord LOAD_DLL_DEBUG_EVENT = 6;
+const DWord UNLOAD_DLL_DEBUG_EVENT = 7;
+const DWord OUTPUT_DEBUG_STRING_EVENT = 8;
+const DWord RIP_EVENT = 9;
 
-const DWord DBG_CONTINUE                = 0x00010002;
-const DWord DBG_EXCEPTION_NOT_HANDLED   = 0x80010001;
-const DWord DBG_REPLY_LATER             = 0x40010001;
+const DWord DBG_CONTINUE = 0x00010002;
+const DWord DBG_EXCEPTION_NOT_HANDLED = 0x80010001;
+const DWord DBG_REPLY_LATER = 0x40010001;
 
 extern fn Bool waitForDebugEvent(DebugEvent* lp_debug_event, DWord dw_milliseconds) @cname("WaitForDebugEvent");
 extern fn Bool continueDebugEvent(DWord dw_process_id, DWord dw_thread_id, DWord dw_continue_status) @cname("ContinueDebugEvent");
@@ -1653,9 +1660,11 @@ extern fn Bool debugSetProcessKillOnExit(Bool kill_on_exit) @cname("DebugSetProc
 extern fn Bool debugBreakProcess(Handle process) @cname("DebugBreakProcess");
 extern fn Bool checkRemoteDebuggerPresent(Handle h_process, Bool* b_debugger_present) @cname("CheckRemoteDebuggerPresent");
 
-// ============================================================
+// 
 // Functions - Process Memory
-// ============================================================
+// 
 
 extern fn Bool readProcessMemory(Handle h_process, void* lp_base_address, void* lp_buffer, uptr n_size, uptr* lp_number_of_bytes_read) @cname("ReadProcessMemory");
 extern fn Bool writeProcessMemory(Handle h_process, void* lp_base_address, void* lp_buffer, uptr n_size, uptr* lp_number_of_bytes_written) @cname("WriteProcessMemory");
+
+// eof

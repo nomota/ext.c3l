@@ -61,7 +61,7 @@ void h = city::hash256_crc(char* s, uint len, ulong* result);
 
 ### Example codes 
 
-* [../../examples/hash](../../examples/hash)
+* [../../test/hash](../../test/hash)
 
 Back to [ext.c3l](../../README.md) library.
 

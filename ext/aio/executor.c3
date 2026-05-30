@@ -89,11 +89,7 @@ fn void*? EventLoop.run_in_executor(&self, ExecutorFn func, void* arg = null)
     };
 
     // fork a thread
-    if (catch err = executor_pool.push(&executor_thread, work))
-    {
-        work.free();
-        return err~;
-    }
+    executor_pool.push(&executor_thread, work);
 
     void*? result = future.await(); // wait until thread notify back to loop
     if (catch err = result)

@@ -22,7 +22,7 @@ fn void? handle_client(Stream* stream)
 {
     char[1024] buf;
 
-    usz n = stream.read(buf[..])!;
+    sz n = stream.read(buf[..])!;
     stream.write(buf[0:n])!;
 }
 ```
@@ -177,7 +177,7 @@ fn void? echo_handler(Stream* stream)
 
     while (true)
     {
-        usz n = stream.read(buf[..])!;
+        sz n = stream.read(buf[..])!;
         if (n == 0) break;
 
         stream.write(buf[0:n])!;
@@ -212,7 +212,7 @@ fn void? handle_client(Stream* stream)
 {
     char[1024] buf;
 
-    usz n = stream.read(buf[..])!;
+    sz n = stream.read(buf[..])!;
     stream.write(buf[0:n])!;
 }
 

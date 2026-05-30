@@ -145,7 +145,7 @@ alias ErrorHandler = fn Response*(int status_code, String description);
 // StreamGenerator: called repeatedly to produce body chunks.
 // Write the next chunk into *chunk / *chunk_len; return true to continue,
 // false when the stream is exhausted.
-alias StreamGenerator = fn bool(char** chunk, usz* chunk_len, void* ctx);
+alias StreamGenerator = fn bool(char** chunk, sz* chunk_len, void* ctx);
 ```
 
 ---
@@ -164,8 +164,8 @@ struct HeaderEntry {
 // Headers: ordered, case-insensitive HTTP header collection
 struct Headers {
     HeaderEntry* entries;
-    usz          count;
-    usz          capacity;
+    sz          count;
+    sz          capacity;
 }
 
 // MultiDictEntry: one entry in a multi-value key-value store
@@ -178,17 +178,17 @@ struct MultiDictEntry {
 // Used for query args, form data, cookies, and file fields.
 struct MultiDict {
     MultiDictEntry* entries;
-    usz             count;
-    usz             capacity;
+    sz             count;
+    sz             capacity;
 }
 
 // FileStorage: one uploaded file from a multipart/form-data request
 struct FileStorage {
     String filename;       // original filename as sent by the client
     String content_type;   // MIME type declared by the client
-    usz    content_length; // declared byte length; 0 if unknown
+    sz    content_length; // declared byte length; 0 if unknown
     char*  stream;         // raw bytes of the file body
-    usz    stream_len;     // number of bytes in stream
+    sz    stream_len;     // number of bytes in stream
 }
 
 // Authorization: parsed HTTP Authorization header
@@ -232,8 +232,8 @@ struct ConfigEntry {
 // FlaskConfig: the application configuration store
 struct FlaskConfig {
     ConfigEntry* entries;
-    usz          count;
-    usz          capacity;
+    sz          count;
+    sz          capacity;
 }
 
 // Request: the incoming HTTP request for the currently running fiber.
@@ -257,14 +257,14 @@ struct Request {
     MultiDict* files;       // uploaded files; cast values to FileStorage*
 
     char*  data;            // raw request body bytes (null if consumed as form or files)
-    usz    data_len;
+    sz    data_len;
 
     Authorization* authorization; // parsed Authorization header; null if absent
     String remote_addr;           // client IP address string
     String endpoint;              // name of the matched route endpoint
     MultiDict* view_args;         // path segment captures e.g. id from /items/<int:id>
     String content_type;
-    usz    content_length;        // 0 if Content-Length header is absent
+    sz    content_length;        // 0 if Content-Length header is absent
 }
 
 // Response: an outgoing HTTP response constructed by a route handler
@@ -272,7 +272,7 @@ struct Response {
     int    status_code;      // e.g. 200
     String status;           // e.g. "200 OK"
     char*  data;             // body bytes; null when using a StreamGenerator
-    usz    data_len;
+    sz    data_len;
 
     Headers*     headers;
     String       content_type;     // full Content-Type value with params
@@ -306,21 +306,21 @@ struct Blueprint {
     String subdomain;
 
     RouteRule*         rules;
-    usz                rule_count;
-    usz                rule_cap;
+    sz                rule_count;
+    sz                rule_cap;
 
     Blueprint**        children;   // nested child blueprints
-    usz                child_count;
+    sz                child_count;
 
     BeforeRequestHook* before_hooks;
-    usz                before_count;
+    sz                before_count;
 
     AfterRequestHook*  after_hooks;
-    usz                after_count;
+    sz                after_count;
 
     ErrorHandler*      error_handlers;
     int*               error_codes;  // parallel array with error_handlers
-    usz                error_handler_count;
+    sz                error_handler_count;
 }
 
 // Session: per-request session store backed by a signed cookie.
@@ -336,8 +336,8 @@ struct Session {
 struct AppGlobals {
     String* keys;
     void**  values; // caller-managed pointers; framework does not free them
-    usz     count;
-    usz     capacity;
+    sz     count;
+    sz     capacity;
 }
 
 // FlaskApp: the central application object
@@ -353,27 +353,27 @@ struct FlaskApp {
     FlaskConfig* config;
 
     RouteRule*  rules;
-    usz         rule_count;
-    usz         rule_cap;
+    sz         rule_count;
+    sz         rule_cap;
 
     Blueprint** blueprints;
-    usz         blueprint_count;
+    sz         blueprint_count;
 
     BeforeRequestHook* before_hooks;
-    usz                before_count;
+    sz                before_count;
 
     AfterRequestHook*  after_hooks;
-    usz                after_count;
+    sz                after_count;
 
     TeardownHook*      teardown_hooks;      // called after each request
-    usz                teardown_count;
+    sz                teardown_count;
 
     TeardownHook*      appctx_teardown_hooks; // called when app context is torn down
-    usz                appctx_teardown_count;
+    sz                appctx_teardown_count;
 
     ErrorHandler*      error_handlers;
     int*               error_codes;         // parallel array with error_handlers
-    usz                error_handler_count;
+    sz                error_handler_count;
 
     asyncio::EventLoop* loop; // the underlying asyncio event loop driving the server
 }
@@ -411,7 +411,7 @@ int  n   = app.config.get_int(String key, int default_val);
 void app.config.from_envvar(String prefix);
 
 // Bulk load from parallel arrays; count must equal the length of both arrays
-void app.config.from_mapping(String* keys, String* values, usz count);
+void app.config.from_mapping(String* keys, String* values, sz count);
 ```
 
 #### Route registration
@@ -492,7 +492,7 @@ String? url = flask::url_for(
     String  endpoint,
     String* param_keys,
     String* param_values,
-    usz     param_count,
+    sz     param_count,
     bool    external
 );
 ```
@@ -561,7 +561,7 @@ import ext::flask;
 // General-purpose response builder
 Response* resp = flask::make_response(
     char*  body,
-    usz    body_len,
+    sz    body_len,
     int    status_code,
     String content_type
 );
@@ -570,7 +570,7 @@ Response* resp = flask::make_response(
 Response* resp = flask::make_text_response(String text, int status_code);
 
 // Convenience: body is a pre-serialized JSON string; Content-Type is application/json
-Response* resp = flask::make_json_response(char* json_str, usz json_len, int status_code);
+Response* resp = flask::make_json_response(char* json_str, sz json_len, int status_code);
 
 // HTTP redirect; code is typically HTTP_301 or HTTP_302
 Response* resp = flask::redirect(String location, int code);

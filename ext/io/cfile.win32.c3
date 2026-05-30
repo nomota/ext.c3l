@@ -29,7 +29,7 @@ fn Char16*? utf8to16(String path, Char16[] wpath) @private
     
     wpath[0:p2.len] = p2[0:p2.len];
     wpath[p2.len] = 0;
-    for (usz i = 0; i < p2.len; i++) {
+    for (sz i = 0; i < p2.len; i++) {
         if (p2[i] == (Char16)'/') {
             wpath[i] = (Char16)'\\';
         }
@@ -83,13 +83,13 @@ fn File? open(String fname, String mode)
     return f;
 }
 
-fn usz? File.read(&self, char[] buf) @dynamic
+fn sz? File.read(&self, char[] buf) @dynamic
 {
     uint bytes_read;
     windows::Bool success = windows::readFile(self.fp, buf.ptr, (uint)buf.len, &bytes_read, null);
     if (!success) return errno::get_fault()~;
     if (bytes_read == 0) return errno::EOF~;
-    return (usz)bytes_read;
+    return (sz)bytes_read;
 }
 
 fn char? File.read_byte(&self) @dynamic
@@ -100,9 +100,9 @@ fn char? File.read_byte(&self) @dynamic
     return c;
 }
 
-fn usz? File.readline(&self, char[] buf)
+fn sz? File.readline(&self, char[] buf)
 {
-    usz idx = 0;
+    sz idx = 0;
     while (idx < buf.len - 1) {
         char c;
         uint bytes_read;
@@ -119,12 +119,12 @@ fn usz? File.readline(&self, char[] buf)
     return idx;
 }
 
-fn usz? File.write(&self, char[] buf) @dynamic
+fn sz? File.write(&self, char[] buf) @dynamic
 {
     uint bytes_written;
     windows::Bool success = windows::writeFile(self.fp, buf.ptr, (uint)buf.len, &bytes_written, null);
     if (!success) return errno::get_fault()~;
-    return (usz)bytes_written;
+    return (sz)bytes_written;
 }
 
 fn void? File.write_byte(&self, char c) @dynamic
@@ -146,7 +146,7 @@ fn void File.flush(&self)
     windows::flushFileBuffers(self.fp);
 }
 
-fn usz? File.printf(&self, String fmt, args...)
+fn sz? File.printf(&self, String fmt, args...)
 {
     // Format to temporary buffer
     DString str; // str.init(mem);
@@ -157,10 +157,10 @@ fn usz? File.printf(&self, String fmt, args...)
     uint bytes_written;
     windows::Bool success = windows::writeFile(self.fp, str.str_view().ptr, (uint)str.len(), &bytes_written, null);
     if (!success) return errno::get_fault()~;
-    return (usz)bytes_written;
+    return (sz)bytes_written;
 }
 
-fn usz? File.seek(&self, long pos, int whence) @dynamic @maydiscard
+fn sz? File.seek(&self, long pos, int whence) @dynamic @maydiscard
 {
     uint move_method;
     switch (whence) {
@@ -203,7 +203,7 @@ fn char[]? load(Allocator allocx, String file)
     defer fp.close();
     long i = 0;
     while (i < n) {
-        usz? r = fp.read(buf[i..n-1]);
+        sz? r = fp.read(buf[i..n-1]);
         if (catch err = r) {
             if (err == errno::EOF) break;
             return err~;
@@ -220,7 +220,7 @@ fn void? save(String filename, char[] data)
 	defer (void)file.close();
 	while (data.len)
 	{
-		usz written = file.write(data)!;
+		sz written = file.write(data)!;
 		data = data[written..];
 	}
 }
@@ -256,12 +256,12 @@ fn void? copy(String fname, String fname2) @maydiscard
     
     long i = 0;
     while (i < buf.len) {
-        usz r = fp.write(buf[i..buf.len-1])!;
+        sz r = fp.write(buf[i..buf.len-1])!;
         i += r;
     }
 }
 
-fn usz? size(String file) => stat::size(file);
+fn sz? size(String file) => stat::size(file);
 
 fn bool exists(String file) => stat::exists(file);
 
@@ -275,5 +275,5 @@ fn bool is_readable(String file) => stat::is_readable(file);
 fn bool is_writeable(String file) => stat::is_writeable(file);
 fn bool is_executable(String file) => stat::is_executable(file);
 
-fn usz? read_link(String link, char[] output) => stat::read_link(link, output);
+fn sz? read_link(String link, char[] output) => stat::read_link(link, output);
 fn void? change_mode(String file, Mode_t mode) @maydiscard => stat::change_mode(file, mode);

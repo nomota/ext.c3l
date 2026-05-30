@@ -110,8 +110,8 @@ extern fn int _wchmod(ushort* filename, int pmode);
 extern fn int _umask(int pmode);
 extern fn char* _mktemp(char* template);
 extern fn ushort* _wmktemp(ushort* template);
-extern fn int _mktemp_s(char* template, usz sizeInChars);
-extern fn int _wmktemp_s(ushort* template, usz sizeInWords);
+extern fn int _mktemp_s(char* template, sz sizeInChars);
+extern fn int _wmktemp_s(ushort* template, sz sizeInWords);
 
 // File removal
 extern fn int _unlink(char* filename);

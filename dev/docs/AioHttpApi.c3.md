@@ -69,8 +69,8 @@ struct Header {
 
 struct Headers {
     Header* entries;
-    usz     count;
-    usz     capacity;
+    sz     count;
+    sz     capacity;
 }
 
 fn Headers*  aiohttp::headers_new();
@@ -79,8 +79,8 @@ fn String?   Headers.get(&self, String name);       // case-insensitive lookup
 fn void      Headers.set(&self, String name, String value);
 fn void      Headers.add(&self, String name, String value);
 fn void      Headers.del(&self, String name);
-fn Header    Headers.get_at(&self, usz idx);
-fn usz       Headers.len(&self);
+fn Header    Headers.get_at(&self, sz idx);
+fn sz       Headers.len(&self);
 
 // Cookie
 
@@ -99,7 +99,7 @@ struct Cookie {
 
 struct CookieJar {
     Cookie* cookies;
-    usz     count;
+    sz     count;
     bool    unsafe;     // allow cookies for IP address targets
 }
 
@@ -107,10 +107,10 @@ struct DummyCookieJar {} // ignores all cookies (for API usage)
 
 fn CookieJar* aiohttp::cookiejar_new(bool unsafe_ips = false);
 fn void       CookieJar.free(&self);
-fn void       CookieJar.update(&self, Cookie* cookies, usz count, Url* response_url);
-fn Cookie*    CookieJar.filter(&self, Url* url, usz* out_count); // must free result
-fn Cookie     CookieJar.get_at(&self, usz idx);
-fn usz        CookieJar.len(&self);
+fn void       CookieJar.update(&self, Cookie* cookies, sz count, Url* response_url);
+fn Cookie*    CookieJar.filter(&self, Url* url, sz* out_count); // must free result
+fn Cookie     CookieJar.get_at(&self, sz idx);
+fn sz        CookieJar.len(&self);
 
 // Timeout
 
@@ -163,7 +163,7 @@ enum WsCloseCode : ushort {
 struct WsMessage {
     WsMsgType type;
     char*     data;
-    usz       data_len;
+    sz       data_len;
     String    extra;    // close reason or error string
 }
 
@@ -174,15 +174,15 @@ fn void WsMessage.free(&self);
 struct FormDataField {
     String name;
     char*  data;
-    usz    data_len;
+    sz    data_len;
     String filename;        // "" = plain field
     String content_type;    // "" = auto-detect
 }
 
 struct FormData {
     FormDataField* fields;
-    usz            count;
-    usz            capacity;
+    sz            count;
+    sz            capacity;
 }
 
 fn FormData* aiohttp::formdata_new();
@@ -191,7 +191,7 @@ fn void      FormData.add_field(
     &self,
     String name,
     char*  data,
-    usz    data_len,
+    sz    data_len,
     String filename     = "",
     String content_type = "",
 );
@@ -212,7 +212,7 @@ struct TcpConnector {
     int        limit;                // total concurrent connections. default 100, 0=unlimited
     int        limit_per_host;       // per-host limit. default 0=unlimited
     TlsConfig* tls;                  // null = system default CA
-    usz        read_bufsize;         // read buffer per connection. default 65536
+    sz        read_bufsize;         // read buffer per connection. default 65536
     bool       use_dns_cache;        // default true
     ulong      ttl_dns_cache_us;     // DNS cache TTL. default 10_000_000 (10s)
     ulong      keepalive_timeout_us; // default 15_000_000 (15s)
@@ -224,7 +224,7 @@ fn TcpConnector* aiohttp::connector_new(
     int        limit                = 100,
     int        limit_per_host       = 0,
     TlsConfig* tls                  = null,
-    usz        read_bufsize         = 65536,
+    sz        read_bufsize         = 65536,
     bool       use_dns_cache        = true,
     ulong      ttl_dns_cache_us     = 10_000_000,
     ulong      keepalive_timeout_us = 15_000_000,
@@ -272,7 +272,7 @@ fn ClientResponse*? ClientSession.post(
     &self,
     String     url,
     char*      data      = null,
-    usz        data_len  = 0,
+    sz        data_len  = 0,
     String     json_str  = "",  // if non-empty, sets Content-Type: application/json
     FormData*  form      = null,
     Headers*   headers   = null,
@@ -283,7 +283,7 @@ fn ClientResponse*? ClientSession.put(
     &self,
     String     url,
     char*      data      = null,
-    usz        data_len  = 0,
+    sz        data_len  = 0,
     String     json_str  = "",
     Headers*   headers   = null,
     TlsConfig* tls       = null,
@@ -293,7 +293,7 @@ fn ClientResponse*? ClientSession.patch(
     &self,
     String     url,
     char*      data      = null,
-    usz        data_len  = 0,
+    sz        data_len  = 0,
     String     json_str  = "",
     Headers*   headers   = null,
     TlsConfig* tls       = null,
@@ -327,7 +327,7 @@ fn ClientResponse*? ClientSession.request(
     Headers*   params    = null,
     Headers*   headers   = null,
     char*      data      = null,
-    usz        data_len  = 0,
+    sz        data_len  = 0,
     String     json_str  = "",
     FormData*  form      = null,
     TlsConfig* tls       = null,
@@ -345,7 +345,7 @@ struct ClientResponse {
 }
 
 fn String?  ClientResponse.text(&self, String encoding = "utf-8"); // must free
-fn char*?   ClientResponse.read(&self, usz* out_len);              // must free
+fn char*?   ClientResponse.read(&self, sz* out_len);              // must free
 fn String?  ClientResponse.json_text(&self);                       // must free
 fn void     ClientResponse.raise_for_status(&self);                // 4xx/5xx -> fault
 fn void     ClientResponse.release(&self);                         // return connection to pool
@@ -366,25 +366,25 @@ fn ClientWs*? ClientSession.ws_connect(
     ulong      receive_timeout_us  = 30_000_000,
     int        compress            = 0,
     String*    protocols           = null,
-    usz        protocols_count     = 0,
+    sz        protocols_count     = 0,
     TlsConfig* tls                 = null,
 ) @maydiscard;
 
 fn void?    ClientWs.close(&self,
     WsCloseCode code    = WsCloseCode.NORMAL_CLOSURE,
     char*       message = null,
-    usz         msg_len = 0,
+    sz         msg_len = 0,
 ) @maydiscard;
 
 fn void?    ClientWs.send_str(&self, String data) @maydiscard;
-fn void?    ClientWs.send_bytes(&self, char* data, usz len) @maydiscard;
+fn void?    ClientWs.send_bytes(&self, char* data, sz len) @maydiscard;
 fn void?    ClientWs.send_json(&self, String json_str) @maydiscard;
-fn void?    ClientWs.ping(&self, char* message = null, usz msg_len = 0) @maydiscard;
-fn void?    ClientWs.pong(&self, char* message = null, usz msg_len = 0) @maydiscard;
+fn void?    ClientWs.ping(&self, char* message = null, sz msg_len = 0) @maydiscard;
+fn void?    ClientWs.pong(&self, char* message = null, sz msg_len = 0) @maydiscard;
 
 fn WsMessage?  ClientWs.receive(&self);
 fn String?     ClientWs.receive_str(&self);                  // must free
-fn char*?      ClientWs.receive_bytes(&self, usz* out_len);  // must free
+fn char*?      ClientWs.receive_bytes(&self, sz* out_len);  // must free
 fn String?     ClientWs.receive_json(&self);                 // must free
 
 fn String      ClientWs.get_peername(&self);  // "host:port"
@@ -436,19 +436,19 @@ struct AppStateEntry {
 struct Application {
     Router*        router;
     MiddlewareFn*  middlewares;
-    usz            middleware_count;
-    usz            client_max_size;   // default 1 MiB
+    sz            middleware_count;
+    sz            client_max_size;   // default 1 MiB
     AppHook*       startup_hooks;
-    usz            startup_count;
+    sz            startup_count;
     AppHook*       shutdown_hooks;
-    usz            shutdown_count;
+    sz            shutdown_count;
     AppHook*       cleanup_hooks;
-    usz            cleanup_count;
+    sz            cleanup_count;
     AppStateEntry* state;
-    usz            state_count;
+    sz            state_count;
 }
 
-fn Application* web::app_new(usz client_max_size = 1024 * 1024);
+fn Application* web::app_new(sz client_max_size = 1024 * 1024);
 fn void         Application.free(&self);
 
 fn void    Application.add_routes(&self, RouteTable* routes);
@@ -471,8 +471,8 @@ struct Route {
 
 struct RouteTable {
     Route* routes;
-    usz    count;
-    usz    capacity;
+    sz    count;
+    sz    capacity;
 }
 
 struct Router {
@@ -511,7 +511,7 @@ fn Url? Router.url_for(&self, String route_name, Headers* params = null); // rev
 struct BodyPart {
     Headers* headers;
     char*    data;
-    usz      data_len;
+    sz      data_len;
     String   name;
     String   filename;
 }
@@ -539,7 +539,7 @@ struct Request {
     // (internal)
 }
 
-fn char*?            Request.read(&self, usz* out_len);  // raw bytes, must free
+fn char*?            Request.read(&self, sz* out_len);  // raw bytes, must free
 fn String?           Request.text(&self);                 // must free
 fn String?           Request.json_text(&self);            // must free
 fn Headers*?         Request.post(&self);                 // parse form/urlencoded, must free
@@ -552,7 +552,7 @@ struct Response {
     String   reason;
     Headers* headers;
     char*    body;
-    usz      body_len;
+    sz      body_len;
     String   content_type;
     String   charset;
 }
@@ -561,7 +561,7 @@ fn Response* web::response_new(
     int    status       = 200,
     String text         = "",
     char*  body         = null,
-    usz    body_len     = 0,
+    sz    body_len     = 0,
     String content_type = "text/plain",
     String charset      = "utf-8",
 );
@@ -593,7 +593,7 @@ struct StreamResponse {
 
 fn StreamResponse* web::stream_response_new(int status = 200);
 fn void?           StreamResponse.prepare(&self, Request* request);
-fn void?           StreamResponse.write(&self, char* data, usz len) @maydiscard;
+fn void?           StreamResponse.write(&self, char* data, sz len) @maydiscard;
 fn void?           StreamResponse.write_eof(&self) @maydiscard;
 fn void            StreamResponse.set_header(&self, String name, String value);
 fn void            StreamResponse.set_cookie(&self, Cookie* cookie);
@@ -628,16 +628,16 @@ fn WebSocketResponse* web::ws_response_new(
     ulong   heartbeat_us    = 0,   // 0 = disabled
     int     compress        = 0,
     String* protocols       = null,
-    usz     protocols_count = 0,
+    sz     protocols_count = 0,
 );
 
 fn void?  WebSocketResponse.prepare(&self, Request* request);
 
 fn void?  WebSocketResponse.send_str  (&self, String data)              @maydiscard;
-fn void?  WebSocketResponse.send_bytes(&self, char* data, usz len)      @maydiscard;
+fn void?  WebSocketResponse.send_bytes(&self, char* data, sz len)      @maydiscard;
 fn void?  WebSocketResponse.send_json (&self, String json_str)          @maydiscard;
-fn void?  WebSocketResponse.ping      (&self, char* msg = null, usz len = 0) @maydiscard;
-fn void?  WebSocketResponse.pong      (&self, char* msg = null, usz len = 0) @maydiscard;
+fn void?  WebSocketResponse.ping      (&self, char* msg = null, sz len = 0) @maydiscard;
+fn void?  WebSocketResponse.pong      (&self, char* msg = null, sz len = 0) @maydiscard;
 
 // receive message
 fn WsMessage? WebSocketResponse.receive(&self);
@@ -715,7 +715,7 @@ fn void main_coro() => @pool()
     defer resp.release();
 
     resp.raise_for_status();
-    usz len;
+    sz len;
     char* body = resp.read(&len)!!;
     // defer free(body); // @pool()
 
@@ -731,7 +731,7 @@ fn void main_coro() => @pool()
     defer resp3.release();
     Stream* content = resp3.content();
     char[65536] chunk;
-    usz n;
+    sz n;
     while ((n = content.read(chunk[:])) > 0) {
         // process...
     }

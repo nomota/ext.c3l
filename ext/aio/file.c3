@@ -63,7 +63,7 @@ fn void File.free(&self)
     localmem.free(self);
 }
 
-fn usz? File.read(&self, char[] buf)
+fn sz? File.read(&self, char[] buf)
 {
     if (self.is_closed()) return FILE_CLOSED~;
     if (buf.len == 0) return 0;
@@ -71,7 +71,7 @@ fn usz? File.read(&self, char[] buf)
     return io::file_read(self.fd, buf)!;
 }
 
-fn usz? File.write(&self, char[] data) @maydiscard
+fn sz? File.write(&self, char[] data) @maydiscard
 {
     if (self.is_closed()) return FILE_CLOSED~;
     if (data.len == 0) return 0;
@@ -83,13 +83,13 @@ fn void? File.write_all(&self, char[] data) @maydiscard
 {
     if (self.is_closed()) return FILE_CLOSED~;
 
-    usz sent = 0;
+    sz sent = 0;
 
     while (sent < data.len)
     {
         char[] part = data[sent..];
 
-        usz n = self.write(part)!;
+        sz n = self.write(part)!;
 
         if (n == 0) return FILE_CLOSED~;
 
@@ -101,13 +101,13 @@ fn void? File.read_exact(&self, char[] buf)
 {
     if (self.is_closed()) return FILE_CLOSED~;
 
-    usz got = 0;
+    sz got = 0;
 
     while (got < buf.len)
     {
         char[] part = buf[got..];
 
-        usz n = self.read(part)!;
+        sz n = self.read(part)!;
 
         if (n == 0) return FILE_EOF~;
 

@@ -62,10 +62,10 @@ fn void? TcpSocket.listen(sock, ushort port, String opt_ip = "*", int backlog = 
 {
     int option = 1;
 
-    int r = socket::setsockopt(sock, socket::SOL_SOCKET, socket::SO_REUSEADDR, (void*)&option, $sizeof(option));
+    int r = socket::setsockopt(sock, socket::SOL_SOCKET, socket::SO_REUSEADDR, (void*)&option, @sizeof(option));
     if (r < 0) return errno::get_fault()~;
 
-    r = socket::setsockopt(sock, socket::SOL_SOCKET, socket::SO_REUSEPORT, (void*)&option, $sizeof(option));
+    r = socket::setsockopt(sock, socket::SOL_SOCKET, socket::SO_REUSEPORT, (void*)&option, @sizeof(option));
     if (r < 0)
     {
         return errno::get_fault()~;
@@ -97,7 +97,7 @@ fn void? TcpSocket.listen(sock, ushort port, String opt_ip = "*", int backlog = 
 
         adr.sin6_port = in::htons(port);
 
-        if (socket::bind(sock, (SockAddr*)&adr, $sizeof(adr)) < 0)
+        if (socket::bind(sock, (SockAddr*)&adr, @sizeof(adr)) < 0)
         {
             return errno::get_fault()~;
         }
@@ -126,7 +126,7 @@ fn void? TcpSocket.listen(sock, ushort port, String opt_ip = "*", int backlog = 
 
         adr.sin_port = in::htons(port);
 
-        if (socket::bind(sock, (SockAddr*)&adr, $sizeof(adr)) < 0)
+        if (socket::bind(sock, (SockAddr*)&adr, @sizeof(adr)) < 0)
         {
             return errno::get_fault()~;
         }
@@ -155,7 +155,7 @@ char[1] __null__;
 fn TcpSocket? TcpSocket.accept(sock, char[] ip = &__null__, ushort* port = null)
 {
     SockAddrStorage adr = {};
-    SockLen size = $sizeof(adr);
+    SockLen size = @sizeof(adr);
 
     TcpSocket s = (TcpSocket)socket::accept(sock, (SockAddr*)&adr, &size);
     if (s < 0) return socket_fault()~;
@@ -213,7 +213,7 @@ fn void? TcpSocket.connect(sock, String ip, ushort port) @maydiscard
             return errno::get_fault()~;
         }
 
-        int r = socket::connect(sock, (SockAddr*)&adr, $sizeof(adr));
+        int r = socket::connect(sock, (SockAddr*)&adr, @sizeof(adr));
         if (r < 0)
         {
             return socket_fault()~;
@@ -235,7 +235,7 @@ fn void? TcpSocket.connect(sock, String ip, ushort port) @maydiscard
             return errno::get_fault()~;
         }
 
-        int r = socket::connect(sock, (SockAddr*)&adr, $sizeof(adr));
+        int r = socket::connect(sock, (SockAddr*)&adr, @sizeof(adr));
         if (r < 0)
         {
             return socket_fault()~;
@@ -254,24 +254,24 @@ fn TcpSocket? new_connect(String ip, ushort port)
     return sock;
 }
 
-fn usz? TcpSocket.send(sock, char[] buf)
+fn sz? TcpSocket.send(sock, char[] buf)
 {
     if (buf.len == 0) return 0;
 
-    isz n = socket::send(sock, buf.ptr, buf.len, 0);
+    sz n = socket::send(sock, buf.ptr, buf.len, 0);
     if (n < 0) return socket_fault()~;
 
-    return (usz)n;
+    return (sz)n;
 }
 
 // Blocking mode only.
-fn usz? TcpSocket.write(sock, char[] buf)
+fn sz? TcpSocket.write(sock, char[] buf)
 {
-    usz sent = 0;
+    sz sent = 0;
 
     while (sent < buf.len)
     {
-        usz n = sock.send(buf[sent:buf.len - sent])!;
+        sz n = sock.send(buf[sent:buf.len - sent])!;
         if (n == 0)
         {
             return errno::EOF~;
@@ -282,24 +282,24 @@ fn usz? TcpSocket.write(sock, char[] buf)
     return sent;
 }
 
-fn usz? TcpSocket.recv(sock, char[] buf)
+fn sz? TcpSocket.recv(sock, char[] buf)
 {
     if (buf.len == 0) return 0;
 
-    isz n = socket::recv(sock, buf.ptr, buf.len, 0);
+    sz n = socket::recv(sock, buf.ptr, buf.len, 0);
     if (n < 0) return socket_fault()~;
 
-    return (usz)n;
+    return (sz)n;
 }
 
-macro usz? TcpSocket.read(sock, char[] buf)
+macro sz? TcpSocket.read(sock, char[] buf)
 {
     return sock.recv(buf);
 }
 
 // Blocking mode only.
 // Do not use this on non-blocking sockets because partial line state is not preserved.
-fn usz? TcpSocket.readline(sock, char[] line)
+fn sz? TcpSocket.readline(sock, char[] line)
 {
     if (line.len < 2)
     {
@@ -307,11 +307,11 @@ fn usz? TcpSocket.readline(sock, char[] line)
         return errno::EOF~;
     }
 
-    usz n = 0;
+    sz n = 0;
     while (n < line.len - 1)
     {
         char c;
-        isz r = socket::recv(sock, &c, 1, 0);
+        sz r = socket::recv(sock, &c, 1, 0);
         if (r < 0)
         {
             return socket_fault()~;

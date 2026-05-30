@@ -6,9 +6,9 @@ alias LongLong = long;
 alias CUint = uint;
 
 // Memory allocation
-extern fn void* malloc(usz size);
-extern fn void* calloc(usz nmemb, usz size);
-extern fn void* realloc(void* ptr, usz size);
+extern fn void* malloc(sz size);
+extern fn void* calloc(sz nmemb, sz size);
+extern fn void* realloc(void* ptr, sz size);
 extern fn void free(void* ptr);
 
 // Process control
@@ -36,8 +36,8 @@ extern fn void srand(uint seed);
 
 // Sort and search.
 alias Cmpfn = fn int(void*, void*);
-extern fn void qsort(void* base, usz nmemb, usz size, Cmpfn compar);
-extern fn void* bsearch(void* key, void* base, usz nmemb, usz size, Cmpfn compar);
+extern fn void qsort(void* base, sz nmemb, sz size, Cmpfn compar);
+extern fn void* bsearch(void* key, void* base, sz nmemb, sz size, Cmpfn compar);
 
 // Arithmetic operation
 extern fn int abs(int j);
@@ -70,14 +70,14 @@ extern fn LongLong strtoll(char* nptr, char** endptr, int base);
 extern fn CUint strtoull(char* nptr, char** endptr, int base);
 
 // Multibyte char (Wchar_t = uint) 
-extern fn int mblen(char* s, usz n);
-extern fn int mbtowc(uint* pwc, char* s, usz n);
+extern fn int mblen(char* s, sz n);
+extern fn int mbtowc(uint* pwc, char* s, sz n);
 extern fn int wctomb(char* s, uint wc);
-extern fn usz mbstowcs(uint* pwcs, char* s, usz n);
-extern fn usz wcstombs(char* s, uint* pwcs, usz n);
+extern fn sz mbstowcs(uint* pwcs, char* s, sz n);
+extern fn sz wcstombs(char* s, uint* pwcs, sz n);
 
 // Aligned memory allocation (C11)
-extern fn void* aligned_alloc(usz alignment, usz size);
+extern fn void* aligned_alloc(sz alignment, sz size);
 
 // Environment variable and process
 extern fn int at_quick_exit(Exitfn func);
@@ -117,4 +117,4 @@ extern fn char* ecvt(double value, int ndigit, int* decpt, int* sign);
 extern fn char* fcvt(double value, int ndigit, int* decpt, int* sign);
 
 // Memory align (POSIX)
-extern fn int posix_memalign(void** memptr, usz alignment, usz size);
+extern fn int posix_memalign(void** memptr, sz alignment, sz size);

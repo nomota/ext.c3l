@@ -212,20 +212,20 @@ fn uint swap32(uint x) @inline
 // Process arrays of successive 16-bit, 32-bit, or 64-bit values.
 // ============================================================================
 
-extern fn void range_dec16le(ushort* v, usz num, void* src);
-extern fn void range_dec16be(ushort* v, usz num, void* src);
-extern fn void range_enc16le(void* dst, ushort* v, usz num);
-extern fn void range_enc16be(void* dst, ushort* v, usz num);
+extern fn void range_dec16le(ushort* v, sz num, void* src);
+extern fn void range_dec16be(ushort* v, sz num, void* src);
+extern fn void range_enc16le(void* dst, ushort* v, sz num);
+extern fn void range_enc16be(void* dst, ushort* v, sz num);
 
-extern fn void range_dec32le(uint* v, usz num, void* src);
-extern fn void range_dec32be(uint* v, usz num, void* src);
-extern fn void range_enc32le(void* dst, uint* v, usz num);
-extern fn void range_enc32be(void* dst, uint* v, usz num);
+extern fn void range_dec32le(uint* v, sz num, void* src);
+extern fn void range_dec32be(uint* v, sz num, void* src);
+extern fn void range_enc32le(void* dst, uint* v, sz num);
+extern fn void range_enc32be(void* dst, uint* v, sz num);
 
-extern fn void range_dec64le(ulong* v, usz num, void* src);
-extern fn void range_dec64be(ulong* v, usz num, void* src);
-extern fn void range_enc64le(void* dst, ulong* v, usz num);
-extern fn void range_enc64be(void* dst, ulong* v, usz num);
+extern fn void range_dec64le(ulong* v, sz num, void* src);
+extern fn void range_dec64be(ulong* v, sz num, void* src);
+extern fn void range_enc64le(void* dst, ulong* v, sz num);
+extern fn void range_enc64be(void* dst, ulong* v, sz num);
 
 // ============================================================================
 // 5. Constant-Time Primitives
@@ -339,7 +339,7 @@ fn uint ct_le0(int x) @inline
   Copies src into dst (len bytes) if and only if ctl == 1.
   dst and src may overlap completely but not partially.
 *>
-extern fn void ccopy(uint ctl, void* dst, void* src, usz len);
+extern fn void ccopy(uint ctl, void* dst, void* src, sz len);
 
 <*
   Compute the bit length of a 32-bit integer.
@@ -448,10 +448,10 @@ extern fn void sha2small_round(char* buf, uint* val);
   Computes P_hash(secret, label || seed) and XORs the result into dst.
   Used by the TLS PRF implementations in prf.h.c3.
 *>
-extern fn void tls_phash(void* dst, usz len,
+extern fn void tls_phash(void* dst, sz len,
     HashClass* dig,
-    void* secret, usz secret_len, char* label,
-    usz seed_num, TLSPRFSeedChunk* seed);
+    void* secret, sz secret_len, char* label,
+    sz seed_num, TLSPRFSeedChunk* seed);
 
 <*
   Copy all configured hash implementations from one multihash context
@@ -459,33 +459,33 @@ extern fn void tls_phash(void* dst, usz len,
 *>
 fn void multihash_copyimpl(MultihashContext* dst, MultihashContext* src) @inline
 {
-    usz n = MultihashContext.impl.sizeof;
+    sz n = MultihashContext.impl::size;
     char* d = (char*)&dst.impl;
     char* s = (char*)&src.impl;
-    for (usz i = 0; i < n; i++) d[i] = s[i];
+    for (sz i = 0; i < n; i++) d[i] = s[i];
 }
 
 <*
   Get the output size (in bytes) of a hash function from its vtable.
   Uses the HASHDESC_OUT fields encoded in HashClass.desc.
 *>
-fn usz digest_size(HashClass* digest_class) @inline
+fn sz digest_size(HashClass* digest_class) @inline
 {
-    return (usz)(digest_class.desc >> HASHDESC_OUT_OFF) & HASHDESC_OUT_MASK;
+    return (sz)(digest_class.desc >> HASHDESC_OUT_OFF) & HASHDESC_OUT_MASK;
 }
 
 <*
   Get the output size (in bytes) of a hash function identified by ID.
   Returns 0 for unknown IDs.
 *>
-extern fn usz digest_size_by_id(int digest_id);
+extern fn sz digest_size_by_id(int digest_id);
 
 <*
   Get the DER-encoded OID (without tag and length) for a hash function.
   The first byte of the returned buffer is the number of subsequent bytes.
   Returns null and sets *len to 0 for unsupported or zero digest IDs.
 *>
-extern fn char* digest_oid(int digest_id, usz* len);
+extern fn char* digest_oid(int digest_id, sz* len);
 
 // ============================================================================
 // 7. i32 — Big Integer Functions (32-bit word representation)
@@ -502,7 +502,7 @@ extern fn char* digest_oid(int digest_id, usz* len);
   number of 32-bit words to examine.
   CT: value or length of x does not leak.
 *>
-extern fn uint i32_bit_length(uint* x, usz xlen);
+extern fn uint i32_bit_length(uint* x, sz xlen);
 
 <*
   Decode an i32 integer from big-endian unsigned representation.
@@ -510,7 +510,7 @@ extern fn uint i32_bit_length(uint* x, usz xlen);
   covering the full len source bytes are written.
   CT: value or length of x does not leak.
 *>
-extern fn void i32_decode(uint* x, void* src, usz len);
+extern fn void i32_decode(uint* x, void* src, sz len);
 
 <*
   Decode an i32 integer from big-endian unsigned representation and
@@ -519,7 +519,7 @@ extern fn void i32_decode(uint* x, void* src, usz len);
   but its announced bit length matches m[]).
   CT: value, length, and fit-check result do not leak.
 *>
-extern fn uint i32_decode_mod(uint* x, void* src, usz len, uint* m);
+extern fn uint i32_decode_mod(uint* x, void* src, sz len, uint* m);
 
 <*
   Reduce a[] modulo m[], writing the result into x[].
@@ -534,14 +534,14 @@ extern fn void i32_reduce(uint* x, uint* a, uint* m);
   Announced bit length of x[] matches m[].
   x[] MUST be distinct from m[].
 *>
-extern fn void i32_decode_reduce(uint* x, void* src, usz len, uint* m);
+extern fn void i32_decode_reduce(uint* x, void* src, sz len, uint* m);
 
 <*
   Encode an i32 integer into big-endian unsigned representation.
   If len is shorter than the integer, it is truncated.
   If len is longer, extra leading bytes are zero-filled.
 *>
-extern fn void i32_encode(void* dst, usz len, uint* x);
+extern fn void i32_encode(void* dst, sz len, uint* x);
 
 <*
   Multiply x[] by 2^32, add z, and reduce modulo m[].
@@ -557,7 +557,7 @@ extern fn void i32_muladd_small(uint* x, uint z, uint* m);
 *>
 fn uint i32_word(uint* a, uint off) @inline
 {
-    usz  u = (usz)(off >> 5) + 1;
+    sz  u = (sz)(off >> 5) + 1;
     uint j = off & 31;
     if (j == 0) {
         return a[u];
@@ -567,7 +567,7 @@ fn uint i32_word(uint* a, uint off) @inline
 }
 
 <* Returns 1 if i32 integer x[] is zero, 0 otherwise. *>
-extern fn uint i32_iszero(uint* x);
+extern fn uint i32_szero(uint* x);
 
 <*
   Add b[] to a[]; return carry (0 or 1).
@@ -600,9 +600,9 @@ extern fn void i32_mulacc(uint* d, uint* a, uint* b);
 fn void i32_zero(uint* x, uint bit_len) @inline
 {
     *x++ = bit_len;
-    usz words = (usz)((bit_len + 31) >> 5);
+    sz words = (sz)((bit_len + 31) >> 5);
     string::memset(x, 0, words*4);
-    //for (usz i = 0; i < words; i++) x[i] = 0;
+    //for (sz i = 0; i < words; i++) x[i] = 0;
 }
 
 <*
@@ -636,7 +636,7 @@ extern fn void i32_montymul(uint* d, uint* x, uint* y, uint* m, uint m0i);
   t1[] and t2[] are temporary arrays, each sized to hold an integer as
   large as m[].
 *>
-extern fn void i32_modpow(uint* x, char* e, usz elen,
+extern fn void i32_modpow(uint* x, char* e, sz elen,
     uint* m, uint m0i, uint* t1, uint* t2);
 
 // ============================================================================
@@ -649,7 +649,7 @@ extern fn void i32_modpow(uint* x, char* e, usz elen,
 // ============================================================================
 
 <* Returns 1 if i31 integer x[] is zero, 0 otherwise. *>
-extern fn uint i31_iszero(uint* x);
+extern fn uint i31_szero(uint* x);
 
 <*
   Add b[] to a[]; return carry (0 or 1).
@@ -672,21 +672,21 @@ extern fn uint i31_sub(uint* a, uint* b, uint ctl);
   Returns ((k / 31) << 5) + (k % 31) where k is the true bit length.
   CT: value or length of x does not leak.
 *>
-extern fn uint i31_bit_length(uint* x, usz xlen);
+extern fn uint i31_bit_length(uint* x, sz xlen);
 
 <*
   Decode an i31 integer from big-endian unsigned representation.
   True bit length is computed and stored (encoded) in x[0].
   CT: value or length of x does not leak.
 *>
-extern fn void i31_decode(uint* x, void* src, usz len);
+extern fn void i31_decode(uint* x, void* src, sz len);
 
 <*
   Decode an i31 integer and verify it is less than m[].
   Returns 1 if the value fits, 0 otherwise (x[] zeroed with m[]'s bit length).
   CT: value, length, and fit-check result do not leak.
 *>
-extern fn uint i31_decode_mod(uint* x, void* src, usz len, uint* m);
+extern fn uint i31_decode_mod(uint* x, void* src, sz len, uint* m);
 
 <*
   Zeroize an i31 integer. bit_len is the ENCODED bit length value.
@@ -694,9 +694,9 @@ extern fn uint i31_decode_mod(uint* x, void* src, usz len, uint* m);
 fn void i31_zero(uint* x, uint bit_len) @inline
 {
     *x++ = bit_len;
-    usz words = (usz)((bit_len + 31) >> 5);
+    sz words = (sz)((bit_len + 31) >> 5);
     string::memset(x, 0, words*4);
-    //for (usz i = 0; i < words; i++) x[i] = 0;
+    //for (sz i = 0; i < words; i++) x[i] = 0;
 }
 
 <*
@@ -715,7 +715,7 @@ extern fn void i31_reduce(uint* x, uint* a, uint* m);
   Decode and reduce: decode src into x[] modulo m[].
   x[] MUST be distinct from m[].
 *>
-extern fn void i31_decode_reduce(uint* x, void* src, usz len, uint* m);
+extern fn void i31_decode_reduce(uint* x, void* src, sz len, uint* m);
 
 <*
   Multiply x[] by 2^31, add z (which MUST fit in 31 bits), reduce mod m[].
@@ -728,7 +728,7 @@ extern fn void i31_muladd_small(uint* x, uint z, uint* m);
   Encode an i31 integer into big-endian unsigned representation.
   Truncated if len is too short; zero-padded if too long.
 *>
-extern fn void i31_encode(void* dst, usz len, uint* x);
+extern fn void i31_encode(void* dst, sz len, uint* x);
 
 <*
   Compute -(1/x) mod 2^31. Returns 0 if x is even.
@@ -759,7 +759,7 @@ extern fn void i31_from_monty(uint* x, uint* m, uint m0i);
   m0i = -(1/m[1]) mod 2^31.
   t1[] and t2[] are per-operation temporaries sized to hold an m[]-sized integer.
 *>
-extern fn void i31_modpow(uint* x, char* e, usz elen,
+extern fn void i31_modpow(uint* x, char* e, sz elen,
     uint* m, uint m0i, uint* t1, uint* t2);
 
 <*
@@ -769,8 +769,8 @@ extern fn void i31_modpow(uint* x, char* e, usz elen,
   Minimum required: two i31 integers the size of m[] (including the header word).
   Returns 1 on success, 0 if tmp[] is too short.
 *>
-extern fn uint i31_modpow_opt(uint* x, char* e, usz elen,
-    uint* m, uint m0i, uint* tmp, usz twlen);
+extern fn uint i31_modpow_opt(uint* x, char* e, sz elen,
+    uint* m, uint m0i, uint* tmp, sz twlen);
 
 <*
   Compute d[] += a[] * b[] (i31).
@@ -802,29 +802,29 @@ extern fn uint i31_moddiv(uint* x, uint* y, uint* m, uint m0i, uint* t);
 fn void i15_zero(ushort* x, ushort bit_len) @inline
 {
     *x++ = bit_len;
-    usz words = (usz)((bit_len + 15) >> 4);
+    sz words = (sz)((bit_len + 15) >> 4);
     string::memset(x, 0, words*4);
-    //for (usz i = 0; i < words; i++) x[i] = 0;
+    //for (sz i = 0; i < words; i++) x[i] = 0;
 }
 
-extern fn uint   i15_iszero(ushort* x);
+extern fn uint   i15_szero(ushort* x);
 extern fn ushort i15_ninv15(ushort x);
 extern fn uint   i15_add(ushort* a, ushort* b, uint ctl);
 extern fn uint   i15_sub(ushort* a, ushort* b, uint ctl);
 extern fn void   i15_muladd_small(ushort* x, ushort z, ushort* m);
 extern fn void   i15_montymul(ushort* d, ushort* x, ushort* y, ushort* m, ushort m0i);
 extern fn void   i15_to_monty(ushort* x, ushort* m);
-extern fn void   i15_modpow(ushort* x, char* e, usz elen,
+extern fn void   i15_modpow(ushort* x, char* e, sz elen,
                              ushort* m, ushort m0i, ushort* t1, ushort* t2);
-extern fn uint   i15_modpow_opt(ushort* x, char* e, usz elen,
-                                 ushort* m, ushort m0i, ushort* tmp, usz twlen);
-extern fn void   i15_encode(void* dst, usz len, ushort* x);
-extern fn uint   i15_decode_mod(ushort* x, void* src, usz len, ushort* m);
+extern fn uint   i15_modpow_opt(ushort* x, char* e, sz elen,
+                                 ushort* m, ushort m0i, ushort* tmp, sz twlen);
+extern fn void   i15_encode(void* dst, sz len, ushort* x);
+extern fn uint   i15_decode_mod(ushort* x, void* src, sz len, ushort* m);
 extern fn void   i15_rshift(ushort* x, int count);
-extern fn uint   i15_bit_length(ushort* x, usz xlen);
-extern fn void   i15_decode(ushort* x, void* src, usz len);
+extern fn uint   i15_bit_length(ushort* x, sz xlen);
+extern fn void   i15_decode(ushort* x, void* src, sz len);
 extern fn void   i15_from_monty(ushort* x, ushort* m, ushort m0i);
-extern fn void   i15_decode_reduce(ushort* x, void* src, usz len, ushort* m);
+extern fn void   i15_decode_reduce(ushort* x, void* src, sz len, ushort* m);
 extern fn void   i15_reduce(ushort* x, ushort* a, ushort* m);
 extern fn void   i15_mulacc(ushort* d, ushort* a, ushort* b);
 extern fn uint   i15_moddiv(ushort* x, ushort* y, ushort* m, ushort m0i, ushort* t);
@@ -837,8 +837,8 @@ extern fn uint   i15_moddiv(ushort* x, ushort* y, ushort* m, ushort m0i, ushort*
   Function pointer type matching the i31_modpow_opt() signature.
   Some implementations may require stricter alignment on the tmp[] array.
 *>
-alias I31ModpowOptFn = fn uint(uint* x, char* e, usz elen,
-    uint* m, uint m0i, uint* tmp, usz twlen);
+alias I31ModpowOptFn = fn uint(uint* x, char* e, sz elen,
+    uint* m, uint m0i, uint* tmp, sz twlen);
 
 <*
   Window-optimised modular exponentiation using 64×64→128-bit multiplications.
@@ -846,16 +846,16 @@ alias I31ModpowOptFn = fn uint(uint* x, char* e, usz elen,
   contains ulong values (not uint).
   Returns 1 on success, 0 if tmp[] is too short.
 *>
-extern fn uint i62_modpow_opt(uint* x31, char* e, usz elen,
-    uint* m31, uint m0i31, ulong* tmp, usz twlen);
+extern fn uint i62_modpow_opt(uint* x31, char* e, sz elen,
+    uint* m31, uint m0i31, ulong* tmp, sz twlen);
 
 <*
   Wrapper for i62_modpow_opt() with the same type signature as
   i31_modpow_opt(). The tmp[] argument MUST be 64-bit aligned even
   though it is declared as uint*.
 *>
-extern fn uint i62_modpow_opt_as_i31(uint* x, char* e, usz elen,
-    uint* m, uint m0i, uint* tmp, usz twlen);
+extern fn uint i62_modpow_opt_as_i31(uint* x, char* e, sz elen,
+    uint* m, uint m0i, uint* tmp, sz twlen);
 
 // ============================================================================
 // 12. DES Support
@@ -881,13 +881,13 @@ extern fn void des_rev_skey(uint* skey);
   DES/3DES key schedule for the 'des_tab' implementation (encryption direction).
   Returns the number of rounds (8 for DES, 24 for 3DES).
 *>
-extern fn uint des_tab_keysched(uint* skey, void* key, usz key_len);
+extern fn uint des_tab_keysched(uint* skey, void* key, sz key_len);
 
 <*
   DES/3DES key schedule for the 'des_ct' (constant-time bitsliced) implementation.
   Returns the number of rounds.
 *>
-extern fn uint des_ct_keysched(uint* skey, void* key, usz key_len);
+extern fn uint des_ct_keysched(uint* skey, void* key, sz key_len);
 
 <*
   Expand DES/3DES subkeys from the compressed bitsliced form (des_ct).
@@ -919,13 +919,13 @@ extern char[*] aes_s;
   Returns the number of rounds (10, 12, or 14 for 128/192/256-bit keys).
   Returns 0 if the key size is not 16, 24, or 32 bytes.
 *>
-extern fn uint aes_keysched(uint* skey, void* key, usz key_len);
+extern fn uint aes_keysched(uint* skey, void* key, sz key_len);
 
 <*
   AES key schedule for decryption ('aes_big' implementation).
   Returns the number of rounds, or 0 for invalid key size.
 *>
-extern fn uint aes_big_keysched_inv(uint* skey, void* key, usz key_len);
+extern fn uint aes_big_keysched_inv(uint* skey, void* key, sz key_len);
 
 <*
   AES single-block encryption in place ('aes_big' — fast, not constant-time).
@@ -982,7 +982,7 @@ extern fn void aes_ct_bitslice_decrypt(uint num_rounds, uint* skey, uint* q);
   Constant-time AES key schedule.
   Returns the number of rounds, or 0 for invalid key size.
 *>
-extern fn uint aes_ct_keysched(uint* comp_skey, void* key, usz key_len);
+extern fn uint aes_ct_keysched(uint* comp_skey, void* key, sz key_len);
 
 <*
   Expand compressed subkeys from aes_ct_keysched() into the form needed
@@ -1032,7 +1032,7 @@ extern fn void aes_ct64_bitslice_decrypt(uint num_rounds, ulong* skey, ulong* q)
   Constant-time AES key schedule (64-bit version).
   Returns the number of rounds, or 0 for invalid key size.
 *>
-extern fn uint aes_ct64_keysched(ulong* comp_skey, void* key, usz key_len);
+extern fn uint aes_ct64_keysched(ulong* comp_skey, void* key, sz key_len);
 
 <*
   Expand compressed subkeys from aes_ct64_keysched() into the form needed
@@ -1053,14 +1053,14 @@ extern fn int aes_x86ni_supported();
   Key size MUST be 16, 24, or 32 bytes; returns 0 otherwise.
   Returns the number of rounds.
 *>
-extern fn uint aes_x86ni_keysched_enc(char* skni, void* key, usz len);
+extern fn uint aes_x86ni_keysched_enc(char* skni, void* key, sz len);
 
 <*
   AES key schedule using x86 AES-NI instructions (decryption direction).
   Key size MUST be 16, 24, or 32 bytes; returns 0 otherwise.
   Returns the number of rounds.
 *>
-extern fn uint aes_x86ni_keysched_dec(char* skni, void* key, usz len);
+extern fn uint aes_x86ni_keysched_dec(char* skni, void* key, sz len);
 
 // --- AES POWER8 ------------------------------------------------------------
 
@@ -1075,7 +1075,7 @@ extern fn int aes_pwr8_supported();
   Key size MUST be 16, 24, or 32 bytes; returns 0 otherwise.
   Returns the number of rounds.
 *>
-extern fn uint aes_pwr8_keysched(char* skni, void* key, usz len);
+extern fn uint aes_pwr8_keysched(char* skni, void* key, sz len);
 
 // ============================================================================
 // 14. RSA Padding / Unpadding
@@ -1088,7 +1088,7 @@ extern fn uint aes_pwr8_keysched(char* skni, void* key, usz len);
   Returns 1 on success, 0 on error.
 *>
 extern fn uint rsa_pkcs1_sig_pad(char* hash_oid,
-    char* hash, usz hash_len, uint n_bitlen, char* x);
+    char* hash, sz hash_len, uint n_bitlen, char* x);
 
 <*
   Verify and strip PKCS#1 v1.5 signature padding.
@@ -1097,8 +1097,8 @@ extern fn uint rsa_pkcs1_sig_pad(char* hash_oid,
   On success the hash is extracted into hash_out[].
   Returns 1 on success, 0 on error.
 *>
-extern fn uint rsa_pkcs1_sig_unpad(char* sig, usz sig_len,
-    char* hash_oid, usz hash_len, char* hash_out);
+extern fn uint rsa_pkcs1_sig_unpad(char* sig, sz sig_len,
+    char* hash_oid, sz hash_len, char* hash_out);
 
 <*
   Apply PSS signature padding.
@@ -1109,7 +1109,7 @@ extern fn uint rsa_pkcs1_sig_unpad(char* sig, usz sig_len,
 *>
 extern fn uint rsa_pss_sig_pad(PRNGClass** rng,
     HashClass* hf_data, HashClass* hf_mgf1,
-    char* hash, usz salt_len, uint n_bitlen, char* x);
+    char* hash, sz salt_len, uint n_bitlen, char* x);
 
 <*
   Verify PSS padding. The input x[] is the result after modular
@@ -1119,15 +1119,15 @@ extern fn uint rsa_pss_sig_pad(PRNGClass** rng,
 *>
 extern fn uint rsa_pss_sig_unpad(
     HashClass* hf_data, HashClass* hf_mgf1,
-    char* hash, usz salt_len, RSAPublicKey* pk, char* x);
+    char* hash, sz salt_len, RSAPublicKey* pk, char* x);
 
 <*
   Apply OAEP encryption padding.
   Returns the length of the padded output on success, 0 on error.
 *>
-extern fn usz rsa_oaep_pad(PRNGClass** rnd, HashClass* dig,
-    void* label, usz label_len, RSAPublicKey* pk,
-    void* dst, usz dst_max_len, void* src, usz src_len);
+extern fn sz rsa_oaep_pad(PRNGClass** rnd, HashClass* dig,
+    void* label, sz label_len, RSAPublicKey* pk,
+    void* dst, sz dst_max_len, void* src, sz src_len);
 
 <*
   Verify and strip OAEP decryption padding.
@@ -1136,14 +1136,14 @@ extern fn usz rsa_oaep_pad(PRNGClass** rnd, HashClass* dig,
   unchanged. In either case, the entire buffer contents are modified.
 *>
 extern fn uint rsa_oaep_unpad(HashClass* dig,
-    void* label, usz label_len, void* data, usz* len);
+    void* label, sz label_len, void* data, sz* len);
 
 <*
   Compute MGF1 and XOR its output into data[].
   Uses hash function dig with the given seed.
 *>
-extern fn void mgf1_xor(void* data, usz len,
-    HashClass* dig, void* seed, usz seed_len);
+extern fn void mgf1_xor(void* data, sz len,
+    HashClass* dig, void* seed, sz seed_len);
 
 <*
   Inner RSA key generation function shared by the 'i31' and 'i62'
@@ -1165,9 +1165,9 @@ extern fn uint rsa_i31_keygen_inner(PRNGClass** rng,
 struct ECCurveDef {
     int    curve;
     char*  order;
-    usz    order_len;
+    sz    order_len;
     char*  generator;
-    usz    generator_len;
+    sz    generator_len;
 }
 
 <* NIST P-256 (secp256r1) curve parameters. *>
@@ -1191,13 +1191,13 @@ extern ECCurveDef curve25519;
   ebitlen is the target ENCODED bit length. The result has exactly that
   announced bit length and decodes the most significant ebitlen bits from src.
 *>
-extern fn void ecdsa_i31_bits2int(uint* x, void* src, usz len, uint ebitlen);
+extern fn void ecdsa_i31_bits2int(uint* x, void* src, sz len, uint ebitlen);
 
 <*
   Decode bytes as an i15 integer with truncation (bits2int from RFC 6979).
   ebitlen is the target ENCODED bit length.
 *>
-extern fn void ecdsa_i15_bits2int(ushort* x, void* src, usz len, uint ebitlen);
+extern fn void ecdsa_i15_bits2int(ushort* x, void* src, sz len, uint ebitlen);
 
 // ============================================================================
 // 16. ASN.1 Support
@@ -1212,35 +1212,35 @@ extern fn void ecdsa_i15_bits2int(ushort* x, void* src, usz len, uint ebitlen);
 *>
 struct ASN1Uint {
     char* data;
-    usz   len;
-    usz   asn1len;
+    sz   len;
+    sz   asn1len;
 }
 
 <*
   Prepare an ASN1Uint from a raw big-endian unsigned integer.
   Strips leading zero bytes and computes the correct asn1len.
 *>
-extern fn ASN1Uint asn1_uint_prepare(void* xdata, usz xlen);
+extern fn ASN1Uint asn1_uint_prepare(void* xdata, sz xlen);
 
 <*
   Encode an ASN.1 length field into dest.
   Returns the number of bytes written. If dest is null, no encoding is
   performed but the correct byte count is still returned.
 *>
-extern fn usz asn1_encode_length(void* dest, usz len);
+extern fn sz asn1_encode_length(void* dest, sz len);
 
 <*
   Compute the number of bytes needed to encode an ASN.1 length value.
   Equivalent to calling asn1_encode_length(null, len).
 *>
-macro usz len_of_len(usz len) => asn1_encode_length(null, len);
+macro sz len_of_len(sz len) => asn1_encode_length(null, len);
 
 <*
   Encode a prepared ASN.1 INTEGER into dest.
   Returns the number of bytes written. If dest is null, only the byte
   count is computed and returned.
 *>
-extern fn usz asn1_encode_uint(void* dest, ASN1Uint pp);
+extern fn sz asn1_encode_uint(void* dest, ASN1Uint pp);
 
 <*
   Get the DER-encoded OID that identifies an elliptic curve.
@@ -1254,7 +1254,7 @@ extern fn char* get_curve_oid(int curve);
   Equivalent to the public encode_ec_raw_der() API, with an extra flag:
   if include_curve_oid is 0, the curve OID is omitted (used for PKCS#8).
 *>
-extern fn usz encode_ec_raw_der_inner(void* dest,
+extern fn sz encode_ec_raw_der_inner(void* dest,
     ECPrivateKey* sk, ECPublicKey* pk, int include_curve_oid);
 
 // ============================================================================
@@ -1357,7 +1357,7 @@ extern fn TLSPRFImplFn ssl_engine_get_prf(SSLEngineContext* cc, int prf_id);
   prf_id selects the hash for the TLS 1.2 PRF (ignored for TLS 1.0/1.1).
 *>
 extern fn void ssl_engine_compute_master(SSLEngineContext* cc,
-    int prf_id, void* pms, usz len);
+    int prf_id, void* pms, sz len);
 
 // --- Record encryption mode switch functions --------------------------------
 
@@ -1370,7 +1370,7 @@ extern fn void ssl_engine_compute_master(SSLEngineContext* cc,
 *>
 extern fn void ssl_engine_switch_cbc_in(SSLEngineContext* cc,
     int is_client, int prf_id, int mac_id,
-    BlockCBCDecClass* bc_impl, usz cipher_key_len);
+    BlockCBCDecClass* bc_impl, sz cipher_key_len);
 
 <*
   Switch to CBC encryption for outgoing records.
@@ -1378,7 +1378,7 @@ extern fn void ssl_engine_switch_cbc_in(SSLEngineContext* cc,
 *>
 extern fn void ssl_engine_switch_cbc_out(SSLEngineContext* cc,
     int is_client, int prf_id, int mac_id,
-    BlockCBCEncClass* bc_impl, usz cipher_key_len);
+    BlockCBCEncClass* bc_impl, sz cipher_key_len);
 
 <*
   Switch to GCM decryption for incoming records.
@@ -1386,14 +1386,14 @@ extern fn void ssl_engine_switch_cbc_out(SSLEngineContext* cc,
 *>
 extern fn void ssl_engine_switch_gcm_in(SSLEngineContext* cc,
     int is_client, int prf_id,
-    BlockCTRClass* bc_impl, usz cipher_key_len);
+    BlockCTRClass* bc_impl, sz cipher_key_len);
 
 <*
   Switch to GCM encryption for outgoing records.
 *>
 extern fn void ssl_engine_switch_gcm_out(SSLEngineContext* cc,
     int is_client, int prf_id,
-    BlockCTRClass* bc_impl, usz cipher_key_len);
+    BlockCTRClass* bc_impl, sz cipher_key_len);
 
 <*
   Switch to ChaCha20+Poly1305 decryption for incoming records.
@@ -1414,14 +1414,14 @@ extern fn void ssl_engine_switch_chapol_out(SSLEngineContext* cc,
 *>
 extern fn void ssl_engine_switch_ccm_in(SSLEngineContext* cc,
     int is_client, int prf_id,
-    BlockCTRCBCClass* bc_impl, usz cipher_key_len, usz tag_len);
+    BlockCTRCBCClass* bc_impl, sz cipher_key_len, sz tag_len);
 
 <*
   Switch to CCM encryption for outgoing records.
 *>
 extern fn void ssl_engine_switch_ccm_out(SSLEngineContext* cc,
     int is_client, int prf_id,
-    BlockCTRCBCClass* bc_impl, usz cipher_key_len, usz tag_len);
+    BlockCTRCBCClass* bc_impl, sz cipher_key_len, sz tag_len);
 
 // --- T0 virtual machine handshake entry points ------------------------------
 

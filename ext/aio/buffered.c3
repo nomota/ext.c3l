@@ -9,21 +9,21 @@ import c::string;
 
 faultdef BUFFER_TOO_SMALL;
 
-const usz DEFAULT_BUFFER_SIZE @private = 8192;
+const sz DEFAULT_BUFFER_SIZE @private = 8192;
 
 struct BufferedStream
 {
     Stream* stream;
 
     char[] buf;
-    usz start;
-    usz end;
+    sz start;
+    sz end;
 
     bool owns_stream;
     bool closed;
 }
 
-fn BufferedStream*? buffered_new(Stream* stream, usz buffer_size = DEFAULT_BUFFER_SIZE, bool owns_stream = false)
+fn BufferedStream*? buffered_new(Stream* stream, sz buffer_size = DEFAULT_BUFFER_SIZE, bool owns_stream = false)
 {
     if (stream == null) return INVALID_ARG~;
     if (buffer_size == 0) buffer_size = DEFAULT_BUFFER_SIZE;
@@ -65,7 +65,7 @@ fn bool BufferedStream.is_closed(&self) @inline
     return self.closed || self.stream == null;
 }
 
-fn usz BufferedStream.available(&self) @inline
+fn sz BufferedStream.available(&self) @inline
 {
     return self.end - self.start;
 }
@@ -79,7 +79,7 @@ fn void BufferedStream.compact(&self)
 {
     if (self.start == 0) return;
 
-    usz n = self.available();
+    sz n = self.available();
 
     if (n > 0)
     {
@@ -90,7 +90,7 @@ fn void BufferedStream.compact(&self)
     self.end = n;
 }
 
-fn usz? BufferedStream.fill(&self)
+fn sz? BufferedStream.fill(&self)
 {
     if (self.is_closed()) return CLOSED~;
 
@@ -106,35 +106,35 @@ fn usz? BufferedStream.fill(&self)
 
     char[] dst = self.buf[self.end..];
 
-    usz n = self.stream.read(dst)!;
+    sz n = self.stream.read(dst)!;
 
     if (n > 0) self.end += n;
 
     return n;
 }
 
-fn usz? BufferedStream.read(&self, char[] out)
+fn sz? BufferedStream.read(&self, char[] out)
 {
     if (self.is_closed()) return CLOSED~;
     if (out.len == 0) return 0;
 
-    usz copied = 0;
+    sz copied = 0;
 
     while (copied < out.len)
     {
-        usz avail = self.available();
+        sz avail = self.available();
 
         if (avail == 0)
         {
-            usz n = self.fill()!;
+            sz n = self.fill()!;
 
             if (n == 0) break;
 
             avail = self.available();
         }
 
-        usz want = out.len - copied;
-        usz take = avail;
+        sz want = out.len - copied;
+        sz take = avail;
 
         if (take > want) take = want;
 
@@ -151,11 +151,11 @@ fn usz? BufferedStream.read(&self, char[] out)
 
 fn void? BufferedStream.read_exact(&self, char[] out)
 {
-    usz got = 0;
+    sz got = 0;
 
     while (got < out.len)
     {
-        usz n = self.read(out[got..])!;
+        sz n = self.read(out[got..])!;
 
         if (n == 0) return CLOSED~;
 
@@ -163,18 +163,18 @@ fn void? BufferedStream.read_exact(&self, char[] out)
     }
 }
 
-fn isz find_bytes(char[] haystack, String needle) @private
+fn sz find_bytes(char[] haystack, String needle) @private
 {
     if (needle.len == 0) return 0;
     if (haystack.len < needle.len) return -1;
 
-    usz limit = haystack.len - needle.len;
+    sz limit = haystack.len - needle.len;
 
-    for (usz i = 0; i <= limit; i++)
+    for (sz i = 0; i <= limit; i++)
     {
         bool matched = true;
 
-        for (usz j = 0; j < needle.len; j++)
+        for (sz j = 0; j < needle.len; j++)
         {
             if (haystack[i + j] != needle[j])
             {
@@ -183,28 +183,28 @@ fn isz find_bytes(char[] haystack, String needle) @private
             }
         }
 
-        if (matched) return (isz)i;
+        if (matched) return (sz)i;
     }
 
     return -1;
 }
 
-fn usz? BufferedStream.read_until(&self, char[] out, String delim)
+fn sz? BufferedStream.read_until(&self, char[] out, String delim)
 {
     if (self.is_closed()) return CLOSED~;
     if (delim.len == 0) return INVALID_STATE~;
 
-    usz written = 0;
+    sz written = 0;
 
     while (true)
     {
         char[] pending = self.pending();
 
-        isz pos = find_bytes(pending, delim);
+        sz pos = find_bytes(pending, delim);
 
         if (pos >= 0)
         {
-            usz take = (usz)pos + delim.len;
+            sz take = (sz)pos + delim.len;
 
             if (written + take > out.len) return BUFFER_TOO_SMALL~;
 
@@ -216,7 +216,7 @@ fn usz? BufferedStream.read_until(&self, char[] out, String delim)
             return written;
         }
 
-        usz keep = 0;
+        sz keep = 0;
 
         if (delim.len > 1 && pending.len >= delim.len - 1)
         {
@@ -227,7 +227,7 @@ fn usz? BufferedStream.read_until(&self, char[] out, String delim)
             keep = pending.len;
         }
 
-        usz take = pending.len - keep;
+        sz take = pending.len - keep;
 
         if (take > 0)
         {
@@ -239,7 +239,7 @@ fn usz? BufferedStream.read_until(&self, char[] out, String delim)
             written += take;
         }
 
-        usz n = self.fill()!;
+        sz n = self.fill()!;
 
         if (n == 0)
         {
@@ -260,17 +260,17 @@ fn usz? BufferedStream.read_until(&self, char[] out, String delim)
     }
 }
 
-fn usz? BufferedStream.read_line(&self, char[] out)
+fn sz? BufferedStream.read_line(&self, char[] out)
 {
     return self.read_until(out, "\n");
 }
 
-fn usz? BufferedStream.read_crlf_line(&self, char[] out)
+fn sz? BufferedStream.read_crlf_line(&self, char[] out)
 {
     return self.read_until(out, "\r\n");
 }
 
-fn usz? BufferedStream.write(&self, char[] data) @maydiscard
+fn sz? BufferedStream.write(&self, char[] data) @maydiscard
 {
     if (self.is_closed()) return CLOSED~;
 

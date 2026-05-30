@@ -96,8 +96,8 @@ extern fn int posix_spawnattr_getsigmask(SpawnAttr* attr, void* sigmask);
 extern fn int posix_spawnattr_setsigmask(SpawnAttr* attr, void* sigmask);
 
 // macOS-specific attribute functions
-extern fn int posix_spawnattr_setbinpref_np(SpawnAttr* attr, usz count, int* pref, usz* ocount);
-extern fn int posix_spawnattr_getbinpref_np(SpawnAttr* attr, usz count, int* pref, usz* ocount);
+extern fn int posix_spawnattr_setbinpref_np(SpawnAttr* attr, sz count, int* pref, sz* ocount);
+extern fn int posix_spawnattr_getbinpref_np(SpawnAttr* attr, sz count, int* pref, sz* ocount);
 
 // Flags
 const short POSIX_SPAWN_RESETIDS = 0x0001;

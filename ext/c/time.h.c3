@@ -33,7 +33,7 @@ extern fn Tm* gmtime(Time_t* timer);
 extern fn Time_t mktime(Tm* timeptr);
 extern fn char* asctime(Tm* timeptr);
 extern fn char* ctime(Time_t* timer);
-extern fn usz strftime(char* s, usz maxsize, char* format, Tm* timeptr);
+extern fn sz strftime(char* s, sz maxsize, char* format, Tm* timeptr);
 
 // Thread-safe versions
 extern fn Tm* localtime_r(Time_t* timer, Tm* result);
@@ -103,7 +103,7 @@ extern fn Tm* gmtime(Time_t* timer);
 extern fn Time_t mktime(Tm* timeptr);
 extern fn char* asctime(Tm* timeptr);
 extern fn char* ctime(Time_t* timer);
-extern fn usz strftime(char* s, usz maxsize, char* format, Tm* timeptr);
+extern fn sz strftime(char* s, sz maxsize, char* format, Tm* timeptr);
 
 // Thread-safe versions
 extern fn Tm* localtime_r(Time_t* timer, Tm* result);
@@ -164,7 +164,7 @@ extern fn Tm* gmtime(Time_t* timer);
 extern fn Time_t mktime(Tm* timeptr);
 extern fn char* asctime(Tm* timeptr);
 extern fn char* ctime(Time_t* timer);
-extern fn usz strftime(char* s, usz maxsize, char* format, Tm* timeptr);
+extern fn sz strftime(char* s, sz maxsize, char* format, Tm* timeptr);
 
 // Thread-safe versions
 extern fn Tm* localtime_r(Time_t* timer, Tm* result);
@@ -233,7 +233,7 @@ extern fn Tm* gmtime(Time_t* timer);
 extern fn Time_t mktime(Tm* timeptr);
 extern fn char* asctime(Tm* timeptr);
 extern fn char* ctime(Time_t* timer);
-extern fn usz strftime(char* s, usz maxsize, char* format, Tm* timeptr);
+extern fn sz strftime(char* s, sz maxsize, char* format, Tm* timeptr);
 
 // Thread-safe versions
 extern fn Tm* localtime_r(Time_t* timer, Tm* result);
@@ -294,7 +294,7 @@ extern fn Tm* gmtime(Time_t* timer);
 extern fn Time_t mktime(Tm* timeptr);
 extern fn char* asctime(Tm* timeptr);
 extern fn char* ctime(Time_t* timer);
-extern fn usz strftime(char* s, usz maxsize, char* format, Tm* timeptr);
+extern fn sz strftime(char* s, sz maxsize, char* format, Tm* timeptr);
 
 // Thread-safe versions
 extern fn Tm* localtime_r(Time_t* timer, Tm* result);
@@ -354,13 +354,13 @@ extern fn Tm* gmtime(Time_t* timer);
 extern fn Time_t mktime(Tm* timeptr);
 extern fn char* asctime(Tm* timeptr);
 extern fn char* ctime(Time_t* timer);
-extern fn usz strftime(char* s, usz maxsize, char* format, Tm* timeptr);
+extern fn sz strftime(char* s, sz maxsize, char* format, Tm* timeptr);
 
 // Windows secure versions
 extern fn int localtime_s(Tm* result, Time_t* timer);
 extern fn int gmtime_s(Tm* result, Time_t* timer);
-extern fn int asctime_s(char* buf, usz size, Tm* timeptr);
-extern fn int ctime_s(char* buf, usz size, Time_t* timer);
+extern fn int asctime_s(char* buf, sz size, Tm* timeptr);
+extern fn int ctime_s(char* buf, sz size, Time_t* timer);
 
 // Windows 64-bit time functions
 extern fn long _time64(long* timer);
@@ -370,7 +370,7 @@ extern fn int _localtime64_s(Tm* result, long* timer);
 extern fn int _gmtime64_s(Tm* result, long* timer);
 extern fn long _mktime64(Tm* timeptr);
 extern fn char* _ctime64(long* timer);
-extern fn int _ctime64_s(char* buf, usz size, long* timer);
+extern fn int _ctime64_s(char* buf, sz size, long* timer);
 
 // Windows timespec (available from Windows 8+)
 extern fn int timespec_get(TimeSpec* ts, int base);

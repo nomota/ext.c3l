@@ -84,7 +84,7 @@ defer d.free();
 ### `Datagram.sendto`
 
 ```c3
-fn usz? Datagram.sendto(&self, char[] data, String ip, ushort port)
+fn sz? Datagram.sendto(&self, char[] data, String ip, ushort port)
 ```
 
 Sends `data` to the remote UDP endpoint `ip:port`.
@@ -93,7 +93,7 @@ Returns the number of bytes sent.
 
 ```c3
 char[] msg = "ping";
-usz n = d.sendto(msg, "127.0.0.1", 9000)!;
+sz n = d.sendto(msg, "127.0.0.1", 9000)!;
 ```
 
 If the socket is closed, `DATAGRAM_CLOSED` is returned.
@@ -101,7 +101,7 @@ If the socket is closed, `DATAGRAM_CLOSED` is returned.
 ### `Datagram.recvfrom`
 
 ```c3
-fn usz? Datagram.recvfrom(&self, char[] data, DatagramAddr* from)
+fn sz? Datagram.recvfrom(&self, char[] data, DatagramAddr* from)
 ```
 
 Receives one UDP datagram into `data`.
@@ -112,7 +112,7 @@ Returns the number of bytes received and fills `from` with the sender address.
 char[1500] buf;
 DatagramAddr from;
 
-usz n = d.recvfrom(buf[..], &from)!;
+sz n = d.recvfrom(buf[..], &from)!;
 String msg = (String)buf[0:n];
 ```
 
@@ -139,7 +139,7 @@ fn void? main_task(void* arg)
 
     while (true)
     {
-        usz n = server.recvfrom(buf[..], &from)!;
+        sz n = server.recvfrom(buf[..], &from)!;
 
         String ip = (String)from.ip[0:from.ip_len];
         String msg = (String)buf[0:n];
@@ -168,7 +168,7 @@ fn void? main_task(void* arg)
     char[1500] buf;
     DatagramAddr from;
 
-    usz n = client.recvfrom(buf[..], &from)!;
+    sz n = client.recvfrom(buf[..], &from)!;
 
     String ip = (String)from.ip[0:from.ip_len];
     String reply = (String)buf[0:n];

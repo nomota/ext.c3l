@@ -5,23 +5,23 @@
 module c::sys::mman @if(env::LINUX);
 
 // Function Declarations
-extern fn void* mmap(void* addr, usz length, int prot, int flags, int fd, long offset);
-extern fn int munmap(void* addr, usz length);
-extern fn int mprotect(void* addr, usz len, int prot);
-extern fn int msync(void* addr, usz length, int flags);
-extern fn int mlock(void* addr, usz len);
-extern fn int munlock(void* addr, usz len);
+extern fn void* mmap(void* addr, sz length, int prot, int flags, int fd, long offset);
+extern fn int munmap(void* addr, sz length);
+extern fn int mprotect(void* addr, sz len, int prot);
+extern fn int msync(void* addr, sz length, int flags);
+extern fn int mlock(void* addr, sz len);
+extern fn int munlock(void* addr, sz len);
 extern fn int mlockall(int flags);
 extern fn int munlockall();
-extern fn int madvise(void* addr, usz length, int advice);
-extern fn int mincore(void* addr, usz length, char* vec);
+extern fn int madvise(void* addr, sz length, int advice);
+extern fn int mincore(void* addr, sz length, char* vec);
 extern fn int shm_open(char* name, int oflag, uint mode);
 extern fn int shm_unlink(char* name);
-extern fn void* mremap(void* old_address, usz old_size, usz new_size, int flags, ...);
-extern fn int mlock2(void* addr, usz len, int flags);
+extern fn void* mremap(void* old_address, sz old_size, sz new_size, int flags, ...);
+extern fn int mlock2(void* addr, sz len, int flags);
 extern fn int pkey_alloc(uint flags, uint access_rights);
 extern fn int pkey_free(int pkey);
-extern fn int pkey_mprotect(void* addr, usz len, int prot, int pkey);
+extern fn int pkey_mprotect(void* addr, sz len, int prot, int pkey);
 extern fn int pkey_get(int pkey);
 extern fn int pkey_set(int pkey, uint access_rights);
 extern fn int memfd_create(char* name, uint flags);
@@ -105,19 +105,19 @@ const uint MFD_HUGETLB = 0x0004;
 module c::sys::mman @if(env::DARWIN);
 
 // Function Declarations
-extern fn void* mmap(void* addr, usz length, int prot, int flags, int fd, long offset);
-extern fn int munmap(void* addr, usz length);
-extern fn int mprotect(void* addr, usz len, int prot);
-extern fn int msync(void* addr, usz length, int flags);
-extern fn int mlock(void* addr, usz len);
-extern fn int munlock(void* addr, usz len);
+extern fn void* mmap(void* addr, sz length, int prot, int flags, int fd, long offset);
+extern fn int munmap(void* addr, sz length);
+extern fn int mprotect(void* addr, sz len, int prot);
+extern fn int msync(void* addr, sz length, int flags);
+extern fn int mlock(void* addr, sz len);
+extern fn int munlock(void* addr, sz len);
 extern fn int mlockall(int flags);
 extern fn int munlockall();
-extern fn int madvise(void* addr, usz length, int advice);
-extern fn int mincore(void* addr, usz length, char* vec);
+extern fn int madvise(void* addr, sz length, int advice);
+extern fn int mincore(void* addr, sz length, char* vec);
 extern fn int shm_open(char* name, int oflag, uint mode);
 extern fn int shm_unlink(char* name);
-extern fn int minherit(void* addr, usz len, int inherit);
+extern fn int minherit(void* addr, sz len, int inherit);
 
 // Constants
 const int PROT_NONE = 0x00;
@@ -181,19 +181,19 @@ const int PSHMNAMLEN = 31;
 module c::sys::mman @if(env::FREEBSD);
 
 // Function Declarations
-extern fn void* mmap(void* addr, usz length, int prot, int flags, int fd, long offset);
-extern fn int munmap(void* addr, usz length);
-extern fn int mprotect(void* addr, usz len, int prot);
-extern fn int msync(void* addr, usz length, int flags);
-extern fn int mlock(void* addr, usz len);
-extern fn int munlock(void* addr, usz len);
+extern fn void* mmap(void* addr, sz length, int prot, int flags, int fd, long offset);
+extern fn int munmap(void* addr, sz length);
+extern fn int mprotect(void* addr, sz len, int prot);
+extern fn int msync(void* addr, sz length, int flags);
+extern fn int mlock(void* addr, sz len);
+extern fn int munlock(void* addr, sz len);
 extern fn int mlockall(int flags);
 extern fn int munlockall();
-extern fn int madvise(void* addr, usz length, int advice);
-extern fn int mincore(void* addr, usz length, char* vec);
+extern fn int madvise(void* addr, sz length, int advice);
+extern fn int mincore(void* addr, sz length, char* vec);
 extern fn int shm_open(char* name, int oflag, uint mode);
 extern fn int shm_unlink(char* name);
-extern fn int minherit(void* addr, usz len, int inherit);
+extern fn int minherit(void* addr, sz len, int inherit);
 
 // Constants
 const int PROT_NONE = 0x00;
@@ -252,19 +252,19 @@ const int PSHMNAMLEN = 31;
 module c::sys::mman @if(env::NETBSD);
 
 // Function Declarations
-extern fn void* mmap(void* addr, usz length, int prot, int flags, int fd, long offset);
-extern fn int munmap(void* addr, usz length);
-extern fn int mprotect(void* addr, usz len, int prot);
-extern fn int msync(void* addr, usz length, int flags);
-extern fn int mlock(void* addr, usz len);
-extern fn int munlock(void* addr, usz len);
+extern fn void* mmap(void* addr, sz length, int prot, int flags, int fd, long offset);
+extern fn int munmap(void* addr, sz length);
+extern fn int mprotect(void* addr, sz len, int prot);
+extern fn int msync(void* addr, sz length, int flags);
+extern fn int mlock(void* addr, sz len);
+extern fn int munlock(void* addr, sz len);
 extern fn int mlockall(int flags);
 extern fn int munlockall();
-extern fn int madvise(void* addr, usz length, int advice);
-extern fn int mincore(void* addr, usz length, char* vec);
+extern fn int madvise(void* addr, sz length, int advice);
+extern fn int mincore(void* addr, sz length, char* vec);
 extern fn int shm_open(char* name, int oflag, uint mode);
 extern fn int shm_unlink(char* name);
-extern fn int minherit(void* addr, usz len, int inherit);
+extern fn int minherit(void* addr, sz len, int inherit);
 
 // Constants
 const int PROT_NONE = 0x00;
@@ -315,21 +315,21 @@ const int PSHMNAMLEN = 31;
 module c::sys::mman @if(env::OPENBSD);
 
 // Function Declarations
-extern fn void* mmap(void* addr, usz length, int prot, int flags, int fd, long offset);
-extern fn int munmap(void* addr, usz length);
-extern fn int mprotect(void* addr, usz len, int prot);
-extern fn int msync(void* addr, usz length, int flags);
-extern fn int mlock(void* addr, usz len);
-extern fn int munlock(void* addr, usz len);
+extern fn void* mmap(void* addr, sz length, int prot, int flags, int fd, long offset);
+extern fn int munmap(void* addr, sz length);
+extern fn int mprotect(void* addr, sz len, int prot);
+extern fn int msync(void* addr, sz length, int flags);
+extern fn int mlock(void* addr, sz len);
+extern fn int munlock(void* addr, sz len);
 extern fn int mlockall(int flags);
 extern fn int munlockall();
-extern fn int madvise(void* addr, usz length, int advice);
-extern fn int mincore(void* addr, usz length, char* vec);
+extern fn int madvise(void* addr, sz length, int advice);
+extern fn int mincore(void* addr, sz length, char* vec);
 extern fn int shm_open(char* name, int oflag, uint mode);
 extern fn int shm_unlink(char* name);
-extern fn int minherit(void* addr, usz len, int inherit);
-extern fn int mimmutable(void* addr, usz len);
-extern fn void* mquery(void* addr, usz len, int prot, int flags, int fd, long offset);
+extern fn int minherit(void* addr, sz len, int inherit);
+extern fn int mimmutable(void* addr, sz len);
+extern fn void* mquery(void* addr, sz len, int prot, int flags, int fd, long offset);
 
 // Constants
 const int PROT_NONE = 0x00;

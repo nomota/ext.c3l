@@ -18,7 +18,7 @@
 
 ### Exqmples
 
-* [../../examples/serializer/json_sample.c3](../../examples/serializer/json_sample.c3)
+* [../../test/serializer/json_sample.c3](../../test/serializer/json_sample.c3)
 
 This is a part of the extended C3 library.
 Back to [ext.c3l](../../README.md) library.
@@ -125,13 +125,13 @@ long age = m.get_int("age")!;      // 30
 ### JsonArray — index-based access
 
 ```c3
-JsonObject? obj = arr.at(usz index);           // raw element (any type)
-String? s = arr.get_string(usz index);
-long? n = arr.get_int(usz index);
-double? d = arr.get_float(usz index);
-bool? b = arr.get_bool(usz index);
-JsonArray? a = arr.get_array(usz index);
-JsonObject? m = arr.get_object(usz index);
+JsonObject? obj = arr.at(sz index);           // raw element (any type)
+String? s = arr.get_string(sz index);
+long? n = arr.get_int(sz index);
+double? d = arr.get_float(sz index);
+bool? b = arr.get_bool(sz index);
+JsonArray? a = arr.get_array(sz index);
+JsonObject? m = arr.get_object(sz index);
 ```
 
 **Example**

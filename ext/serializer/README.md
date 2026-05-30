@@ -38,9 +38,9 @@ This module is to fill missing gaps of C3 std lib by providing various encoders/
 
 ### Exqmples
 
-* [../../examples/serializer/json_sample.c3](../../examples/serializer/json_sample.c3)
-* [../../examples/serializer/http_sample.c3](../../examples/serializer/http_sample.c3)
-* [../../examples/serializer/simdjson_sample.c3](../../examples/serializer/simdjson_sample.c3)
+* [../../test/serializer/json_sample.c3](../../test/serializer/json_sample.c3)
+* [../../test/serializer/http_sample.c3](../../test/serializer/http_sample.c3)
+* [../../test/serializer/simdjson_sample.c3](../../test/serializer/simdjson_sample.c3)
 
 
 This is a part of the extended C3 library.

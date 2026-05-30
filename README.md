@@ -10,8 +10,8 @@ An extended library for the C3 programming language, providing essential system-
 - File system and I/O utilities
 - Regular expression support
 - Fiber coroutine 
-- Async I/O (Python-like)
-- Async File I/O (Python-like)
+- Async I/O framework
+- SIMD Json parser
 
 ## Why ext library?
 
@@ -210,16 +210,16 @@ It is built on top of the [fiber](../fiber/README.md) coroutine module.
 * More about [Serializers, Encode/decoders](ext/serializer/README.md)
 
 
-## Usage examples
+## Usage by test
 
-* [examples/hash](examples/hash)
-* [examples/regex](examples/regex)
-* [examples/io](examples/io)
-* [examples/net](examples/net)
-* [examples/fiber](examples/fiber)
-* [examples/asyncio](examples/asyncio)
-* [examples/aiofiles](examples/aiofiles)
-* [examples/serializer](example/serializer)
+* [test/hash](test/hash)
+* [test/regex](test/regex)
+* [test/io](test/io)
+* [test/net](test/net)
+* [test/fiber](test/fiber)
+* [test/asyncio](test/asyncio)
+* [test/aiofiles](test/aiofiles)
+* [test/serializer](example/serializer)
 
 
 ## Platform Support

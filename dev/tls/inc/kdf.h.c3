@@ -67,8 +67,8 @@ struct HKDFContext {
         HMACKeyContext prk_ctx;
     } u;
     char[64] buf;        // output block buffer (one hash-output worth)
-    usz      ptr;        // current read position within buf
-    usz      dig_len;    // underlying hash output length (in bytes)
+    sz      ptr;        // current read position within buf
+    sz      dig_len;    // underlying hash output length (in bytes)
     uint     chunk_num;  // HKDF-Expand block counter (1-based)
 }
 
@@ -86,7 +86,7 @@ struct HKDFContext {
   param salt_len        salt length in bytes (ignored when salt == &hkdf_no_salt).
 *>
 extern fn void hkdf_init(HKDFContext* hc, HashClass* digest_vtable,
-    void* salt, usz salt_len);
+    void* salt, sz salt_len);
 
 <*
   Inject input key material into HKDF (HKDF-Extract phase).
@@ -98,7 +98,7 @@ extern fn void hkdf_init(HKDFContext* hc, HashClass* digest_vtable,
   param ikm       input key material bytes.
   param ikm_len   input key material length (in bytes).
 *>
-extern fn void hkdf_inject(HKDFContext* hc, void* ikm, usz ikm_len);
+extern fn void hkdf_inject(HKDFContext* hc, void* ikm, sz ikm_len);
 
 <*
   Switch from HKDF-Extract to HKDF-Expand.
@@ -126,8 +126,8 @@ extern fn void hkdf_flip(HKDFContext* hc);
   param out_len    number of output bytes requested.
   return number of bytes actually produced.
 *>
-extern fn usz hkdf_produce(HKDFContext* hc,
-    void* info, usz info_len, void* out, usz out_len);
+extern fn sz hkdf_produce(HKDFContext* hc,
+    void* info, sz info_len, void* out, sz out_len);
 
 // ============================================================================
 // SHAKE (FIPS 202)
@@ -157,8 +157,8 @@ extern fn usz hkdf_produce(HKDFContext* hc,
 *>
 struct SHAKEContext {
     char[200]  dbuf;   // sponge input/output buffer (rate bytes active)
-    usz        dptr;   // current position within dbuf
-    usz        rate;   // sponge rate in bytes (= 200 - capacity/8)
+    sz        dptr;   // current position within dbuf
+    sz        rate;   // sponge rate in bytes (= 200 - capacity/8)
     ulong[25]  a;      // Keccak-f[1600] state (5×5 matrix of 64-bit lanes)
 }
 
@@ -185,7 +185,7 @@ extern fn void shake_init(SHAKEContext* sc, int security_level);
   param data  input bytes to absorb.
   param len   number of input bytes.
 *>
-extern fn void shake_inject(SHAKEContext* sc, void* data, usz len);
+extern fn void shake_inject(SHAKEContext* sc, void* data, sz len);
 
 <*
   Switch from absorption to squeezing (output production).
@@ -209,4 +209,4 @@ extern fn void shake_flip(SHAKEContext* sc);
   param out   destination buffer.
   param len   number of output bytes to produce.
 *>
-extern fn void shake_produce(SHAKEContext* sc, void* out, usz len);
+extern fn void shake_produce(SHAKEContext* sc, void* out, sz len);

@@ -394,6 +394,13 @@ struct WSAMsg {
     ULong flags;
 }
 
+struct WSAPollFd
+{
+    Socket fd;
+    short events;
+    short revents;
+}
+
 struct QoS {
     void* sendingFlowSpec;
     void* receivingFlowSpec;
@@ -593,7 +600,7 @@ extern fn int select(
 ) @cname("select");
 
 extern fn int wsaPoll(
-    void* fds,
+    WSAPollFd* fds,
     ULong fds_count,
     int timeout
 ) @cname("WSAPoll");
@@ -739,6 +746,19 @@ extern fn void fd_clr(Socket fd, FdSet* set);
 extern fn void fd_set(Socket fd, FdSet* set);
 extern fn Bool fd_isset(Socket fd, FdSet* set);
 extern fn void fd_zero(FdSet* set);
+
+const short POLLRDNORM = 0x0100;
+const short POLLRDBAND = 0x0200;
+const short POLLIN = POLLRDNORM | POLLRDBAND;
+
+const short POLLPRI = 0x0400;
+
+const short POLLWRNORM = 0x0010;
+const short POLLOUT = POLLWRNORM;
+
+const short POLLERR = 0x0001;
+const short POLLHUP = 0x0002;
+const short POLLNVAL = 0x0004;
 
 // Network event flags
 const int FD_READ = 0x01;

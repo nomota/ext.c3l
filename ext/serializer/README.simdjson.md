@@ -18,7 +18,7 @@
 
 ### Examples 
 
-* [../../examples/serializer/simdjson_sample.c3](../../examples/serializer/simdjson_sample.c3)
+* [../../test/serializer/simdjson_sample.c3](../../test/serializer/simdjson_sample.c3)
 
 This is a part of the extended C3 library.
 Back to [ext.c3l](../../README.md) library.
@@ -43,7 +43,7 @@ A stateful `Scanner` carries three pieces of cross-chunk context:
 
 Using these, Stage 1 also identifies **pseudo-structural positions**: the first non-whitespace, non-structural character following a boundary. These mark the start of bare values (`true`, `false`, `null`, numbers) that carry no opening delimiter. Optional `//` line comment suppression is handled entirely in Stage 1 via `Scanner.comment_mask()`.
 
-The output of Stage 1 is a flat `usz[]` array of source-buffer offsets — one entry per structural or pseudo-structural character.
+The output of Stage 1 is a flat `sz[]` array of source-buffer offsets — one entry per structural or pseudo-structural character.
 
 **Stage 2 — tape construction (`Parser`)**
 
@@ -69,8 +69,8 @@ enum TapeType : char {
 ```c3
 struct TapeEntry {
     TapeType type;
-    usz offset;  // byte offset into the source buffer (scalars), or paired tape index (containers)
-    usz length;  // byte length of the value in the source buffer
+    sz offset;  // byte offset into the source buffer (scalars), or paired tape index (containers)
+    sz length;  // byte length of the value in the source buffer
 }
 ```
 
@@ -95,7 +95,7 @@ Owns the `tape` allocation. Call `result.free()` when done.
 struct JsonValue {
     char[] src;    // slice of the original input (not owned)
     TapeEntry[] tape;
-    usz pos;       // index of this value's tape entry
+    sz pos;       // index of this value's tape entry
 }
 ```
 
@@ -200,7 +200,7 @@ Numbers are stored as raw `char[]` source slices and converted on demand. No pre
 ```c3
 JsonValue v = result.root();
 
-usz n   = v.len(); // number of key-value pairs (0 if not an object)
+sz n   = v.len(); // number of key-value pairs (0 if not an object)
 JsonValue? child = v.get(String key); // linear key scan; TYPE_MISMATCH or KEY_NOT_FOUND on failure
 ```
 
@@ -223,8 +223,8 @@ String name = name_val.as_str(); // "Alice"
 ### `JsonValue` — array access
 
 ```c3
-usz n = v.len(); // number of elements (0 if not an array)
-JsonValue? elem = v.at(usz i);  // index-based access; TYPE_MISMATCH or INDEX_OUT_OF_RANGE on failure
+sz n = v.len(); // number of elements (0 if not an array)
+JsonValue? elem = v.at(sz i);  // index-based access; TYPE_MISMATCH or INDEX_OUT_OF_RANGE on failure
 ```
 
 **Fault**

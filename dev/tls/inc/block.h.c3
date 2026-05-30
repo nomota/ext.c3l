@@ -25,7 +25,7 @@ module ext::net::tls;
   param key       secret key.
   param key_len   key length (in bytes).
 *>
-alias BlockCBCEncInitFn = fn void(BlockCBCEncClass** ctx, void* key, usz key_len);
+alias BlockCBCEncInitFn = fn void(BlockCBCEncClass** ctx, void* key, sz key_len);
 
 <*
   CBC encryption run function.
@@ -38,7 +38,7 @@ alias BlockCBCEncInitFn = fn void(BlockCBCEncClass** ctx, void* key, usz key_len
   param data   data to encrypt (in place).
   param len    data length (in bytes, multiple of block size).
 *>
-alias BlockCBCEncRunFn  = fn void(BlockCBCEncClass** ctx, void* iv, void* data, usz len);
+alias BlockCBCEncRunFn  = fn void(BlockCBCEncClass** ctx, void* iv, void* data, sz len);
 
 // ============================================================================
 // OOP Vtable Function Pointer Aliases — CBC Decryption
@@ -51,7 +51,7 @@ alias BlockCBCEncRunFn  = fn void(BlockCBCEncClass** ctx, void* iv, void* data, 
   param key       secret key.
   param key_len   key length (in bytes).
 *>
-alias BlockCBCDecInitFn = fn void(BlockCBCDecClass** ctx, void* key, usz key_len);
+alias BlockCBCDecInitFn = fn void(BlockCBCDecClass** ctx, void* key, sz key_len);
 
 <*
   CBC decryption run function.
@@ -64,7 +64,7 @@ alias BlockCBCDecInitFn = fn void(BlockCBCDecClass** ctx, void* key, usz key_len
   param data   data to decrypt (in place).
   param len    data length (in bytes, multiple of block size).
 *>
-alias BlockCBCDecRunFn  = fn void(BlockCBCDecClass** ctx, void* iv, void* data, usz len);
+alias BlockCBCDecRunFn  = fn void(BlockCBCDecClass** ctx, void* iv, void* data, sz len);
 
 // ============================================================================
 // OOP Vtable Function Pointer Aliases — CTR
@@ -77,7 +77,7 @@ alias BlockCBCDecRunFn  = fn void(BlockCBCDecClass** ctx, void* iv, void* data, 
   param key       secret key.
   param key_len   key length (in bytes).
 *>
-alias BlockCTRInitFn    = fn void(BlockCTRClass** ctx, void* key, usz key_len);
+alias BlockCTRInitFn    = fn void(BlockCTRClass** ctx, void* key, sz key_len);
 
 <*
   CTR encryption/decryption run function.
@@ -93,7 +93,7 @@ alias BlockCTRInitFn    = fn void(BlockCTRClass** ctx, void* key, usz key_len);
   param len    data length (in bytes).
   return new block counter value.
 *>
-alias BlockCTRRunFn     = fn uint(BlockCTRClass** ctx, void* iv, uint cc, void* data, usz len);
+alias BlockCTRRunFn     = fn uint(BlockCTRClass** ctx, void* iv, uint cc, void* data, sz len);
 
 // ============================================================================
 // OOP Vtable Function Pointer Aliases — CTR + CBC-MAC (ctrcbc)
@@ -106,7 +106,7 @@ alias BlockCTRRunFn     = fn uint(BlockCTRClass** ctx, void* iv, uint cc, void* 
   param key       secret key.
   param key_len   key length (in bytes).
 *>
-alias BlockCTRCBCInitFn    = fn void(BlockCTRCBCClass** ctx, void* key, usz key_len);
+alias BlockCTRCBCInitFn    = fn void(BlockCTRCBCClass** ctx, void* key, sz key_len);
 
 <*
   CTR encryption + CBC-MAC function.
@@ -121,7 +121,7 @@ alias BlockCTRCBCInitFn    = fn void(BlockCTRCBCClass** ctx, void* key, usz key_
   param data     data to encrypt (in place).
   param len      data length (in bytes, multiple of block size).
 *>
-alias BlockCTRCBCEncryptFn = fn void(BlockCTRCBCClass** ctx, void* ctr, void* cbcmac, void* data, usz len);
+alias BlockCTRCBCEncryptFn = fn void(BlockCTRCBCClass** ctx, void* ctr, void* cbcmac, void* data, sz len);
 
 <*
   CTR decryption + CBC-MAC function.
@@ -136,7 +136,7 @@ alias BlockCTRCBCEncryptFn = fn void(BlockCTRCBCClass** ctx, void* ctr, void* cb
   param data     data to decrypt (in place).
   param len      data length (in bytes, multiple of block size).
 *>
-alias BlockCTRCBCDecryptFn = fn void(BlockCTRCBCClass** ctx, void* ctr, void* cbcmac, void* data, usz len);
+alias BlockCTRCBCDecryptFn = fn void(BlockCTRCBCClass** ctx, void* ctr, void* cbcmac, void* data, sz len);
 
 <*
   CTR-only encryption/decryption function (no CBC-MAC).
@@ -148,7 +148,7 @@ alias BlockCTRCBCDecryptFn = fn void(BlockCTRCBCClass** ctx, void* ctr, void* cb
   param data   data to encrypt or decrypt (in place).
   param len    data length (in bytes, multiple of block size).
 *>
-alias BlockCTRCBCCtrFn     = fn void(BlockCTRCBCClass** ctx, void* ctr, void* data, usz len);
+alias BlockCTRCBCCtrFn     = fn void(BlockCTRCBCClass** ctx, void* ctr, void* data, sz len);
 
 <*
   CBC-MAC-only function (data is not modified).
@@ -160,7 +160,7 @@ alias BlockCTRCBCCtrFn     = fn void(BlockCTRCBCClass** ctx, void* ctr, void* da
   param data     data to MAC (unmodified).
   param len      data length (in bytes, multiple of block size).
 *>
-alias BlockCTRCBCMacFn     = fn void(BlockCTRCBCClass** ctx, void* cbcmac, void* data, usz len);
+alias BlockCTRCBCMacFn     = fn void(BlockCTRCBCClass** ctx, void* cbcmac, void* data, sz len);
 
 // ============================================================================
 // OOP Vtable Structures (Class Types)
@@ -174,7 +174,7 @@ alias BlockCTRCBCMacFn     = fn void(BlockCTRCBCClass** ctx, void* cbcmac, void*
 *>
 struct BlockCBCEncClass {
     <* Size (in bytes) of the subkey context structure. *>
-    usz      context_size;
+    sz      context_size;
     <* Block size in bytes (always a power of two). *>
     uint     block_size;
     <* Base-2 logarithm of block_size (e.g. 4 for 16-byte blocks). *>
@@ -192,7 +192,7 @@ struct BlockCBCEncClass {
 *>
 struct BlockCBCDecClass {
     <* Size (in bytes) of the subkey context structure. *>
-    usz      context_size;
+    sz      context_size;
     <* Block size in bytes. *>
     uint     block_size;
     <* Base-2 logarithm of block_size. *>
@@ -210,7 +210,7 @@ struct BlockCBCDecClass {
 *>
 struct BlockCTRClass {
     <* Size (in bytes) of the subkey context structure. *>
-    usz        context_size;
+    sz        context_size;
     <* Block size in bytes. *>
     uint       block_size;
     <* Base-2 logarithm of block_size. *>
@@ -232,7 +232,7 @@ struct BlockCTRClass {
 *>
 struct BlockCTRCBCClass {
     <* Size (in bytes) of the subkey context structure. *>
-    usz              context_size;
+    sz              context_size;
     <* Block size in bytes. *>
     uint             block_size;
     <* Base-2 logarithm of block_size. *>
@@ -325,7 +325,7 @@ extern BlockCTRCBCClass aes_big_ctrcbc_vtable;
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_big_cbcenc_init(AesBigCBCEncKeys* ctx, void* key, usz len);
+extern fn void aes_big_cbcenc_init(AesBigCBCEncKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CBC decryption (aes_big).
@@ -334,7 +334,7 @@ extern fn void aes_big_cbcenc_init(AesBigCBCEncKeys* ctx, void* key, usz len);
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_big_cbcdec_init(AesBigCBCDecKeys* ctx, void* key, usz len);
+extern fn void aes_big_cbcdec_init(AesBigCBCDecKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CTR encryption/decryption (aes_big).
@@ -343,7 +343,7 @@ extern fn void aes_big_cbcdec_init(AesBigCBCDecKeys* ctx, void* key, usz len);
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_big_ctr_init(AesBigCTRKeys* ctx, void* key, usz len);
+extern fn void aes_big_ctr_init(AesBigCTRKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CTR + CBC-MAC (aes_big).
@@ -352,7 +352,7 @@ extern fn void aes_big_ctr_init(AesBigCTRKeys* ctx, void* key, usz len);
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_big_ctrcbc_init(AesBigCTRCBCKeys* ctx, void* key, usz len);
+extern fn void aes_big_ctrcbc_init(AesBigCTRCBCKeys* ctx, void* key, sz len);
 
 <*
   CBC encryption with AES (aes_big).
@@ -362,7 +362,7 @@ extern fn void aes_big_ctrcbc_init(AesBigCTRCBCKeys* ctx, void* key, usz len);
   param data   data to encrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_big_cbcenc_run(AesBigCBCEncKeys* ctx, void* iv, void* data, usz len);
+extern fn void aes_big_cbcenc_run(AesBigCBCEncKeys* ctx, void* iv, void* data, sz len);
 
 <*
   CBC decryption with AES (aes_big).
@@ -372,7 +372,7 @@ extern fn void aes_big_cbcenc_run(AesBigCBCEncKeys* ctx, void* iv, void* data, u
   param data   data to decrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_big_cbcdec_run(AesBigCBCDecKeys* ctx, void* iv, void* data, usz len);
+extern fn void aes_big_cbcdec_run(AesBigCBCDecKeys* ctx, void* iv, void* data, sz len);
 
 <*
   CTR encryption/decryption with AES (aes_big).
@@ -384,7 +384,7 @@ extern fn void aes_big_cbcdec_run(AesBigCBCDecKeys* ctx, void* iv, void* data, u
   param len    data length (in bytes).
   return new block counter value.
 *>
-extern fn uint aes_big_ctr_run(AesBigCTRKeys* ctx, void* iv, uint cc, void* data, usz len);
+extern fn uint aes_big_ctr_run(AesBigCTRKeys* ctx, void* iv, uint cc, void* data, sz len);
 
 <*
   CTR encryption + CBC-MAC with AES (aes_big).
@@ -395,7 +395,7 @@ extern fn uint aes_big_ctr_run(AesBigCTRKeys* ctx, void* iv, uint cc, void* data
   param data     data to encrypt (in place).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_big_ctrcbc_encrypt(AesBigCTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, usz len);
+extern fn void aes_big_ctrcbc_encrypt(AesBigCTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, sz len);
 
 <*
   CTR decryption + CBC-MAC with AES (aes_big).
@@ -406,7 +406,7 @@ extern fn void aes_big_ctrcbc_encrypt(AesBigCTRCBCKeys* ctx, void* ctr, void* cb
   param data     data to decrypt (in place).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_big_ctrcbc_decrypt(AesBigCTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, usz len);
+extern fn void aes_big_ctrcbc_decrypt(AesBigCTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, sz len);
 
 <*
   CTR encryption/decryption only with AES (aes_big).
@@ -416,7 +416,7 @@ extern fn void aes_big_ctrcbc_decrypt(AesBigCTRCBCKeys* ctx, void* ctr, void* cb
   param data   data to encrypt or decrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_big_ctrcbc_ctr(AesBigCTRCBCKeys* ctx, void* ctr, void* data, usz len);
+extern fn void aes_big_ctrcbc_ctr(AesBigCTRCBCKeys* ctx, void* ctr, void* data, sz len);
 
 <*
   CBC-MAC with AES (aes_big).
@@ -426,7 +426,7 @@ extern fn void aes_big_ctrcbc_ctr(AesBigCTRCBCKeys* ctx, void* ctr, void* data, 
   param data     data to MAC (unmodified).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_big_ctrcbc_mac(AesBigCTRCBCKeys* ctx, void* cbcmac, void* data, usz len);
+extern fn void aes_big_ctrcbc_mac(AesBigCTRCBCKeys* ctx, void* cbcmac, void* data, sz len);
 
 // ============================================================================
 // AES — "aes_small": size-optimised implementation (not constant-time)
@@ -494,7 +494,7 @@ extern BlockCTRCBCClass aes_small_ctrcbc_vtable;
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_small_cbcenc_init(AesSmallCBCEncKeys* ctx, void* key, usz len);
+extern fn void aes_small_cbcenc_init(AesSmallCBCEncKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CBC decryption (aes_small).
@@ -503,7 +503,7 @@ extern fn void aes_small_cbcenc_init(AesSmallCBCEncKeys* ctx, void* key, usz len
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_small_cbcdec_init(AesSmallCBCDecKeys* ctx, void* key, usz len);
+extern fn void aes_small_cbcdec_init(AesSmallCBCDecKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CTR encryption/decryption (aes_small).
@@ -512,7 +512,7 @@ extern fn void aes_small_cbcdec_init(AesSmallCBCDecKeys* ctx, void* key, usz len
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_small_ctr_init(AesSmallCTRKeys* ctx, void* key, usz len);
+extern fn void aes_small_ctr_init(AesSmallCTRKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CTR + CBC-MAC (aes_small).
@@ -521,7 +521,7 @@ extern fn void aes_small_ctr_init(AesSmallCTRKeys* ctx, void* key, usz len);
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_small_ctrcbc_init(AesSmallCTRCBCKeys* ctx, void* key, usz len);
+extern fn void aes_small_ctrcbc_init(AesSmallCTRCBCKeys* ctx, void* key, sz len);
 
 <*
   CBC encryption with AES (aes_small).
@@ -531,7 +531,7 @@ extern fn void aes_small_ctrcbc_init(AesSmallCTRCBCKeys* ctx, void* key, usz len
   param data   data to encrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_small_cbcenc_run(AesSmallCBCEncKeys* ctx, void* iv, void* data, usz len);
+extern fn void aes_small_cbcenc_run(AesSmallCBCEncKeys* ctx, void* iv, void* data, sz len);
 
 <*
   CBC decryption with AES (aes_small).
@@ -541,7 +541,7 @@ extern fn void aes_small_cbcenc_run(AesSmallCBCEncKeys* ctx, void* iv, void* dat
   param data   data to decrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_small_cbcdec_run(AesSmallCBCDecKeys* ctx, void* iv, void* data, usz len);
+extern fn void aes_small_cbcdec_run(AesSmallCBCDecKeys* ctx, void* iv, void* data, sz len);
 
 <*
   CTR encryption/decryption with AES (aes_small).
@@ -553,7 +553,7 @@ extern fn void aes_small_cbcdec_run(AesSmallCBCDecKeys* ctx, void* iv, void* dat
   param len    data length (in bytes).
   return new block counter value.
 *>
-extern fn uint aes_small_ctr_run(AesSmallCTRKeys* ctx, void* iv, uint cc, void* data, usz len);
+extern fn uint aes_small_ctr_run(AesSmallCTRKeys* ctx, void* iv, uint cc, void* data, sz len);
 
 <*
   CTR encryption + CBC-MAC with AES (aes_small).
@@ -564,7 +564,7 @@ extern fn uint aes_small_ctr_run(AesSmallCTRKeys* ctx, void* iv, uint cc, void* 
   param data     data to encrypt (in place).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_small_ctrcbc_encrypt(AesSmallCTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, usz len);
+extern fn void aes_small_ctrcbc_encrypt(AesSmallCTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, sz len);
 
 <*
   CTR decryption + CBC-MAC with AES (aes_small).
@@ -575,7 +575,7 @@ extern fn void aes_small_ctrcbc_encrypt(AesSmallCTRCBCKeys* ctx, void* ctr, void
   param data     data to decrypt (in place).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_small_ctrcbc_decrypt(AesSmallCTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, usz len);
+extern fn void aes_small_ctrcbc_decrypt(AesSmallCTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, sz len);
 
 <*
   CTR encryption/decryption only with AES (aes_small).
@@ -585,7 +585,7 @@ extern fn void aes_small_ctrcbc_decrypt(AesSmallCTRCBCKeys* ctx, void* ctr, void
   param data   data to encrypt or decrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_small_ctrcbc_ctr(AesSmallCTRCBCKeys* ctx, void* ctr, void* data, usz len);
+extern fn void aes_small_ctrcbc_ctr(AesSmallCTRCBCKeys* ctx, void* ctr, void* data, sz len);
 
 <*
   CBC-MAC with AES (aes_small).
@@ -595,7 +595,7 @@ extern fn void aes_small_ctrcbc_ctr(AesSmallCTRCBCKeys* ctx, void* ctr, void* da
   param data     data to MAC (unmodified).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_small_ctrcbc_mac(AesSmallCTRCBCKeys* ctx, void* cbcmac, void* data, usz len);
+extern fn void aes_small_ctrcbc_mac(AesSmallCTRCBCKeys* ctx, void* cbcmac, void* data, sz len);
 
 // ============================================================================
 // AES — "aes_ct": 32-bit constant-time implementation
@@ -665,7 +665,7 @@ extern BlockCTRCBCClass aes_ct_ctrcbc_vtable;
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_ct_cbcenc_init(AesCTCBCEncKeys* ctx, void* key, usz len);
+extern fn void aes_ct_cbcenc_init(AesCTCBCEncKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CBC decryption (aes_ct).
@@ -674,7 +674,7 @@ extern fn void aes_ct_cbcenc_init(AesCTCBCEncKeys* ctx, void* key, usz len);
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_ct_cbcdec_init(AesCTCBCDecKeys* ctx, void* key, usz len);
+extern fn void aes_ct_cbcdec_init(AesCTCBCDecKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CTR encryption/decryption (aes_ct).
@@ -683,7 +683,7 @@ extern fn void aes_ct_cbcdec_init(AesCTCBCDecKeys* ctx, void* key, usz len);
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_ct_ctr_init(AesCTCTRKeys* ctx, void* key, usz len);
+extern fn void aes_ct_ctr_init(AesCTCTRKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CTR + CBC-MAC (aes_ct).
@@ -692,7 +692,7 @@ extern fn void aes_ct_ctr_init(AesCTCTRKeys* ctx, void* key, usz len);
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_ct_ctrcbc_init(AesCTCTRCBCKeys* ctx, void* key, usz len);
+extern fn void aes_ct_ctrcbc_init(AesCTCTRCBCKeys* ctx, void* key, sz len);
 
 <*
   CBC encryption with AES (aes_ct).
@@ -702,7 +702,7 @@ extern fn void aes_ct_ctrcbc_init(AesCTCTRCBCKeys* ctx, void* key, usz len);
   param data   data to encrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_ct_cbcenc_run(AesCTCBCEncKeys* ctx, void* iv, void* data, usz len);
+extern fn void aes_ct_cbcenc_run(AesCTCBCEncKeys* ctx, void* iv, void* data, sz len);
 
 <*
   CBC decryption with AES (aes_ct).
@@ -712,7 +712,7 @@ extern fn void aes_ct_cbcenc_run(AesCTCBCEncKeys* ctx, void* iv, void* data, usz
   param data   data to decrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_ct_cbcdec_run(AesCTCBCDecKeys* ctx, void* iv, void* data, usz len);
+extern fn void aes_ct_cbcdec_run(AesCTCBCDecKeys* ctx, void* iv, void* data, sz len);
 
 <*
   CTR encryption/decryption with AES (aes_ct).
@@ -724,7 +724,7 @@ extern fn void aes_ct_cbcdec_run(AesCTCBCDecKeys* ctx, void* iv, void* data, usz
   param len    data length (in bytes).
   return new block counter value.
 *>
-extern fn uint aes_ct_ctr_run(AesCTCTRKeys* ctx, void* iv, uint cc, void* data, usz len);
+extern fn uint aes_ct_ctr_run(AesCTCTRKeys* ctx, void* iv, uint cc, void* data, sz len);
 
 <*
   CTR encryption + CBC-MAC with AES (aes_ct).
@@ -735,7 +735,7 @@ extern fn uint aes_ct_ctr_run(AesCTCTRKeys* ctx, void* iv, uint cc, void* data, 
   param data     data to encrypt (in place).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_ct_ctrcbc_encrypt(AesCTCTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, usz len);
+extern fn void aes_ct_ctrcbc_encrypt(AesCTCTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, sz len);
 
 <*
   CTR decryption + CBC-MAC with AES (aes_ct).
@@ -746,7 +746,7 @@ extern fn void aes_ct_ctrcbc_encrypt(AesCTCTRCBCKeys* ctx, void* ctr, void* cbcm
   param data     data to decrypt (in place).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_ct_ctrcbc_decrypt(AesCTCTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, usz len);
+extern fn void aes_ct_ctrcbc_decrypt(AesCTCTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, sz len);
 
 <*
   CTR encryption/decryption only with AES (aes_ct).
@@ -756,7 +756,7 @@ extern fn void aes_ct_ctrcbc_decrypt(AesCTCTRCBCKeys* ctx, void* ctr, void* cbcm
   param data   data to encrypt or decrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_ct_ctrcbc_ctr(AesCTCTRCBCKeys* ctx, void* ctr, void* data, usz len);
+extern fn void aes_ct_ctrcbc_ctr(AesCTCTRCBCKeys* ctx, void* ctr, void* data, sz len);
 
 <*
   CBC-MAC with AES (aes_ct).
@@ -766,7 +766,7 @@ extern fn void aes_ct_ctrcbc_ctr(AesCTCTRCBCKeys* ctx, void* ctr, void* data, us
   param data     data to MAC (unmodified).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_ct_ctrcbc_mac(AesCTCTRCBCKeys* ctx, void* cbcmac, void* data, usz len);
+extern fn void aes_ct_ctrcbc_mac(AesCTCTRCBCKeys* ctx, void* cbcmac, void* data, sz len);
 
 // ============================================================================
 // AES — "aes_ct64": 64-bit constant-time implementation
@@ -836,7 +836,7 @@ extern BlockCTRCBCClass aes_ct64_ctrcbc_vtable;
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_ct64_cbcenc_init(AesCT64CBCEncKeys* ctx, void* key, usz len);
+extern fn void aes_ct64_cbcenc_init(AesCT64CBCEncKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CBC decryption (aes_ct64).
@@ -845,7 +845,7 @@ extern fn void aes_ct64_cbcenc_init(AesCT64CBCEncKeys* ctx, void* key, usz len);
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_ct64_cbcdec_init(AesCT64CBCDecKeys* ctx, void* key, usz len);
+extern fn void aes_ct64_cbcdec_init(AesCT64CBCDecKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CTR encryption/decryption (aes_ct64).
@@ -854,7 +854,7 @@ extern fn void aes_ct64_cbcdec_init(AesCT64CBCDecKeys* ctx, void* key, usz len);
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_ct64_ctr_init(AesCT64CTRKeys* ctx, void* key, usz len);
+extern fn void aes_ct64_ctr_init(AesCT64CTRKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CTR + CBC-MAC (aes_ct64).
@@ -863,7 +863,7 @@ extern fn void aes_ct64_ctr_init(AesCT64CTRKeys* ctx, void* key, usz len);
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_ct64_ctrcbc_init(AesCT64CTRCBCKeys* ctx, void* key, usz len);
+extern fn void aes_ct64_ctrcbc_init(AesCT64CTRCBCKeys* ctx, void* key, sz len);
 
 <*
   CBC encryption with AES (aes_ct64).
@@ -873,7 +873,7 @@ extern fn void aes_ct64_ctrcbc_init(AesCT64CTRCBCKeys* ctx, void* key, usz len);
   param data   data to encrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_ct64_cbcenc_run(AesCT64CBCEncKeys* ctx, void* iv, void* data, usz len);
+extern fn void aes_ct64_cbcenc_run(AesCT64CBCEncKeys* ctx, void* iv, void* data, sz len);
 
 <*
   CBC decryption with AES (aes_ct64).
@@ -883,7 +883,7 @@ extern fn void aes_ct64_cbcenc_run(AesCT64CBCEncKeys* ctx, void* iv, void* data,
   param data   data to decrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_ct64_cbcdec_run(AesCT64CBCDecKeys* ctx, void* iv, void* data, usz len);
+extern fn void aes_ct64_cbcdec_run(AesCT64CBCDecKeys* ctx, void* iv, void* data, sz len);
 
 <*
   CTR encryption/decryption with AES (aes_ct64).
@@ -895,7 +895,7 @@ extern fn void aes_ct64_cbcdec_run(AesCT64CBCDecKeys* ctx, void* iv, void* data,
   param len    data length (in bytes).
   return new block counter value.
 *>
-extern fn uint aes_ct64_ctr_run(AesCT64CTRKeys* ctx, void* iv, uint cc, void* data, usz len);
+extern fn uint aes_ct64_ctr_run(AesCT64CTRKeys* ctx, void* iv, uint cc, void* data, sz len);
 
 <*
   CTR encryption + CBC-MAC with AES (aes_ct64).
@@ -906,7 +906,7 @@ extern fn uint aes_ct64_ctr_run(AesCT64CTRKeys* ctx, void* iv, uint cc, void* da
   param data     data to encrypt (in place).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_ct64_ctrcbc_encrypt(AesCT64CTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, usz len);
+extern fn void aes_ct64_ctrcbc_encrypt(AesCT64CTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, sz len);
 
 <*
   CTR decryption + CBC-MAC with AES (aes_ct64).
@@ -917,7 +917,7 @@ extern fn void aes_ct64_ctrcbc_encrypt(AesCT64CTRCBCKeys* ctx, void* ctr, void* 
   param data     data to decrypt (in place).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_ct64_ctrcbc_decrypt(AesCT64CTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, usz len);
+extern fn void aes_ct64_ctrcbc_decrypt(AesCT64CTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, sz len);
 
 <*
   CTR encryption/decryption only with AES (aes_ct64).
@@ -927,7 +927,7 @@ extern fn void aes_ct64_ctrcbc_decrypt(AesCT64CTRCBCKeys* ctx, void* ctr, void* 
   param data   data to encrypt or decrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_ct64_ctrcbc_ctr(AesCT64CTRCBCKeys* ctx, void* ctr, void* data, usz len);
+extern fn void aes_ct64_ctrcbc_ctr(AesCT64CTRCBCKeys* ctx, void* ctr, void* data, sz len);
 
 <*
   CBC-MAC with AES (aes_ct64).
@@ -937,7 +937,7 @@ extern fn void aes_ct64_ctrcbc_ctr(AesCT64CTRCBCKeys* ctx, void* ctr, void* data
   param data     data to MAC (unmodified).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_ct64_ctrcbc_mac(AesCT64CTRCBCKeys* ctx, void* cbcmac, void* data, usz len);
+extern fn void aes_ct64_ctrcbc_mac(AesCT64CTRCBCKeys* ctx, void* cbcmac, void* data, sz len);
 
 // ============================================================================
 // AES — "aes_x86ni": x86 AES-NI hardware implementation
@@ -1022,7 +1022,7 @@ extern BlockCTRCBCClass aes_x86ni_ctrcbc_vtable;
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_x86ni_cbcenc_init(AesX86NICBCEncKeys* ctx, void* key, usz len);
+extern fn void aes_x86ni_cbcenc_init(AesX86NICBCEncKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CBC decryption (aes_x86ni).
@@ -1031,7 +1031,7 @@ extern fn void aes_x86ni_cbcenc_init(AesX86NICBCEncKeys* ctx, void* key, usz len
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_x86ni_cbcdec_init(AesX86NICBCDecKeys* ctx, void* key, usz len);
+extern fn void aes_x86ni_cbcdec_init(AesX86NICBCDecKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CTR encryption/decryption (aes_x86ni).
@@ -1040,7 +1040,7 @@ extern fn void aes_x86ni_cbcdec_init(AesX86NICBCDecKeys* ctx, void* key, usz len
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_x86ni_ctr_init(AesX86NICTRKeys* ctx, void* key, usz len);
+extern fn void aes_x86ni_ctr_init(AesX86NICTRKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CTR + CBC-MAC (aes_x86ni).
@@ -1049,7 +1049,7 @@ extern fn void aes_x86ni_ctr_init(AesX86NICTRKeys* ctx, void* key, usz len);
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_x86ni_ctrcbc_init(AesX86NICTRCBCKeys* ctx, void* key, usz len);
+extern fn void aes_x86ni_ctrcbc_init(AesX86NICTRCBCKeys* ctx, void* key, sz len);
 
 <*
   CBC encryption with AES (aes_x86ni).
@@ -1059,7 +1059,7 @@ extern fn void aes_x86ni_ctrcbc_init(AesX86NICTRCBCKeys* ctx, void* key, usz len
   param data   data to encrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_x86ni_cbcenc_run(AesX86NICBCEncKeys* ctx, void* iv, void* data, usz len);
+extern fn void aes_x86ni_cbcenc_run(AesX86NICBCEncKeys* ctx, void* iv, void* data, sz len);
 
 <*
   CBC decryption with AES (aes_x86ni).
@@ -1069,7 +1069,7 @@ extern fn void aes_x86ni_cbcenc_run(AesX86NICBCEncKeys* ctx, void* iv, void* dat
   param data   data to decrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_x86ni_cbcdec_run(AesX86NICBCDecKeys* ctx, void* iv, void* data, usz len);
+extern fn void aes_x86ni_cbcdec_run(AesX86NICBCDecKeys* ctx, void* iv, void* data, sz len);
 
 <*
   CTR encryption/decryption with AES (aes_x86ni).
@@ -1081,7 +1081,7 @@ extern fn void aes_x86ni_cbcdec_run(AesX86NICBCDecKeys* ctx, void* iv, void* dat
   param len    data length (in bytes).
   return new block counter value.
 *>
-extern fn uint aes_x86ni_ctr_run(AesX86NICTRKeys* ctx, void* iv, uint cc, void* data, usz len);
+extern fn uint aes_x86ni_ctr_run(AesX86NICTRKeys* ctx, void* iv, uint cc, void* data, sz len);
 
 <*
   CTR encryption + CBC-MAC with AES (aes_x86ni).
@@ -1092,7 +1092,7 @@ extern fn uint aes_x86ni_ctr_run(AesX86NICTRKeys* ctx, void* iv, uint cc, void* 
   param data     data to encrypt (in place).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_x86ni_ctrcbc_encrypt(AesX86NICTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, usz len);
+extern fn void aes_x86ni_ctrcbc_encrypt(AesX86NICTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, sz len);
 
 <*
   CTR decryption + CBC-MAC with AES (aes_x86ni).
@@ -1103,7 +1103,7 @@ extern fn void aes_x86ni_ctrcbc_encrypt(AesX86NICTRCBCKeys* ctx, void* ctr, void
   param data     data to decrypt (in place).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_x86ni_ctrcbc_decrypt(AesX86NICTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, usz len);
+extern fn void aes_x86ni_ctrcbc_decrypt(AesX86NICTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, sz len);
 
 <*
   CTR encryption/decryption only with AES (aes_x86ni).
@@ -1113,7 +1113,7 @@ extern fn void aes_x86ni_ctrcbc_decrypt(AesX86NICTRCBCKeys* ctx, void* ctr, void
   param data   data to encrypt or decrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_x86ni_ctrcbc_ctr(AesX86NICTRCBCKeys* ctx, void* ctr, void* data, usz len);
+extern fn void aes_x86ni_ctrcbc_ctr(AesX86NICTRCBCKeys* ctx, void* ctr, void* data, sz len);
 
 <*
   CBC-MAC with AES (aes_x86ni).
@@ -1123,7 +1123,7 @@ extern fn void aes_x86ni_ctrcbc_ctr(AesX86NICTRCBCKeys* ctx, void* ctr, void* da
   param data     data to MAC (unmodified).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_x86ni_ctrcbc_mac(AesX86NICTRCBCKeys* ctx, void* cbcmac, void* data, usz len);
+extern fn void aes_x86ni_ctrcbc_mac(AesX86NICTRCBCKeys* ctx, void* cbcmac, void* data, sz len);
 
 <*
   Get the aes_x86ni CBC encryption vtable if available at runtime.
@@ -1238,7 +1238,7 @@ extern BlockCTRCBCClass aes_pwr8_ctrcbc_vtable;
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_pwr8_cbcenc_init(AesPWR8CBCEncKeys* ctx, void* key, usz len);
+extern fn void aes_pwr8_cbcenc_init(AesPWR8CBCEncKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CBC decryption (aes_pwr8).
@@ -1247,7 +1247,7 @@ extern fn void aes_pwr8_cbcenc_init(AesPWR8CBCEncKeys* ctx, void* key, usz len);
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_pwr8_cbcdec_init(AesPWR8CBCDecKeys* ctx, void* key, usz len);
+extern fn void aes_pwr8_cbcdec_init(AesPWR8CBCDecKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CTR encryption/decryption (aes_pwr8).
@@ -1256,7 +1256,7 @@ extern fn void aes_pwr8_cbcdec_init(AesPWR8CBCDecKeys* ctx, void* key, usz len);
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_pwr8_ctr_init(AesPWR8CTRKeys* ctx, void* key, usz len);
+extern fn void aes_pwr8_ctr_init(AesPWR8CTRKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for AES CTR + CBC-MAC (aes_pwr8).
@@ -1265,7 +1265,7 @@ extern fn void aes_pwr8_ctr_init(AesPWR8CTRKeys* ctx, void* key, usz len);
   param key   secret key.
   param len   secret key length (16, 24, or 32 bytes).
 *>
-extern fn void aes_pwr8_ctrcbc_init(AesPWR8CTRCBCKeys* ctx, void* key, usz len);
+extern fn void aes_pwr8_ctrcbc_init(AesPWR8CTRCBCKeys* ctx, void* key, sz len);
 
 <*
   CBC encryption with AES (aes_pwr8).
@@ -1275,7 +1275,7 @@ extern fn void aes_pwr8_ctrcbc_init(AesPWR8CTRCBCKeys* ctx, void* key, usz len);
   param data   data to encrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_pwr8_cbcenc_run(AesPWR8CBCEncKeys* ctx, void* iv, void* data, usz len);
+extern fn void aes_pwr8_cbcenc_run(AesPWR8CBCEncKeys* ctx, void* iv, void* data, sz len);
 
 <*
   CBC decryption with AES (aes_pwr8).
@@ -1285,7 +1285,7 @@ extern fn void aes_pwr8_cbcenc_run(AesPWR8CBCEncKeys* ctx, void* iv, void* data,
   param data   data to decrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_pwr8_cbcdec_run(AesPWR8CBCDecKeys* ctx, void* iv, void* data, usz len);
+extern fn void aes_pwr8_cbcdec_run(AesPWR8CBCDecKeys* ctx, void* iv, void* data, sz len);
 
 <*
   CTR encryption/decryption with AES (aes_pwr8).
@@ -1297,7 +1297,7 @@ extern fn void aes_pwr8_cbcdec_run(AesPWR8CBCDecKeys* ctx, void* iv, void* data,
   param len    data length (in bytes).
   return new block counter value.
 *>
-extern fn uint aes_pwr8_ctr_run(AesPWR8CTRKeys* ctx, void* iv, uint cc, void* data, usz len);
+extern fn uint aes_pwr8_ctr_run(AesPWR8CTRKeys* ctx, void* iv, uint cc, void* data, sz len);
 
 <*
   CTR encryption + CBC-MAC with AES (aes_pwr8).
@@ -1308,7 +1308,7 @@ extern fn uint aes_pwr8_ctr_run(AesPWR8CTRKeys* ctx, void* iv, uint cc, void* da
   param data     data to encrypt (in place).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_pwr8_ctrcbc_encrypt(AesPWR8CTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, usz len);
+extern fn void aes_pwr8_ctrcbc_encrypt(AesPWR8CTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, sz len);
 
 <*
   CTR decryption + CBC-MAC with AES (aes_pwr8).
@@ -1319,7 +1319,7 @@ extern fn void aes_pwr8_ctrcbc_encrypt(AesPWR8CTRCBCKeys* ctx, void* ctr, void* 
   param data     data to decrypt (in place).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_pwr8_ctrcbc_decrypt(AesPWR8CTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, usz len);
+extern fn void aes_pwr8_ctrcbc_decrypt(AesPWR8CTRCBCKeys* ctx, void* ctr, void* cbcmac, void* data, sz len);
 
 <*
   CTR encryption/decryption only with AES (aes_pwr8).
@@ -1329,7 +1329,7 @@ extern fn void aes_pwr8_ctrcbc_decrypt(AesPWR8CTRCBCKeys* ctx, void* ctr, void* 
   param data   data to encrypt or decrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_pwr8_ctrcbc_ctr(AesPWR8CTRCBCKeys* ctx, void* ctr, void* data, usz len);
+extern fn void aes_pwr8_ctrcbc_ctr(AesPWR8CTRCBCKeys* ctx, void* ctr, void* data, sz len);
 
 <*
   CBC-MAC with AES (aes_pwr8).
@@ -1339,7 +1339,7 @@ extern fn void aes_pwr8_ctrcbc_ctr(AesPWR8CTRCBCKeys* ctx, void* ctr, void* data
   param data     data to MAC (unmodified).
   param len      data length (in bytes, MUST be a multiple of 16).
 *>
-extern fn void aes_pwr8_ctrcbc_mac(AesPWR8CTRCBCKeys* ctx, void* cbcmac, void* data, usz len);
+extern fn void aes_pwr8_ctrcbc_mac(AesPWR8CTRCBCKeys* ctx, void* cbcmac, void* data, sz len);
 
 <*
   Get the aes_pwr8 CBC encryption vtable if available at runtime.
@@ -1476,7 +1476,7 @@ extern BlockCBCDecClass des_tab_cbcdec_vtable;
   param key   secret key.
   param len   secret key length (8, 16, or 24 bytes).
 *>
-extern fn void des_tab_cbcenc_init(DesTabCBCEncKeys* ctx, void* key, usz len);
+extern fn void des_tab_cbcenc_init(DesTabCBCEncKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for DES CBC decryption (des_tab).
@@ -1485,7 +1485,7 @@ extern fn void des_tab_cbcenc_init(DesTabCBCEncKeys* ctx, void* key, usz len);
   param key   secret key.
   param len   secret key length (8, 16, or 24 bytes).
 *>
-extern fn void des_tab_cbcdec_init(DesTabCBCDecKeys* ctx, void* key, usz len);
+extern fn void des_tab_cbcdec_init(DesTabCBCDecKeys* ctx, void* key, sz len);
 
 <*
   CBC encryption with DES (des_tab).
@@ -1495,7 +1495,7 @@ extern fn void des_tab_cbcdec_init(DesTabCBCDecKeys* ctx, void* key, usz len);
   param data   data to encrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 8).
 *>
-extern fn void des_tab_cbcenc_run(DesTabCBCEncKeys* ctx, void* iv, void* data, usz len);
+extern fn void des_tab_cbcenc_run(DesTabCBCEncKeys* ctx, void* iv, void* data, sz len);
 
 <*
   CBC decryption with DES (des_tab).
@@ -1505,7 +1505,7 @@ extern fn void des_tab_cbcenc_run(DesTabCBCEncKeys* ctx, void* iv, void* data, u
   param data   data to decrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 8).
 *>
-extern fn void des_tab_cbcdec_run(DesTabCBCDecKeys* ctx, void* iv, void* data, usz len);
+extern fn void des_tab_cbcdec_run(DesTabCBCDecKeys* ctx, void* iv, void* data, sz len);
 
 // ============================================================================
 // DES / 3DES — "des_ct": constant-time implementation
@@ -1549,7 +1549,7 @@ extern BlockCBCDecClass des_ct_cbcdec_vtable;
   param key   secret key.
   param len   secret key length (8, 16, or 24 bytes).
 *>
-extern fn void des_ct_cbcenc_init(DesCTCBCEncKeys* ctx, void* key, usz len);
+extern fn void des_ct_cbcenc_init(DesCTCBCEncKeys* ctx, void* key, sz len);
 
 <*
   Key schedule for DES CBC decryption (des_ct).
@@ -1558,7 +1558,7 @@ extern fn void des_ct_cbcenc_init(DesCTCBCEncKeys* ctx, void* key, usz len);
   param key   secret key.
   param len   secret key length (8, 16, or 24 bytes).
 *>
-extern fn void des_ct_cbcdec_init(DesCTCBCDecKeys* ctx, void* key, usz len);
+extern fn void des_ct_cbcdec_init(DesCTCBCDecKeys* ctx, void* key, sz len);
 
 <*
   CBC encryption with DES (des_ct).
@@ -1568,7 +1568,7 @@ extern fn void des_ct_cbcdec_init(DesCTCBCDecKeys* ctx, void* key, usz len);
   param data   data to encrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 8).
 *>
-extern fn void des_ct_cbcenc_run(DesCTCBCEncKeys* ctx, void* iv, void* data, usz len);
+extern fn void des_ct_cbcenc_run(DesCTCBCEncKeys* ctx, void* iv, void* data, sz len);
 
 <*
   CBC decryption with DES (des_ct).
@@ -1578,7 +1578,7 @@ extern fn void des_ct_cbcenc_run(DesCTCBCEncKeys* ctx, void* iv, void* data, usz
   param data   data to decrypt (in place).
   param len    data length (in bytes, MUST be a multiple of 8).
 *>
-extern fn void des_ct_cbcdec_run(DesCTCBCDecKeys* ctx, void* iv, void* data, usz len);
+extern fn void des_ct_cbcdec_run(DesCTCBCDecKeys* ctx, void* iv, void* data, sz len);
 
 // ============================================================================
 // DES Aggregate Union Types
@@ -1622,7 +1622,7 @@ union DesGenCBCDecKeys {
   param len    data length (in bytes).
   return new block counter value.
 *>
-alias ChaCha20RunFn = fn uint(void* key, void* iv, uint cc, void* data, usz len);
+alias ChaCha20RunFn = fn uint(void* key, void* iv, uint cc, void* data, sz len);
 
 <*
   ChaCha20 implementation: straightforward C code, constant-time.
@@ -1634,7 +1634,7 @@ alias ChaCha20RunFn = fn uint(void* key, void* iv, uint cc, void* data, usz len)
   param len    data length (in bytes).
   return new block counter value.
 *>
-extern fn uint chacha20_ct_run(void* key, void* iv, uint cc, void* data, usz len);
+extern fn uint chacha20_ct_run(void* key, void* iv, uint cc, void* data, sz len);
 
 <*
   ChaCha20 implementation: SSE2 code, constant-time (x86 only).
@@ -1649,7 +1649,7 @@ extern fn uint chacha20_ct_run(void* key, void* iv, uint cc, void* data, usz len
   param len    data length (in bytes).
   return new block counter value.
 *>
-extern fn uint chacha20_sse2_run(void* key, void* iv, uint cc, void* data, usz len);
+extern fn uint chacha20_sse2_run(void* key, void* iv, uint cc, void* data, sz len);
 
 <*
   Get the SSE2 ChaCha20 implementation if available at runtime.
@@ -1687,8 +1687,8 @@ extern fn ChaCha20RunFn chacha20_sse2_get();
 *>
 alias Poly1305RunFn = fn void(
     void* key, void* iv,
-    void* data, usz len,
-    void* aad, usz aad_len,
+    void* data, sz len,
+    void* aad, sz aad_len,
     void* tag, ChaCha20RunFn ichacha, int encrypt);
 
 <*
@@ -1706,8 +1706,8 @@ alias Poly1305RunFn = fn void(
 *>
 extern fn void poly1305_ctmul_run(
     void* key, void* iv,
-    void* data, usz len,
-    void* aad, usz aad_len,
+    void* data, sz len,
+    void* aad, sz aad_len,
     void* tag, ChaCha20RunFn ichacha, int encrypt);
 
 <*
@@ -1727,8 +1727,8 @@ extern fn void poly1305_ctmul_run(
 *>
 extern fn void poly1305_ctmul32_run(
     void* key, void* iv,
-    void* data, usz len,
-    void* aad, usz aad_len,
+    void* data, sz len,
+    void* aad, sz aad_len,
     void* tag, ChaCha20RunFn ichacha, int encrypt);
 
 <*
@@ -1749,8 +1749,8 @@ extern fn void poly1305_ctmul32_run(
 *>
 extern fn void poly1305_i15_run(
     void* key, void* iv,
-    void* data, usz len,
-    void* aad, usz aad_len,
+    void* data, sz len,
+    void* aad, sz aad_len,
     void* tag, ChaCha20RunFn ichacha, int encrypt);
 
 <*
@@ -1772,8 +1772,8 @@ extern fn void poly1305_i15_run(
 *>
 extern fn void poly1305_ctmulq_run(
     void* key, void* iv,
-    void* data, usz len,
-    void* aad, usz aad_len,
+    void* data, sz len,
+    void* aad, sz aad_len,
     void* tag, ChaCha20RunFn ichacha, int encrypt);
 
 <*

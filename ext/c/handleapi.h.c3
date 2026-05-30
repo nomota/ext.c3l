@@ -11,7 +11,7 @@ const uint HANDLE_FLAG_PROTECT_FROM_CLOSE = 0x00000002;
 const uint DUPLICATE_CLOSE_SOURCE = 0x00000001;
 const uint DUPLICATE_SAME_ACCESS = 0x00000002;
 
-const Handle INVALID_HANDLE_VALUE = (Handle)(uptr.max);
+const Handle INVALID_HANDLE_VALUE = (Handle)(uptr::max);
 
 extern fn Bool closeHandle(Handle h_object) @cname("CloseHandle");
 
@@ -40,3 +40,5 @@ extern fn Bool setHandleInformation(
     uint dw_mask,
     uint dw_flags
 ) @cname("SetHandleInformation");
+
+// eof

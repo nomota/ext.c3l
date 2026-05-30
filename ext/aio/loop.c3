@@ -160,7 +160,7 @@ fn Task*? EventLoop.pop_ready(&self)
 {
     if (self.ready.is_empty()) return EMPTY_QUEUE~;
     
-    Task* task = self.ready.pop_front()!;
+    Task* task = self.ready.pop_first()!;
     task.queued = false;
 
     return task;
@@ -245,7 +245,7 @@ fn void EventLoop.cancel_all_tasks(&self)
         task.cancel();
     }
 
-    for (usz i = 0; i < self.tasks.len(); i++)
+    for (sz i = 0; i < self.tasks.len(); i++)
     {
         Task* task = self.tasks.get(i);
         if (task == null) continue;
@@ -281,7 +281,7 @@ fn bool EventLoop.has_sleeps(&self) @inline
     return self.sleep_head != null;
 }
 
-fn int EventLoop.compute_poll_timeout(&self)
+fn ulong EventLoop.compute_poll_timeout(&self)
 {
     if (self.has_ready()) return 0;
 
@@ -297,7 +297,7 @@ fn int EventLoop.compute_poll_timeout(&self)
 
         if (delay > 2_147_483_647) return 2_147_483_647;
 
-        return (int)delay;
+        return (ulong)delay;
     }
 
     return -1; // Wait indefinitely.
@@ -360,7 +360,7 @@ fn void? EventLoop.run_forever(&self) @maydiscard
             continue;
         }
 
-        int timeout = self.compute_poll_timeout();
+        ulong timeout = self.compute_poll_timeout();
         if (io::pending()) io::poll(timeout);
         // if (catch err = io::poll(timeout)) self.stopping = true;
     }
@@ -399,7 +399,7 @@ fn void? EventLoop.run_until_complete(&self, Task* main_task) @maydiscard
             continue;
         }
 
-        int timeout = self.compute_poll_timeout();
+        ulong timeout = self.compute_poll_timeout();
         if (io::pending()) io::poll(timeout);
         // if (catch err = io::poll(timeout)) self.stopping = true;
     }
@@ -443,7 +443,7 @@ fn void? EventLoop.run_main(&self, Task* main_task) @maydiscard
 
         if (!self.has_work()) break;
 
-        int timeout = self.compute_poll_timeout();
+        ulong timeout = self.compute_poll_timeout();
         if (io::pending()) io::poll(timeout);
         // if (catch err = io::poll(timeout)) self.stopping = true;
     }

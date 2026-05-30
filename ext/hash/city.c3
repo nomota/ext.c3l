@@ -27,14 +27,14 @@ macro uint128_high64(x) => (ulong)(x >> 64);
 fn ulong unaligned_load64(char* p) @inline
 {
   ulong result;
-  libc::memcpy(&result, p, ulong.sizeof);
+  libc::memcpy(&result, p, ulong::size);
   return result;
 }
 
 fn uint unaligned_load32(char* p) @inline
 {
   uint result;
-  libc::memcpy(&result, p, uint.sizeof);
+  libc::memcpy(&result, p, uint::size);
   return result;
 }
 
@@ -217,7 +217,7 @@ fn ulong hash64(char* s, uint len)
   x = x * K1 + fetch64(s);
   
   // Decrease len to the nearest multiple of 64, and operate on 64-byte chunks
-  len = (len - 1) & ~63;
+  len = (len - 1) & (uint)~63;
   do {
     x = rotate(x + y + uint128_low64(v) + fetch64(s + 8), 37) * K1;
     y = rotate(y + uint128_high64(v) + fetch64(s + 48), 42) * K1;
@@ -343,7 +343,7 @@ fn uint128 hash128_with_seed(char* s, uint len, uint128 seed)
   z += rotate(uint128_low64(w), 37) * K0;
   
   // If 0 < len < 128, hash up to 4 chunks of 32 bytes each from the end of s
-  usz tail_done = 0;
+  sz tail_done = 0;
   while (tail_done < len) {
     tail_done += 32;
     y = rotate(x + y, 42) * K0 + uint128_high64(v);

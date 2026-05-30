@@ -20,7 +20,7 @@ fn Char16*? utf8to16(String path, Char16[] wpath) @private
     
     wpath[0:p2.len] = p2[0:p2.len];
     wpath[p2.len] = 0;
-    for (usz i = 0; i < p2.len; i++) {
+    for (sz i = 0; i < p2.len; i++) {
         if (p2[i] == (Char16)'/') {
             wpath[i] = (Char16)'\\';
         }
@@ -39,7 +39,7 @@ fn bool exists(String path)
     return attrs != windows::INVALID_FILE_ATTRIBUTES;
 }
 
-fn usz? size(String path) 
+fn sz? size(String path) 
 {
     Char16[512] wpath;
     Char16* name = utf8to16(path, &wpath)!;
@@ -50,7 +50,7 @@ fn usz? size(String path)
     }
     
     long size = ((long)file_info.nFileSizeHigh << 32) | (long)file_info.nFileSizeLow;
-    return (usz)size;
+    return (sz)size;
 }
 
 fn long? last_modified(String path) 
@@ -103,7 +103,7 @@ fn bool is_link(String path)
     return (attrs & windows::FILE_ATTRIBUTE_REPARSE_POINT) != 0;
 }
 
-fn usz? read_link(String path, char[] output) 
+fn sz? read_link(String path, char[] output) 
 {
     Char16[512] wpath;
     Char16* name = utf8to16(path, &wpath)!;
@@ -136,7 +136,7 @@ fn usz? read_link(String path, char[] output)
     }
 
     Char16* target = (Char16*)&reparse.pathBuffer[reparse.printNameOffset / 2];
-    usz len = reparse.printNameLength / 2;
+    sz len = reparse.printNameLength / 2;
     
     String s = string::from_utf16(tmem, target[0:len])!;
     // defer s.free(tmem);
@@ -146,7 +146,7 @@ fn usz? read_link(String path, char[] output)
     output[0:s.len] = s[0:s.len];
     output[s.len] = 0;
     
-    return (usz)s.len;
+    return (sz)s.len;
 }
 
 fn bool is_readable(String path) 
@@ -188,7 +188,7 @@ fn bool is_executable(String path)
     if (!exists(path)) return false;
     if (is_dir(path)) return false;
     
-    usz? idx = path.rindex_of_char('.');
+    sz? idx = path.rindex_of_char('.');
     if (catch err = idx) return false;
     
     String ext = path[idx..];

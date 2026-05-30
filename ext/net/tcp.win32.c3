@@ -72,7 +72,7 @@ fn void? TcpSocket.listen(sock, ushort port, String opt_ip = "*", int backlog = 
         winsock2::SOL_SOCKET,
         winsock2::SO_REUSEADDR,
         (char*)&option,
-        $sizeof(option)
+        @sizeof(option)
     );
     if (r == winsock2::SOCKET_ERROR)
     {
@@ -107,7 +107,7 @@ fn void? TcpSocket.listen(sock, ushort port, String opt_ip = "*", int backlog = 
                     
         adr.sin6_port = winsock2::htons(port);
 
-        if (winsock2::bind(sock, (winsock2::SockAddr*)&adr, $sizeof(adr)) == winsock2::SOCKET_ERROR)
+        if (winsock2::bind(sock, (winsock2::SockAddr*)&adr, @sizeof(adr)) == winsock2::SOCKET_ERROR)
         {
             return socket_fault()~;
         }
@@ -140,7 +140,7 @@ fn void? TcpSocket.listen(sock, ushort port, String opt_ip = "*", int backlog = 
 
         adr.sin_port = winsock2::htons(port);
 
-        if (winsock2::bind(sock, (winsock2::SockAddr*)&adr, $sizeof(adr)) == winsock2::SOCKET_ERROR)
+        if (winsock2::bind(sock, (winsock2::SockAddr*)&adr, @sizeof(adr)) == winsock2::SOCKET_ERROR)
         {
             return socket_fault()~;
         }
@@ -169,7 +169,7 @@ char[1] __null__;
 fn TcpSocket? TcpSocket.accept(sock, char[] ip = &__null__, ushort* port = null)
 {
     winsock2::SockAddrStorage adr = {};
-    int size = $sizeof(adr);
+    int size = @sizeof(adr);
 
     TcpSocket s = (TcpSocket)winsock2::accept(sock, (winsock2::SockAddr*)&adr, &size);
     if (s == winsock2::INVALID_SOCKET)
@@ -221,7 +221,7 @@ fn void? TcpSocket.connect(sock, String ip, ushort port) @maydiscard
         if (rc == 0) return errno::E_INVALID_ARG~;
         if (rc < 0) return socket_fault()~;
 
-        int r = winsock2::connect(sock, (winsock2::SockAddr*)&adr, $sizeof(adr));
+        int r = winsock2::connect(sock, (winsock2::SockAddr*)&adr, @sizeof(adr));
         if (r == winsock2::SOCKET_ERROR)
         {
             return socket_fault()~;
@@ -243,7 +243,7 @@ fn void? TcpSocket.connect(sock, String ip, ushort port) @maydiscard
         
         adr.sin_addr = addr;
 
-        int r = winsock2::connect(sock, (winsock2::SockAddr*)&adr, $sizeof(adr));
+        int r = winsock2::connect(sock, (winsock2::SockAddr*)&adr, @sizeof(adr));
         if (r == winsock2::SOCKET_ERROR)
         {
             return socket_fault()~;
@@ -262,7 +262,7 @@ fn TcpSocket? new_connect(String ip, ushort port)
     return sock;
 }
 
-fn usz? TcpSocket.send(sock, char[] buf)
+fn sz? TcpSocket.send(sock, char[] buf)
 {
     if (buf.len) return 0;
 
@@ -272,17 +272,17 @@ fn usz? TcpSocket.send(sock, char[] buf)
         return socket_fault()~;
     }
     
-    return (usz)n;
+    return (sz)n;
 }
 
 // only for blocking mode
-fn usz? TcpSocket.write(sock, char[] buf)
+fn sz? TcpSocket.write(sock, char[] buf)
 {
-    usz sent = 0;
+    sz sent = 0;
 
     while (sent < buf.len)
     {
-        usz n = sock.send(buf[sent:buf.len - sent])!;
+        sz n = sock.send(buf[sent:buf.len - sent])!;
         if (n == 0) return errno::EOF~;
         
         sent += n;
@@ -290,7 +290,7 @@ fn usz? TcpSocket.write(sock, char[] buf)
     return sent;
 }
 
-fn usz? TcpSocket.recv(sock, char[] buf)
+fn sz? TcpSocket.recv(sock, char[] buf)
 {
     if (buf.len == 0) return 0;
 
@@ -299,16 +299,16 @@ fn usz? TcpSocket.recv(sock, char[] buf)
     {
         return socket_fault()~;
     }
-    return (usz)n;
+    return (sz)n;
 }
 
-macro usz? TcpSocket.read(sock, char[] buf)
+macro sz? TcpSocket.read(sock, char[] buf)
 {
     return sock.recv(buf);
 }
 
 // blocking mode only
-fn usz? TcpSocket.readline(sock, char[] line)
+fn sz? TcpSocket.readline(sock, char[] line)
 {
     if (line.len == 0) return errno::EOF~;
 
@@ -318,7 +318,7 @@ fn usz? TcpSocket.readline(sock, char[] line)
         return errno::EOF~;
     }
 
-    usz n = 0;
+    sz n = 0;
     while (n < line.len - 1)
     {
         char c;
@@ -338,7 +338,7 @@ fn usz? TcpSocket.readline(sock, char[] line)
     if (n == 0) return errno::EOF~;
 
     line[n] = '\0';
-    return (usz)n;
+    return (sz)n;
 }
 
 fn void? TcpSocket.set_non_blocking(sock) @maydiscard

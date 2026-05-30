@@ -267,7 +267,7 @@ struct X500Name {
     <* Encoded DN data. *>
     char* data;
     <* Encoded DN length (in bytes). *>
-    usz len;
+    sz len;
 }
 
 <*
@@ -305,7 +305,7 @@ alias X509StartCertFn  = fn void(X509Class** ctx, uint length);
   Receive some bytes for the current certificate.
   len is never zero; chunks sum to the total length from start_cert.
 *>
-alias X509AppendFn     = fn void(X509Class** ctx, char* buf, usz len);
+alias X509AppendFn     = fn void(X509Class** ctx, char* buf, sz len);
 
 <*
   Finish the current certificate.
@@ -339,7 +339,7 @@ alias X509GetPKeyFn    = fn X509PKey*(X509Class** ctx, uint* usages);
 *>
 struct X509Class {
     <* X.509 context size, in bytes. *>
-    usz context_size;
+    sz context_size;
 
     <* Start a new chain. *>
     X509StartChainFn start_chain;
@@ -445,7 +445,7 @@ struct NameElement {
     char* buf;
 
     <* Length (in bytes) of the destination buffer. *>
-    usz len;
+    sz len;
 
     <*
       Decoding status: 0 = not found, 1 = found and decoded, -1 = error.
@@ -498,7 +498,7 @@ struct X509MinimalContext {
 
     // Certificate data chunk.
     char* hbuf;
-    usz hlen;
+    sz hlen;
 
     // General-purpose pad for various operations.
     char[256] pad;
@@ -524,7 +524,7 @@ struct X509MinimalContext {
 
     // Configured trust anchors.
     X509TrustAnchor* trust_anchors;
-    usz trust_anchors_num;
+    sz trust_anchors_num;
 
     // Multi-hasher for the TBS.
     char do_mhash;
@@ -541,7 +541,7 @@ struct X509MinimalContext {
 
     // Name elements to gather.
     NameElement* name_elts;
-    usz num_name_elts;
+    sz num_name_elts;
 
     // Public key cryptography implementations (signature verification).
     RSAPKCS1Vrfy irsa;
@@ -570,7 +570,7 @@ extern X509Class x509_minimal_vtable;
 *>
 extern fn void x509_minimal_init(X509MinimalContext* ctx,
     HashClass* dn_hash_impl,
-    X509TrustAnchor* trust_anchors, usz trust_anchors_num);
+    X509TrustAnchor* trust_anchors, sz trust_anchors_num);
 
 <*
   Set a supported hash function in an X.509 "minimal" engine.
@@ -630,7 +630,7 @@ fn void x509_minimal_set_ecdsa(X509MinimalContext* ctx, ECImpl* iec, ECDSAVrfy i
   param trust_anchors_num   number of trust anchors.
 *>
 extern fn void x509_minimal_init_full(X509MinimalContext* ctx,
-    X509TrustAnchor* trust_anchors, usz trust_anchors_num);
+    X509TrustAnchor* trust_anchors, sz trust_anchors_num);
 
 <*
   Set the validation time for the X.509 "minimal" engine.
@@ -679,7 +679,7 @@ fn void x509_minimal_set_minrsa(X509MinimalContext* ctx, int byte_length) @inlin
   param num_elts   number of name element structures to fill.
 *>
 fn void x509_minimal_set_name_elements(X509MinimalContext* ctx,
-    NameElement* elts, usz num_elts) @inline
+    NameElement* elts, sz num_elts) @inline
 {
     ctx.name_elts = elts;
     ctx.num_name_elts = num_elts;
@@ -692,7 +692,7 @@ fn void x509_minimal_set_name_elements(X509MinimalContext* ctx,
 <*
   Callback for receiving subject DN data chunk by chunk.
 *>
-alias AppendDNFn = fn void(void* ctx, void* buf, usz len);
+alias AppendDNFn = fn void(void* ctx, void* buf, sz len);
 
 <*
   X.509 decoder context.
@@ -737,7 +737,7 @@ struct X509DecoderContext {
 
     // Certificate data chunk.
     char* hbuf;
-    usz hlen;
+    sz hlen;
 
     // Buffer for decoded public key.
     char[X509_BUFSIZE_KEY] pkey_data;
@@ -767,7 +767,7 @@ extern fn void x509_decoder_init(X509DecoderContext* ctx,
   param data   certificate data chunk.
   param len    certificate data chunk length (in bytes).
 *>
-extern fn void x509_decoder_push(X509DecoderContext* ctx, void* data, usz len);
+extern fn void x509_decoder_push(X509DecoderContext* ctx, void* data, sz len);
 
 <*
   Obtain the decoded public key.
@@ -860,7 +860,7 @@ struct X509Certificate {
     <* The DER-encoded certificate data. *>
     char* data;
     <* The DER-encoded certificate length (in bytes). *>
-    usz data_len;
+    sz data_len;
 }
 
 // ============================================================================
@@ -893,7 +893,7 @@ struct SKeyDecoderContext {
 
     // Private key data chunk.
     char* hbuf;
-    usz hlen;
+    sz hlen;
 
     // General-purpose pad for various operations.
     char[256] pad;
@@ -919,7 +919,7 @@ extern fn void skey_decoder_init(SKeyDecoderContext* ctx);
   param data   private key data chunk.
   param len    private key data chunk length (in bytes).
 *>
-extern fn void skey_decoder_push(SKeyDecoderContext* ctx, void* data, usz len);
+extern fn void skey_decoder_push(SKeyDecoderContext* ctx, void* data, sz len);
 
 <*
   Get the decoding status for a private key.
@@ -1017,8 +1017,8 @@ fn ECPrivateKey* skey_decoder_get_ec(SKeyDecoderContext* ctx) @inline
   param dlen   RSA private exponent length (in bytes).
   returns the encoded key length (in bytes).
 *>
-extern fn usz encode_rsa_raw_der(void* dest,
-    RSAPrivateKey* sk, RSAPublicKey* pk, void* d, usz dlen);
+extern fn sz encode_rsa_raw_der(void* dest,
+    RSAPrivateKey* sk, RSAPublicKey* pk, void* d, sz dlen);
 
 <*
   Encode an RSA private key (PKCS#8 DER format).
@@ -1037,8 +1037,8 @@ extern fn usz encode_rsa_raw_der(void* dest,
   param dlen   RSA private exponent length (in bytes).
   returns the encoded key length (in bytes).
 *>
-extern fn usz encode_rsa_pkcs8_der(void* dest,
-    RSAPrivateKey* sk, RSAPublicKey* pk, void* d, usz dlen);
+extern fn sz encode_rsa_pkcs8_der(void* dest,
+    RSAPrivateKey* sk, RSAPublicKey* pk, void* d, sz dlen);
 
 <*
   Encode an EC private key (raw DER format).
@@ -1057,7 +1057,7 @@ extern fn usz encode_rsa_pkcs8_der(void* dest,
   param pk     EC public key (or null).
   returns the encoded key length (in bytes), or 0.
 *>
-extern fn usz encode_ec_raw_der(void* dest, ECPrivateKey* sk, ECPublicKey* pk);
+extern fn sz encode_ec_raw_der(void* dest, ECPrivateKey* sk, ECPublicKey* pk);
 
 <*
   Encode an EC private key (PKCS#8 DER format).
@@ -1080,4 +1080,4 @@ extern fn usz encode_ec_raw_der(void* dest, ECPrivateKey* sk, ECPublicKey* pk);
   param pk     EC public key (or null).
   returns the encoded key length (in bytes), or 0.
 *>
-extern fn usz encode_ec_pkcs8_der(void* dest, ECPrivateKey* sk, ECPublicKey* pk);
+extern fn sz encode_ec_pkcs8_der(void* dest, ECPrivateKey* sk, ECPublicKey* pk);

@@ -75,7 +75,7 @@ struct Fiber
     //
     //     guard_page_size + usable_stack_size
     //
-    usz block_size;
+    sz block_size;
 
     // First usable stack byte.
     char* stack_low;
@@ -84,7 +84,7 @@ struct Fiber
     char* stack_high;
 
     // Usable stack size.
-    usz stack_size;
+    sz stack_size;
 
     bool done;
 
@@ -312,13 +312,13 @@ fn Fiber*? create(Coroutine entry, uint stack_size = 128_000, void* arg = null)
     if (ctx == null || ctx.running == null) init();
     if (entry == null) return NULL_ENTRY~;
 
-    usz block_size = 0;
+    sz block_size = 0;
     char* stack_low = null;
     char* stack_high = null;
-    usz usable_size = 0;
+    sz usable_size = 0;
 
     char* block = vm::stack_alloc(
-        (usz)stack_size,
+        (sz)stack_size,
         &block_size,
         &stack_low,
         &stack_high,
@@ -352,7 +352,7 @@ fn Fiber*? create(Coroutine entry, uint stack_size = 128_000, void* arg = null)
     return fiber;
 }
 
-fn usz stack_used(Fiber* fiber)
+fn sz stack_used(Fiber* fiber)
 {
     if (!debug::debug) return 0;
     if (ctx == null) return 0;
@@ -379,7 +379,7 @@ fn usz stack_used(Fiber* fiber)
 
     if (sp < low || sp >= high) return 0;
 
-    return (usz)(high - sp);
+    return (sz)(high - sp);
 }
 
 fn void diag()
@@ -400,7 +400,7 @@ fn void diag()
     warn("stack block:%p, block_size:%d", fiber.block, fiber.block_size);
     warn("stack low:%p, high:%p", fiber.stack_low, fiber.stack_high);
 
-    usz used = stack_used(fiber);
+    sz used = stack_used(fiber);
     float usage = (float)used / (float)fiber.stack_size;
 
     warn(

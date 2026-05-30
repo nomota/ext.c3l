@@ -62,7 +62,7 @@ fn String? peer_ip(Fd fd)
     if (io::fd_invalid(fd)) return aio::INVALID_STATE~;
 
     socket::SockAddrStorage peer = {};
-    socket::SockLen peer_len = socket::SockAddrStorage.sizeof;
+    socket::SockLen peer_len = socket::SockAddrStorage::size;
 
     int rc = socket::getpeername(
         fd,
@@ -136,8 +136,8 @@ fn void? make_sockaddr(String ip, ushort port, socket::SockAddrStorage* addr, so
         }
         a6.sin6_family = (ushort)socket::AF_INET6;
         a6.sin6_port = in::htons(port);
-        string::memcpy(addr, &a6, $sizeof(a6));
-        *len = $sizeof(a6);
+        string::memcpy(addr, &a6, @sizeof(a6));
+        *len = @sizeof(a6);
     }
     else 
     {
@@ -147,8 +147,8 @@ fn void? make_sockaddr(String ip, ushort port, socket::SockAddrStorage* addr, so
         {
             return aio::ADDR_ERROR~;
         }
-        string::memcpy(addr, &a4, $sizeof(a4));
-        *len = $sizeof(a4);
+        string::memcpy(addr, &a4, @sizeof(a4));
+        *len = @sizeof(a4);
     }
 }
 
@@ -164,7 +164,7 @@ fn void? socket_bind(Fd fd, String ip, ushort port)
         socket::SOL_SOCKET,
         socket::SO_REUSEADDR,
         &yes,
-        CInt.sizeof
+        CInt::size
     );
     if (rc < 0) return aio::BIND_ERROR~;
 
@@ -225,7 +225,7 @@ fn Fd? tcp_accept(Fd server_fd)
     while (true)
     {
         socket::SockAddrStorage addr;
-        socket::SockLen len = socket::SockAddrStorage.sizeof;
+        socket::SockLen len = socket::SockAddrStorage::size;
 
         Fd fd = socket::accept(
             server_fd,
@@ -280,7 +280,7 @@ fn void? tcp_connect(Fd fd, String ip, ushort port)
     io::wait_writable(fd)!;
 
     int so_error = 0;
-    socket::SockLen opt_len = CInt.sizeof;
+    socket::SockLen opt_len = CInt::size;
     rc = socket::getsockopt(
         fd,
         socket::SOL_SOCKET,

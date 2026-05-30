@@ -188,16 +188,16 @@ A task calling `event.wait()` on this event will continue immediately.
 It is waiter-based instead of future-based because each `put()` or `get()` operation needs an independent cancellation-safe wait token.
 
 ```c3
-fn Queue*? aio::queue_new(usz capacity = QUEUE_CAP_DEFAULT);
+fn Queue*? aio::queue_new(sz capacity = QUEUE_CAP_DEFAULT);
 
-fn void? Queue.init(&self, usz capacity = QUEUE_CAP_DEFAULT) @maydiscard;
+fn void? Queue.init(&self, sz capacity = QUEUE_CAP_DEFAULT) @maydiscard;
 fn void Queue.deinit(&self);
 fn void Queue.free(&self);
 
-fn usz Queue.size(&self) @inline;
+fn sz Queue.size(&self) @inline;
 fn bool Queue.empty(&self) @inline;
 fn bool Queue.full(&self) @inline;
-fn usz Queue.maxsize(&self) @inline;
+fn sz Queue.maxsize(&self) @inline;
 fn bool Queue.is_closed(&self) @inline;
 
 fn void Queue.close(&self);

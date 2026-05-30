@@ -132,7 +132,7 @@ defer f.free();
 ### `File.read`
 
 ```c3
-fn usz? File.read(&self, char[] buf)
+fn sz? File.read(&self, char[] buf)
 ```
 
 Reads up to `buf.len` bytes into `buf`.
@@ -142,7 +142,7 @@ Returns the number of bytes read.
 ```c3
 char[4096] buf;
 
-usz n = f.read(buf[..])!;
+sz n = f.read(buf[..])!;
 String data = (String)buf[0:n];
 ```
 
@@ -173,7 +173,7 @@ Use this for fixed-size headers or binary records.
 ### `File.write`
 
 ```c3
-fn usz? File.write(&self, char[] data) @maydiscard
+fn sz? File.write(&self, char[] data) @maydiscard
 ```
 
 Writes up to `data.len` bytes.
@@ -181,7 +181,7 @@ Writes up to `data.len` bytes.
 Returns the number of bytes written.
 
 ```c3
-usz n = f.write("hello")!;
+sz n = f.write("hello")!;
 ```
 
 If `data.len` is zero, it returns `0`.
@@ -306,7 +306,7 @@ fn void? main_task(void* arg)
 
     char[4096] buf;
 
-    usz n = f.read(buf[..])!;
+    sz n = f.read(buf[..])!;
     String text = (String)buf[0:n];
 
     warn("%s", text);
@@ -330,7 +330,7 @@ fn void? main_task(void* arg)
 
     while (true)
     {
-        usz n = src.read(buf[..])!;
+        sz n = src.read(buf[..])!;
         if (n == 0) break;
 
         dst.write_all(buf[0:n])!;

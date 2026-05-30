@@ -32,12 +32,12 @@ extern fn Pid setsid() ;
 extern fn CInt daemon(CInt nochdir, CInt noclose) ;
 
 // File Descriptor Operations
-extern fn Ssize read(CInt fd, void* buf, usz count) ;
-extern fn Ssize write(CInt fd, void* buf, usz count) ;
-extern fn Ssize pread(CInt fd, void* buf, usz count, Off offset) ;
-extern fn Ssize pwrite(CInt fd, void* buf, usz count, Off offset) ;
-extern fn Ssize pread64(CInt fd, void* buf, usz count, Off64 offset) ;
-extern fn Ssize pwrite64(CInt fd, void* buf, usz count, Off64 offset) ;
+extern fn Ssize read(CInt fd, void* buf, sz count) ;
+extern fn Ssize write(CInt fd, void* buf, sz count) ;
+extern fn Ssize pread(CInt fd, void* buf, sz count, Off offset) ;
+extern fn Ssize pwrite(CInt fd, void* buf, sz count, Off offset) ;
+extern fn Ssize pread64(CInt fd, void* buf, sz count, Off64 offset) ;
+extern fn Ssize pwrite64(CInt fd, void* buf, sz count, Off64 offset) ;
 
 extern fn Ssize readv(CInt fd, IoVec* iov, CInt iovcnt) ;
 extern fn Ssize writev(CInt fd, IoVec* iov, CInt iovcnt) ;
@@ -66,12 +66,12 @@ extern fn CInt ftruncate(CInt fd, Off length) ;
 extern fn CInt ftruncate64(CInt fd, Off64 length) ;
 
 // Advanced I/O operations (Linux specific)
-extern fn Ssize splice(CInt fd_in, Off64* off_in, CInt fd_out, Off64* off_out, usz len, CUInt flags) ;
-extern fn Ssize tee(CInt fd_in, CInt fd_out, usz len, CUInt flags) ;
+extern fn Ssize splice(CInt fd_in, Off64* off_in, CInt fd_out, Off64* off_out, sz len, CUInt flags) ;
+extern fn Ssize tee(CInt fd_in, CInt fd_out, sz len, CUInt flags) ;
 extern fn Ssize vmsplice(CInt fd, IoVec* iov, CULong nr_segs, CUInt flags) ;
 extern fn CInt sync_file_range(CInt fd, Off64 offset, Off64 nbytes, CUInt flags) ;
-extern fn Ssize readahead(CInt fd, Off64 offset, usz count) ;
-extern fn Ssize copy_file_range(CInt fd_in, Off64* off_in, CInt fd_out, Off64* off_out, usz len, CUInt flags) ;
+extern fn Ssize readahead(CInt fd, Off64 offset, sz count) ;
+extern fn Ssize copy_file_range(CInt fd_in, Off64* off_in, CInt fd_out, Off64* off_out, sz len, CUInt flags) ;
 
 // File allocation
 extern fn CInt fallocate(CInt fd, CInt mode, Off offset, Off len) ;
@@ -88,7 +88,7 @@ extern fn CInt faccessat(CInt dirfd, char* pathname, CInt mode, CInt flags) ;
 
 extern fn CInt chdir(char* path) ;
 extern fn CInt fchdir(CInt fd) ;
-extern fn char* getcwd(char* buf, usz size) ;
+extern fn char* getcwd(char* buf, sz size) ;
 extern fn char* get_current_dir_name() ;
 
 extern fn CInt chown(char* pathname, Uid owner, Gid group) ;
@@ -105,8 +105,8 @@ extern fn CInt unlink(char* pathname) ;
 extern fn CInt unlinkat(CInt dirfd, char* pathname, CInt flags) ;
 extern fn CInt rmdir(char* pathname) ;
 
-extern fn Ssize readlink(char* pathname, char* buf, usz bufsiz) ;
-extern fn Ssize readlinkat(CInt dirfd, char* pathname, char* buf, usz bufsiz) ;
+extern fn Ssize readlink(char* pathname, char* buf, sz bufsiz) ;
+extern fn Ssize readlinkat(CInt dirfd, char* pathname, char* buf, sz bufsiz) ;
 
 extern fn CInt truncate(char* path, Off length) ;
 extern fn CInt truncate64(char* path, Off64 length) ;
@@ -127,7 +127,7 @@ extern fn CInt setegid(Gid gid) ;
 extern fn CInt setregid(Gid rgid, Gid egid) ;
 
 extern fn CInt getgroups(CInt size, Gid* list) ;
-extern fn CInt setgroups(usz size, Gid* list) ;
+extern fn CInt setgroups(sz size, Gid* list) ;
 extern fn CInt initgroups(char* user, Gid group) ;
 
 extern fn CInt getresuid(Uid* ruid, Uid* euid, Uid* suid) ;
@@ -142,7 +142,7 @@ extern fn CInt setfsgid(Gid fsgid) ;
 
 // Login information
 extern fn char* getlogin() ;
-extern fn CInt getlogin_r(char* name, usz size) ;
+extern fn CInt getlogin_r(char* name, sz size) ;
 extern fn char* cuserid(char* s) ;
 
 // Process Termination and Sleep
@@ -156,15 +156,15 @@ extern fn CInt pause() ;
 // Terminal Control
 extern fn CInt isatty(CInt fd) ;
 extern fn char* ttyname(CInt fd) ;
-extern fn CInt ttyname_r(CInt fd, char* buf, usz buflen) ;
+extern fn CInt ttyname_r(CInt fd, char* buf, sz buflen) ;
 extern fn char* ctermid(char* s) ;
 
 extern fn Pid tcgetpgrp(CInt fd) ;
 extern fn CInt tcsetpgrp(CInt fd, Pid pgrp) ;
 
 // Random/Entropy
-extern fn CInt getentropy(void* buffer, usz length) ;
-extern fn Ssize getrandom(void* buf, usz buflen, CUInt flags) ;
+extern fn CInt getentropy(void* buffer, sz length) ;
+extern fn Ssize getrandom(void* buf, sz buflen, CUInt flags) ;
 
 // Priority Control
 extern fn CInt nice(CInt inc) ;
@@ -176,14 +176,14 @@ extern fn CInt ioperm(CULong from, CULong num, CInt turn_on) ;
 extern fn CInt iopl(CInt level) ;
 
 // Profiling
-extern fn CInt profil(CUShort* buf, usz bufsiz, usz offset, CUInt scale) ;
+extern fn CInt profil(CUShort* buf, sz bufsiz, sz offset, CUInt scale) ;
 
 // Hostname and Domain
-extern fn CInt gethostname(char* name, usz len) ;
-extern fn CInt sethostname(char* name, usz len) ;
+extern fn CInt gethostname(char* name, sz len) ;
+extern fn CInt sethostname(char* name, sz len) ;
 
-extern fn CInt getdomainname(char* name, usz len) ;
-extern fn CInt setdomainname(char* name, usz len) ;
+extern fn CInt getdomainname(char* name, sz len) ;
+extern fn CInt setdomainname(char* name, sz len) ;
 
 extern fn CLong gethostid() ;
 extern fn CInt sethostid(CLong hostid) ;
@@ -192,7 +192,7 @@ extern fn CInt sethostid(CLong hostid) ;
 extern fn CLong sysconf(CInt name) ;
 extern fn CLong pathconf(char* path, CInt name) ;
 extern fn CLong fpathconf(CInt fd, CInt name) ;
-extern fn usz confstr(CInt name, char* buf, usz len) ;
+extern fn sz confstr(CInt name, char* buf, sz len) ;
 
 extern fn CInt getpagesize() ;
 extern fn CInt getdtablesize() ;
@@ -221,12 +221,12 @@ module c::unistd @if (env::LINUX);
 struct IoVec 
 {
     void* iov_base;
-    usz iov_len;
+    sz iov_len;
 }
 
 // Global Variables
 
-extern usz optind ;
+extern sz optind ;
 extern CInt optopt ;
 extern char* optarg ;
 extern CInt opterr ;
@@ -344,12 +344,12 @@ module c::unistd @if (env::DARWIN);
 struct IoVec 
 {
     void* iov_base;
-    usz iov_len;
+    sz iov_len;
 }
 
 // Global Variables
 
-extern usz optind ;
+extern sz optind ;
 extern CInt optopt ;
 extern char* optarg ;
 extern CInt opterr ;
@@ -437,12 +437,12 @@ module c::unistd @if (env::FREEBSD);
 struct IoVec 
 {
     void* iov_base;
-    usz iov_len;
+    sz iov_len;
 }
 
 // Global Variables
 
-extern usz optind ;
+extern sz optind ;
 extern CInt optopt ;
 extern char* optarg ;
 extern CInt opterr ;
@@ -550,12 +550,12 @@ module c::unistd @if (env::OPENBSD);
 struct IoVec 
 {
     void* iov_base;
-    usz iov_len;
+    sz iov_len;
 }
 
 // Global Variables
 
-extern usz optind ;
+extern sz optind ;
 extern CInt optopt ;
 extern char* optarg ;
 extern CInt opterr ;
@@ -657,12 +657,12 @@ module c::unistd @if (env::NETBSD);
 struct IoVec 
 {
     void* iov_base;
-    usz iov_len;
+    sz iov_len;
 }
 
 // Global Variables
 
-extern usz optind ;
+extern sz optind ;
 extern CInt optopt ;
 extern char* optarg ;
 extern CInt opterr ;

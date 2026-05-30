@@ -71,7 +71,7 @@ fn void? client_task(void* v_arg) @local
     while (!stream.closed)
     {
         char[4096] buf;
-        usz? n = stream.read(buf[..]);
+        sz? n = stream.read(buf[..]);
         if (catch err = n)
         {
             error = err;
@@ -143,7 +143,7 @@ fn void? service_task(void* v_arg) @local
     while (!stream.closed && !server.closed)
     {
         char[4096] buf;
-        usz? n = stream.read(buf[..]);
+        sz? n = stream.read(buf[..]);
         if (catch err = n)
         {
             error = err;
@@ -310,7 +310,7 @@ fn void? datagram_task(void* v_arg) @local
     {
         char[4096] buf;
         DatagramAddr addr;
-        usz? n = datagram.recvfrom(buf[..], &addr);
+        sz? n = datagram.recvfrom(buf[..], &addr);
         if (catch err = n)
         {
             error = err;

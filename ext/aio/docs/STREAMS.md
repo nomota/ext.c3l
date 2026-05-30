@@ -191,7 +191,7 @@ String ip = stream.peer_ip()!;
 ### `Stream.read`
 
 ```c3
-fn usz? Stream.read(&self, char[] buf)
+fn sz? Stream.read(&self, char[] buf)
 ```
 
 Asynchronously reads data into `buf`.
@@ -204,7 +204,7 @@ Example:
 
 ```c3
 char[4096] buf;
-usz n = stream.read(buf[..])!;
+sz n = stream.read(buf[..])!;
 
 if (n == 0)
 {
@@ -217,7 +217,7 @@ String data = (String)buf[0:n];
 ### `Stream.read_timeout`
 
 ```c3
-fn usz? Stream.read_timeout(&self, char[] buf, ulong timeout_ms)
+fn sz? Stream.read_timeout(&self, char[] buf, ulong timeout_ms)
 ```
 
 Timeout wrapper around `read()`.
@@ -226,7 +226,7 @@ Example:
 
 ```c3
 char[4096] buf;
-usz n = stream.read_timeout(buf[..], 5000)!;
+sz n = stream.read_timeout(buf[..], 5000)!;
 ```
 
 ### `Stream.read_exact`
@@ -249,7 +249,7 @@ stream.read_exact(header[..])!;
 ### `Stream.read_until`
 
 ```c3
-fn usz? Stream.read_until(&self, char[] buf, char delim)
+fn sz? Stream.read_until(&self, char[] buf, char delim)
 ```
 
 Reads one byte at a time until one of these happens:
@@ -266,7 +266,7 @@ Example:
 
 ```c3
 char[1024] line;
-usz n = stream.read_until(line[..], '\n')!;
+sz n = stream.read_until(line[..], '\n')!;
 
 String text = (String)line[0:n];
 ```
@@ -274,7 +274,7 @@ String text = (String)line[0:n];
 ### `Stream.read_line`
 
 ```c3
-fn usz? Stream.read_line(&self, char[] buf)
+fn sz? Stream.read_line(&self, char[] buf)
 ```
 
 Reads until newline.
@@ -289,7 +289,7 @@ Example:
 
 ```c3
 char[1024] line;
-usz n = stream.read_line(line[..])!;
+sz n = stream.read_line(line[..])!;
 ```
 
 ## Writing
@@ -297,7 +297,7 @@ usz n = stream.read_line(line[..])!;
 ### `Stream.write`
 
 ```c3
-fn usz? Stream.write(&self, char[] buf) @maydiscard
+fn sz? Stream.write(&self, char[] buf) @maydiscard
 ```
 
 Asynchronously writes data from `buf`.
@@ -310,7 +310,7 @@ Example:
 
 ```c3
 char[] data = "hello\n";
-usz n = stream.write(data)!;
+sz n = stream.write(data)!;
 ```
 
 ### `Stream.write_all`
@@ -368,7 +368,7 @@ fn void? main_task(void* arg)
 
     while (true)
     {
-        usz n = stream.read(buf[..])!;
+        sz n = stream.read(buf[..])!;
 
         if (n == 0) break;
 
@@ -397,7 +397,7 @@ fn void? handle_client(Stream* client)
 
     while (true)
     {
-        usz n = client.read_line(line[..])!;
+        sz n = client.read_line(line[..])!;
 
         if (n == 0) break;
 

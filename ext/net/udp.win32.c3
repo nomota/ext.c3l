@@ -63,7 +63,7 @@ fn void? UdpSocket.bind(sock, ushort port, String opt_ip = "*") @maydiscard
         winsock2::SOL_SOCKET,
         winsock2::SO_REUSEADDR,
         (char*)&option,
-        $sizeof(option)
+        @sizeof(option)
     );
 
     if (r == winsock2::SOCKET_ERROR)
@@ -97,7 +97,7 @@ fn void? UdpSocket.bind(sock, ushort port, String opt_ip = "*") @maydiscard
 
         adr.sin6_port = winsock2::htons(port);
 
-        if (winsock2::bind(sock, (winsock2::SockAddr*)&adr, $sizeof(adr)) == winsock2::SOCKET_ERROR)
+        if (winsock2::bind(sock, (winsock2::SockAddr*)&adr, @sizeof(adr)) == winsock2::SOCKET_ERROR)
         {
             return socket_fault()~;
         }
@@ -129,7 +129,7 @@ fn void? UdpSocket.bind(sock, ushort port, String opt_ip = "*") @maydiscard
 
         adr.sin_port = winsock2::htons(port);
 
-        if (winsock2::bind(sock, (winsock2::SockAddr*)&adr, $sizeof(adr)) == winsock2::SOCKET_ERROR)
+        if (winsock2::bind(sock, (winsock2::SockAddr*)&adr, @sizeof(adr)) == winsock2::SOCKET_ERROR)
         {
             return socket_fault()~;
         }
@@ -149,12 +149,12 @@ fn UdpSocket? new_bind(ushort port, String ip = "*")
 
 char[1] __null__;
 
-fn usz? UdpSocket.recvfrom(sock, char[] msgbuf, char[] ip = &__null__, ushort* port = null)
+fn sz? UdpSocket.recvfrom(sock, char[] msgbuf, char[] ip = &__null__, ushort* port = null)
 {
     if (msgbuf.len == 0) return 0;
 
     winsock2::SockAddrStorage adr = {};
-    int size = $sizeof(adr);
+    int size = @sizeof(adr);
 
     int len = winsock2::recvfrom(
         sock,
@@ -202,10 +202,10 @@ fn usz? UdpSocket.recvfrom(sock, char[] msgbuf, char[] ip = &__null__, ushort* p
         }
     }
 
-    return (usz)len;
+    return (sz)len;
 }
 
-fn usz? UdpSocket.sendto(sock, char[] msgbuf, String ip, ushort port)
+fn sz? UdpSocket.sendto(sock, char[] msgbuf, String ip, ushort port)
 {
     if (msgbuf.len == 0) return 0;
 
@@ -233,7 +233,7 @@ fn usz? UdpSocket.sendto(sock, char[] msgbuf, String ip, ushort port)
             (int)msgbuf.len,
             0,
             (winsock2::SockAddr*)&adr,
-            $sizeof(adr)
+            @sizeof(adr)
         );
 
         if (len == winsock2::SOCKET_ERROR)
@@ -241,7 +241,7 @@ fn usz? UdpSocket.sendto(sock, char[] msgbuf, String ip, ushort port)
             return socket_fault()~;
         }
 
-        return (usz)len;
+        return (sz)len;
     }
     else
     {
@@ -265,7 +265,7 @@ fn usz? UdpSocket.sendto(sock, char[] msgbuf, String ip, ushort port)
             (int)msgbuf.len,
             0,
             (winsock2::SockAddr*)&adr,
-            $sizeof(adr)
+            @sizeof(adr)
         );
 
         if (len == winsock2::SOCKET_ERROR)
@@ -273,11 +273,11 @@ fn usz? UdpSocket.sendto(sock, char[] msgbuf, String ip, ushort port)
             return socket_fault()~;
         }
 
-        return (usz)len;
+        return (sz)len;
     }
 }
 
-fn usz? UdpSocket.send(sock, char[] buf)
+fn sz? UdpSocket.send(sock, char[] buf)
 {
     if (buf.len == 0) return 0;
 
@@ -287,10 +287,10 @@ fn usz? UdpSocket.send(sock, char[] buf)
         return socket_fault()~;
     }
 
-    return (usz)n;
+    return (sz)n;
 }
 
-fn usz? UdpSocket.recv(sock, char[] buf)
+fn sz? UdpSocket.recv(sock, char[] buf)
 {
     if (buf.len == 0)
     {
@@ -303,7 +303,7 @@ fn usz? UdpSocket.recv(sock, char[] buf)
         return socket_fault()~;
     }
 
-    return (usz)n;
+    return (sz)n;
 }
 
 fn void? UdpSocket.set_non_blocking(sock) @maydiscard

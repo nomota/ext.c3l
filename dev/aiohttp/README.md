@@ -1,1012 +1,1169 @@
-// aiohttp README.md
+// README.md of ext::httpserver
 
-# ext::aiohttp
+# ext::httpserver
 
-Asynchronous HTTP client and server framework on top of the
-[ext::asyncio](../asyncio/README.md) framework.
+An efficient HTTP server framework for C3, built on top of `ext::asyncio` and inspired by the clean, minimal API style of Hono for JavaScript.
 
-This module follows mostly the [Python's aiohttp API](PythonAPI.md), while
-adapting the programming model to C3: explicit response objects, fault-returning
-I/O operations, and event-loop based asynchronous execution.
+`ext::httpserver` provides a compact API for defining routes, reading requests, building responses, using middleware, extracting route parameters, parsing query strings, and serving HTTP requests.
 
-`ext::aiohttp` provides:
+The framework is designed around a simple request lifecycle:
 
-* HTTP/1.1 client
-* HTTP/1.1 web server
-* routing with path parameters
-* middleware chain
-* request and response helpers
-* cookie/header utilities
-* form and multipart helpers
-* streaming response
-* static file response
-* WebSocket client/server helpers
-* URL, chunked-transfer, and WebSocket protocol utilities
+```text
+raw HTTP request
+  -> Request
+  -> Router.match()
+  -> Context
+  -> MiddlewareStack
+  -> Handler
+  -> Response
+  -> serialized HTTP response
+```
 
-### Available modules
+## Status
 
-| Module | Description |
-|--------|-------------|
-| `ext::aiohttp` | Shared HTTP types: `HttpMethod`, `Url`, `Headers`, `CookieJar`, `ClientTimeout`, `TlsConfig`, `BasicAuth`, `FormData`, `WsMessage` |
-| `ext::aiohttp` | HTTP client API: `ClientSession`, `TcpConnector`, request methods, response reading, WebSocket client |
-| `ext::aiohttp::web` | HTTP server API: `Application`, router, request/response handling, middleware, streaming response, file response, WebSocket server, `run_app()` |
-| `ext::aiohttp::web` | Built-in middleware helpers: error handler, logger, CORS, basic auth, max body size |
-| `ext::aiohttp` | URL parsing, percent encode/decode, query string building |
-| `ext::aiohttp` | Chunked transfer encoding and decoding |
-| `ext::aiohttp` | WebSocket handshake, frame encoding, frame decoding |
+This module is currently a minimal HTTP/1.1 framework implementation.
 
-This is a part of extended C3 library.  
-Back to [ext.c3l](../../README.md) library.
+Implemented:
 
-### Files
+- HTTP request parsing
+- HTTP response serialization
+- Header storage with duplicate header support
+- Route matching
+- Route params such as `/users/:id`
+- Wildcard splat routes such as `/static/*`
+- Query string parsing
+- Percent decoding
+- Middleware chain
+- Request/Response integrated `Context`
+- Basic server integration
+- Cookie read/write through headers
 
-* [aiohttp.types.c3](aiohttp.types.c3)
-* [aiohttp.client.c3](aiohttp.client.c3)
-* [aiohttp.web.c3](aiohttp.web.c3)
-* [client.dns.c3](client.dns.c3)
-* [client.pool.c3](client.pool.c3)
-* [client.req.c3](client.req.c3)
-* [util.url.c3](util.url.c3)
-* [util.chunk.c3](util.chunk.c3)
-* [util.ws.c3](util.ws.c3)
-* [web.middleware.c3](web.middleware.c3)
+Not yet implemented:
 
-### API functions
-
-Following functions follow Python-like behavior, all of them are
-asynchronous/non-blocking under the framework of `asyncio`.
-
-## Server API
-
-Basic web server:
+- chunked transfer decoding
+- multipart form parsing
+- full keep-alive / pipelining buffering
+- automatic JSON serialization
+- WebSocket upgrade
+- TLS integration
+- static file serving
+- body streaming
+- builtin authentication in middleware
+- gzip/deflate compression
+- CORS helpers
+- structured access logging
+- multi thread/cpu optimization
+- 
+## Module
 
 ```c3
-import ext::aiohttp::web;
-import c::stdio;
+module ext::httpserver;
+```
 
-fn Response*? handle_root(Request* req)
+Typical imports:
+
+```c3
+import std::io;
+import ext::httpserver;
+import ext::asyncio;
+```
+
+## Quick start
+
+```c3
+module examples::hello;
+
+import ext::httpserver;
+import ext::asyncio;
+
+fn Response* hello_handler(Ctx* c)
 {
-    return web::response_new(200, "Welcome to the aiohttp server!");
+    return c.text("Hello, ext::httpserver!");
 }
 
-fn Response*? handle_greet(Request* req)
+fn void main_coro() // coroutine
 {
-    String name = req.match_info.get("name") ?? "Anonymous";
+    Application app;
+    app.init();
+    defer app.free();
 
-    char[256] buf;
-    int n = stdio::snprintf(&buf[0], buf.len, "Hello, %s!", name.ptr);
+    app.get("/", &hello_handler)!!;
 
-    return web::response_new(
-        200,
-        "", // empty text
-        &buf[0], // body
-        n, // body len
-        "text/plain",
-        "utf-8",
-    );
+    app.listen(8080)!!;
+}
+
+fn void main() 
+{
+    asyncio::run(&main_coro);
+}
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8080/
+```
+
+Expected response:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 23
+Connection: close
+
+Hello, ext::httpserver!
+```
+
+## Application
+
+The main application type is `Application`.
+
+```c3
+struct Application {
+    Router router;
+    MiddlewareStack middlewares;
+}
+```
+
+### Lifecycle
+
+```c3
+fn void Application.init(&self);
+fn void Application.free(&self);
+fn void Application.clear(&self);
+
+fn Application* application_new();
+fn void application_free(Application* app);
+```
+
+Stack usage:
+
+```c3
+Application app;
+app.init();
+defer app.free();
+```
+
+Heap usage:
+
+```c3
+Application* app = application_new();
+defer application_free(app);
+```
+
+## Routing
+
+Routes are registered directly on `Application`.
+
+```c3
+fn void? Application.get(&self, String path, Handler handler);
+fn void? Application.post(&self, String path, Handler handler);
+fn void? Application.put(&self, String path, Handler handler);
+fn void? Application.patch(&self, String path, Handler handler);
+fn void? Application.delete(&self, String path, Handler handler);
+fn void? Application.options(&self, String path, Handler handler);
+fn void? Application.head(&self, String path, Handler handler);
+fn void? Application.add(&self, String method, String path, Handler handler);
+```
+
+Handler type:
+
+```c3
+alias Handler = fn Response*(Ctx* c);
+```
+
+Example:
+
+```c3
+import ext::httpserver;
+import ext::asyncio;
+
+fn Response* home(Ctx* c)
+{
+    return c.text("Home");
+}
+
+fn Response* create_user(Ctx* c)
+{
+    return c.json(`{"ok":true}`);
+}
+
+fn void main_coro()
+{
+    Application app;
+    app.init();
+    defer app.free();
+
+    app.get("/", &home)!!;
+    app.post("/users", &create_user)!!;
+
+    app.listen(8080)!!;
+}
+
+fn void main() 
+{
+    asyncio::run(&main_coro);
+}
+
+```
+
+## Route path parameters
+
+Routes can contain named parameters with colon.
+
+```c3
+app.get("/users/:user_id", &user_detail)!!;
+```
+
+Read parameters through `Ctx.param()`:
+
+```c3
+fn Response* user_detail(Ctx* c)
+{
+    String? id = c.param("user_id");
+
+    if (catch err = id) {
+        c.status(400);
+        return c.text("missing id");
+    }
+
+    return c.text(id);
+}
+```
+
+Route parameter names must start with an alphabetic character or `_`.
+
+Allowed examples:
+
+```text
+/users/:user_id/posts/:post_id   // multiple path params in a single route
+:id
+:user_id
+:file-name
+```
+
+Invalid examples:
+
+```text
+:
+:123
+:user.id
+```
+
+## Wildcard routes
+
+Wildcard routes use `*`.
+
+```c3
+app.get("/static/*", &static_handler)!!;
+```
+
+Read the wildcard capture through `Ctx.splat()`:
+
+```c3
+fn Response* static_handler(Ctx* c)
+{
+    String? rest_path = c.splat(); 
+
+    if (catch err = rest_path) {
+        return c.text("missing path");
+    }
+    
+    String content = read_file(rest_path);
+
+    return c.text(content);
+}
+```
+
+Example:
+
+```text
+Route: /static/*
+Path:  /static/css/app.css
+Splat: css/app.css
+```
+
+## Mounting child apps
+
+Use `Application.route()` to mount another app under a prefix.
+
+```c3
+
+import ext::httpserver;
+import ext::asyncio;
+
+fn Response* users(Ctx* c)
+{
+    return c.text("users");
+}
+
+fn void main_coro()
+{
+    Application api;
+    api.init();
+    defer api.free();
+
+    api.get("/users", &users)!!;
+
+    Application app;
+    app.init();
+    defer app.free();
+
+    app.route("/api", &api)!!;
+
+    app.listen(8080)!!;
 }
 
 fn void main()
 {
-    Application* app = web::app_new();
-
-    app.router.add_get("/", &handle_root);
-    app.router.add_get("/{name}", &handle_greet);
-
-    web::run_app(app, port: 8080)!!;
+    asyncio::run(&main_coro);
 }
+
 ```
 
-Application:
+Result:
+
+```text
+GET /api/users
+```
+
+Currently `route()` mounts routes only. Child middleware composition can be added later.
+
+## Context
+
+The `Context` object is passed to every handler and middleware.
 
 ```c3
-import ext::aiohttp::web;
-
-/*
-fn Application* app_new(usz client_max_size = 1024 * 1024)
-*/
-Application* app = web::app_new();
-Application* app = web::app_new(1024 * 1024);
-
-void app.free();
-
-void app.on_startup(AppHook hook);
-void app.on_shutdown(AppHook hook);
-void app.on_cleanup(AppHook hook);
-
-void? app.set_state(String key, void* value);
-void* value = app.get_state(String key);
-```
-
-Routing:
-
-```c3 
-import ext::aiohttp::web;
-
-RouteTable* routes = web::routetable_new();
-
-routes.get("/", handle_root);
-routes.get("/{name}", handle_greet);
-routes.post("/submit", handle_submit);
-routes.put("/items/{id}", handle_put);
-routes.patch("/items/{id}", handle_patch);
-routes.delete("/items/{id}", handle_delete);
-routes.head("/items/{id}", handle_head);
-routes.options("/items", handle_options);
-routes.ws("/ws", handle_ws);
-
-app.add_routes(routes)!!;
-```
-
-Or add routes directly to the application router:
-    
-```c3 
-import ext::aiohttp::web;
-
-app.router.add_get("/", handle_root);
-app.router.add_post("/submit", handle_submit);
-app.router.add_static("/static", "./public")!!;
-```
-
-Named routes and URL building:
-
-```c3 
-import ext::aiohttp::web;
-
-app.router.add_get("/users/{id}", handle_user, "user_detail");
-
-Headers* params = headers_new();
-params.set("id", "42");
-
-aiohttp::Url? url = app.router.url_for("user_detail", params);
-```
-
-Request handlers:
-
-```c3 
-import ext::aiohttp::web;
-
-fn Response*? handler(Request* req)
-{
-    HttpMethod method = req.method;
-    String path = req.path;
-    aiohttp::Url url = req.url;
-
-    Headers* headers = req.headers;
-    Headers* query = req.query;
-    Headers* match_info = req.match_info;
-    Headers* cookies = req.cookies;
-
-    return web::response_new(200, "OK");
-}
-```
-
-Request body:
-
-```c3 
-import ext::aiohttp::web;
-
-fn Response*? echo(Request* req)
-{
-    usz len;
-    char*? body = req.read(&len);
-    if (catch err = body) return err~;
-
-    return web::response_new(
-        200,
-        "OK",
-        body,
-        len,
-        "text/plain",
-        "utf-8",
-    );
+struct Context {
+    Request* req;
+    Response* res;
+    Params params;
+    Query query_cache;
+    bool query_cache_ready;
 }
 
-Text and JSON body:
-
-```c3 
-import ext::aiohttp::web;
-
-String? text = req.text();
-String? json = req.json_text();
+alias Ctx = Context; // use Ctx
 ```
+* Note: Context is an integrated object, covering both request reading and response generating.
 
-URL encoded form:
-
-```c3 
-import ext::aiohttp::web;
-
-Headers*? form = req.post();
-String username = form.get("username") ?? "";
-```
-
-Multipart form:
-
-```c3 
-import ext::aiohttp::web;
-
-MultipartReader*? reader = req.multipart();
-if (catch err = reader) return err~;
-
-BodyPart? part = reader.next();
-while (try part) {
-    String name = part.name;
-    String filename = part.filename;
-    String content_type = part.content_type;
-    char* data = part.data;
-    usz len = part.data_len;
-
-    part.free();
-    part = reader.next();
-}
-
-reader.free();
-```
-
-Response:
+Common APIs for Request reading:
 
 ```c3
-Response* r = web::response_new(200, "Hello");
-Response* r = web::response_new(404, "Not Found");
-Response* r = web::json_response("{\"ok\":true}");
+// methods for reading Request
 
-r.set_header("X-App", "ext::aiohttp");
-r.set_cookie(&cookie);
+fn ushort Ctx.get_status(&self);
+fn String Ctx.method(&self);
+fn String Ctx.path(&self);
+fn String Ctx.target(&self); // path?query_string
 
-return r;
+fn String? Ctx.req_header(&self, String name);
+fn char[] Ctx.body(&self);
+fn bool Ctx.has_body(&self);
+
+fn String? Ctx.form(&self, String name);
+fn String? Ctx.cookie(&self, String name);
+fn String? Ctx.param(&self, String name); // route path param with :name
+fn String? Ctx.splat(&self); // wildcard('*') part of a route path
+
+fn String? Ctx.query(&self, String name);
+fn bool Ctx.has_query(&self, String name);
+fn Query* Ctx.queries(&self);
 ```
 
-HTTP error helpers:
+Common APIs for Response generating:
 
 ```c3 
-import ext::aiohttp::web;
+// methods for setting Response
 
-return web::http_bad_request();
-return web::http_unauthorized();
-return web::http_forbidden();
-return web::http_not_found();
-return web::http_method_not_allowed();
-return web::http_internal_server_error();
+fn void Ctx.status(&self, ushort status);
+fn void Ctx.header(&self, String name, String value);
+fn void Ctx.add_header(&self, String name, String value);
+fn void Ctx.content_type(&self, String value);
+fn void Ctx.set_cookie(&self, String value);
+void? Context.delete_cookie(&self, String name);
 
-return web::http_redirect("/login");
-return web::http_moved_permanently("/new-path");
+CookieOptions opt = cookie_options_default();
+    opt.http_only = true;
+    opt.same_site = "Lax";
+    opt.max_age = "0"; // seconds
+fn void Ctx.cookie_set(&self, name, value, &opt);
+void? Context.delete_cookie_path(&self, String name, String path);
+
+fn Response* Ctx.text(&self, String text);
+fn Response* Ctx.html(&self, String html);
+fn Response* Ctx.json(&self, String json);
+fn Response* Ctx.body_response(&self, char[] body);
+fn Response* Ctx.empty(&self);
+fn Response* Ctx.redirect(&self, String location, ushort status = 302);
+fn Response* Ctx.not_found(&self);
+fn Response* Ctx.internal_error(&self);
 ```
 
-Streaming response:
-
-```c3 
-import ext::aiohttp::web;
-
-fn Response*? stream_handler(Request* req)
-{
-    StreamResponse* resp = web::stream_response_new(200);
-    resp.set_header("Content-Type", "text/plain");
-
-    resp.prepare(req)!!;
-
-    resp.write("hello\n".ptr, 6)!!;
-    resp.write("world\n".ptr, 6)!!;
-    resp.write_eof()!!;
-
-    resp.free();
-
-    return null;
-}
-```
-
-File response:
-
-```c3 
-import ext::aiohttp::web;
-
-fn Response*? download(Request* req)
-{
-    FileResponse* fr = web::file_response_new("./public/file.txt");
-    web::file_response_send(fr, req.stream)!!;
-    fr.free();
-
-    return null;
-}
-```
-
-WebSocket server:
+### Text response
 
 ```c3
-import ext::aiohttp::web;
-
-fn void ws_handler(Request* req, WebSocketResponse* ws)
+fn Response* hello(Ctx* c)
 {
-    ws.prepare(req)!!;
+    return c.text("hello");
+}
+```
 
-    while (true) {
-        WsMessage? msg = ws.receive();
-        if (catch err = msg) break;
+This sets:
 
-        switch (msg.type) {
-            case WsMsgType.TEXT:
-                ws.send_str(msg.as_str())!!;
+```http
+Content-Type: text/plain; charset=utf-8
+```
 
-            case WsMsgType.BINARY:
-                ws.send_bytes(msg.data, msg.len)!!;
+### HTML response
 
-            case WsMsgType.PING:
-                ws.pong()!!;
+```c3
+fn Response* page(Ctx* c)
+{
+    return c.html(`<h1>Hello</h1>`);
+}
+```
 
-            case WsMsgType.CLOSE:
-                msg.free();
-                break;
+This sets:
 
-            default:
-        }
+```http
+Content-Type: text/html; charset=utf-8
+```
 
-        msg.free();
+### JSON response
+
+```c3
+fn Response* api(Ctx* c)
+{
+    return c.json("{\"message\":\"hello\"}");
+}
+```
+
+This sets:
+
+```http
+Content-Type: application/json; charset=utf-8
+```
+
+The current version expects JSON as a string. It does not yet serialize arbitrary C3 values.
+
+### Status code
+
+```c3
+fn Response* created(Ctx* c)
+{
+    c.status(201);
+    return c.json("{\"created\":true}");
+}
+```
+
+### Custom headers
+
+```c3
+fn Response* handler(Ctx* c)
+{
+    c.header("X-App", "demo");
+    return c.text("ok");
+}
+```
+
+### Redirect
+
+```c3
+fn Response* redirect_home(Ctx* c)
+{
+    return c.redirect("/", 302);
+}
+```
+
+## Request
+
+`Request` stores parsed HTTP request data.
+
+```c3
+struct Request {
+    String method;
+    String target;
+    String path;
+    String query_string;
+    String version;
+
+    Headers headers;
+
+    char[] body;
+    bool owns_body;
+}
+```
+
+Lifecycle:
+
+```c3
+fn void Request.init(&self);
+fn void Request.free(&self);
+
+fn Request* request_new();
+fn void request_free(Request* req);
+```
+
+Accessors:
+
+```c3
+fn String? Request.header(&self, String name);
+fn bool Request.has_body(&self);
+fn sz? Request.content_length(&self);
+fn bool Request.is_http_11(&self);
+fn bool Request.is_http_10(&self);
+```
+
+Parser:
+
+```c3
+fn Request*? request_parse(char[] raw);
+fn bool request_headers_complete(char[] raw);
+fn sz? request_expected_total_len(char[] raw);
+fn bool request_message_complete(char[] raw);
+```
+
+Example:
+
+```c3
+char[] raw = (char[])"GET /hello?name=c3 HTTP/1.1\r\nHost: localhost\r\n\r\n";
+
+Request*? req = request_parse(raw);
+if (catch err = req) {
+    // handle BAD_REQUEST, REQUEST_TOO_LARGE, etc.
+}
+
+defer request_free(req);
+
+io::printfn("%s %s", req.method, req.path);
+```
+
+## Response
+
+`Response` stores HTTP status, headers, and body.
+
+```c3
+struct Response {
+    ushort status;
+    Headers headers;
+    char[] body;
+    bool owns_body;
+}
+```
+
+Lifecycle:
+
+```c3
+fn void Response.init(&self);
+fn void Response.free(&self);
+
+fn Response* response_new();
+fn void response_free(Response* res);
+```
+
+Constructors:
+
+```c3
+fn Response* response_empty(ushort status);
+fn Response* response_body(char[] body);
+fn Response* response_text(String text);
+fn Response* response_html(String html);
+fn Response* response_json(String json);
+fn Response* response_redirect(String location, ushort status = 302);
+fn Response* response_not_found();
+fn Response* response_internal_error();
+```
+
+Mutators:
+
+```c3
+fn void Response.set_status(&self, ushort status);
+fn void Response.header(&self, String name, String value);
+fn void Response.add_header(&self, String name, String value);
+fn void Response.content_type(&self, String value);
+fn void Response.content_length(&self, sz value);
+fn void Response.set_cookie(&self, String value);
+fn void Response.set_body_copy(&self, char[] body);
+fn void Response.set_body_borrowed(&self, char[] body);
+fn void Response.set_text(&self, String text);
+fn void Response.set_html(&self, String html);
+fn void Response.set_json(&self, String json);
+```
+
+Serialization:
+
+```c3
+fn sz Response.serialized_len(&self);
+fn sz Response.write_to(&self, char[] out);
+fn String Response.serialize(&self);
+```
+
+Example:
+
+```c3
+Response* res = response_text("hello");
+defer response_free(res);
+
+String wire = res.serialize();
+defer localmem.free(wire);
+
+io::printfn("%s", wire);
+```
+
+`Content-Length` is automatically added during serialization if missing.
+
+`Connection` is also added by default if missing.
+
+
+## Query strings
+
+Query strings are parsed into `Query`.
+
+
+APIs:
+
+```c3
+fn String? url_decode(String s);
+fn String? query_decode(String s);
+fn void? query_parse(Query* out, String query_string);
+
+fn Query? Request.query_params(&self);
+fn String? Request.query_copy(&self, String name);
+
+fn String? Request.decoded_path(&self);
+```
+
+Example:
+
+```c3
+fn Response* search(Ctx* c)
+{
+    String? q = c.query("q");
+
+    if (catch err = q) {
+        return c.text("missing query");
     }
 
-    ws.close()!!;
+    return c.text(q);
 }
-
-app.router.add_ws("/ws", ws_handler);
 ```
 
-Application runner and TCP site:
+For repeated query access, prefer the context cache:
 
-```c3 
-import ext::aiohttp::web;
+```c3
+fn Response* handler(Ctx* c)
+{
+    Query* q = c.queries();
 
-Application* app = web::app_new();
+    if (q == null) {
+        c.status(400);
+        return c.text("bad query");
+    }
 
-AppRunner* runner = web::runner_new(app);
-runner.setup()!!;
+    String? page = q.get("page");
 
-TcpSite* site = web::tcpsite_new(runner, "0.0.0.0", 8080);
-site.start()!!;
+    if (catch err = page) {
+        return c.text("page missing");
+    }
 
-// later
-site.stop()!!;
-runner.cleanup()!!;
-
-site.free();
-runner.free();
+    return c.text(page);
+}
 ```
 
-Simple run:
+Supported query forms:
 
-```c3 
-import ext::aiohttp::web;
+```text
+a=1
+a=
+flag
+a=hello+world
+a=%E2%9C%93
+```
 
-web::run_app(app, port: 8080)!!;
+Behavior:
+
+```text
++      -> space in query values
+%XX    -> decoded byte
+flag   -> value ""
+```
+
+## Path Params
+
+Route parameters use path  `Params`.
+
+APIs:
+
+```c3
+fn void params_init(Params* params);
+fn void params_free(Params* params);
+fn void params_clear(Params* params);
+
+fn void? Params.put(&self, String name, String value);
+fn void? Params.add_param(&self, String name, String value);
+fn String? Params.get_param(&self, String name);
+fn bool Params.has_param(&self, String name);
+fn bool Params.delete_param(&self, String name);
+
+fn void? Params.copy_from(&self, Params* other);
+fn Params? params_clone(Params* src);
+
+fn void? Params.set_splat(&self, String value);
+fn String? Params.splat(&self);
+
+fn void? Params.put_decoded(&self, String name, String raw_value);
+fn void? Params.set_splat_decoded(&self, String raw_value);
+```
+
+Most users should access route params through `Context`:
+
+```c3
+String? id = c.param("id");
+String? rest = c.splat();
 ```
 
 ## Middleware
 
-Middleware follows the same conceptual model as Python aiohttp middleware:
-
-```python
-async def middleware(request, handler):
-    return await handler(request)
-```
-
-C3 equivalent:
-
-```c3 
-import ext::aiohttp::web;
-
-fn Response*? middleware(Request* req, NextHandler next)
-{
-    return next(req);
-}
-```
-
-Logger middleware:
-
-```c3 
-import ext::aiohttp::web;
-
-fn Response*? logger(Request* req, NextHandler next)
-{
-    io::printfn("%s %s", req.method.str(), req.path);
-    return next(req);
-}
-
-app.add_middleware(&logger);
-```
-
-Short-circuit middleware:
+Middleware follows a Hono-style chain.
 
 ```c3
-import ext::aiohttp::web;
+alias Next = fn Response*(Ctx* c);
+alias Middleware = fn Response*(Ctx* c, Next next);
+```
 
-fn Response*? auth_required(Request* req, NextHandler next)
+Register middleware:
+
+```c3
+app.use(&middleware_logger);
+app.use_path("/api", &auth_middleware)!!;
+```
+
+Global middleware:
+
+```c3
+fn Response* logger(Ctx* c, Next next)
 {
-    String token = req.headers.get("Authorization") ?? "";
-    if (token.len == 0) {
-        return http_unauthorized("Missing Authorization header");
+    io::printfn("%s %s", c.method(), c.path());
+
+    Response* res = next(c);
+
+    if (res != null) {
+        io::printfn("-> %d", res.status);
     }
 
-    return next(req);
+    return res;
 }
-
-app.add_middleware(&auth_required);
 ```
 
-Built-in middleware helpers:
-
-```
-import ext::aiohttp::web;
-
-app.add_middleware(mw_error_handler);
-app.add_middleware(mw_logger);
-
-CorsConfig cors = {
-    .allow_origin = "*",
-    .allow_methods = "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-    .allow_headers = "Content-Type,Authorization",
-};
-
-MiddlewareFn? cors_mw = mw_cors_make(&cors);
-app.add_middleware(cors_mw!!);
-
-MiddlewareFn? auth_mw = mw_basic_auth_make("user:password");
-app.add_middleware(auth_mw!!);
-
-MiddlewareFn? limit_mw = mw_max_body_make(1024 * 1024);
-app.add_middleware(limit_mw!!);
-```
-
-## Client API
-
-Create a session:
-
-```c3 
-import ext::aiohttp;
-
-ClientSession* session = aiohttp::session_new();
-
-/*
-fn ClientSession* session_new(
-    TcpConnector* connector        = null,
-    ClientTimeout timeout          = { .total_us = 30_000_000 },
-    Headers*      default_headers  = null,
-    BasicAuth*    auth             = null,
-    CookieJar*    cookie_jar       = null,
-    bool          raise_for_status = false,
-)
-*/
-```
-
-Simple GET:
+Path middleware:
 
 ```c3
-import ext::aiohttp;
-
-ClientResponse*? resp = session.get("http://example.com/");
-if (catch err = resp) return err~;
-
-io::printfn("status = %d", resp.status);
-
-String? text = resp.text();
-if (try text) {
-    io::printfn("%s", text);
-}
-
-resp.release();
-session.close();
-```
-
-Request methods:
-
-```c3
-import ext::aiohttp;
-
-ClientResponse*? r = session.request(HttpMethod.GET, "http://example.com/");
-ClientResponse*? r = session.get("http://example.com/");
-ClientResponse*? r = session.post("http://example.com/", data, data_len);
-ClientResponse*? r = session.put("http://example.com/", data, data_len);
-ClientResponse*? r = session.patch("http://example.com/", data, data_len);
-ClientResponse*? r = session.delete("http://example.com/");
-ClientResponse*? r = session.head("http://example.com/");
-ClientResponse*? r = session.options("http://example.com/");
-```
-
-Query parameters:
-
-```c3 
-import ext::aiohttp;
-
-Headers* params = aiohttp::headers_new();
-params.set("q", "c3");
-params.set("page", "1");
-
-/*
-fn ClientResponse*? ClientSession.get(&self,
-    String url,
-    Headers* params = null,
-    Headers* headers = null,
-    TlsConfig* tls = null)
-*/
-ClientResponse*? resp = session.get(
-    "http://example.com/search",
-    params,
-);
-```
-
-Custom headers:
-
-```c3
-import ext::aiohttp;
-
-Headers* headers = aiohttp::headers_new();
-headers.set("User-Agent", "ext::aiohttp");
-headers.set("Accept", "application/json");
-
-ClientResponse*? resp = session.get(
-    "http://example.com/api",
-    null, // params
-    headers,
-);
-```
-
-POST JSON:
-
-```c3 
-import ext::aiohttp;
-/*
-fn ClientResponse*? ClientSession.post(&self,
-    String url,
-    char* data = null,
-    usz data_len = 0,
-    String json_str = "",
-    FormData* form = null,
-    Headers* headers = null,
-    TlsConfig* tls = null) 
-*/
-ClientResponse*? resp = session.post(
-    "http://example.com/api",
-    null, // data
-    0, // data_len
-    "{\"name\":\"c3\"}", // json_str
-);
-```
-
-POST form-data:
-
-```c3 
-import ext::aiohttp;
-
-FormData* form = aiohttp::formdata_new();
-
-form.add_str("name", "c3");
-form.add_field(
-    "file",
-    (char*)data.ptr,
-    data.len,
-    "hello.txt",
-    "text/plain",
-);
-
-ClientResponse*? resp = session.post(
-    "http://example.com/upload",
-    null, // data
-    0, // data_len
-    null, // json_str
-    form,
-);
-
-form.free();
-```
-
-Response API:
-
-```c3
-import ext::aiohttp;
-
-int status = resp.status;
-String reason = resp.reason;
-Headers* headers = resp.headers;
-CookieJar* cookies = resp.cookies;
-
-usz len;
-char*? body = resp.read(&len);
-
-String? text = resp.text();
-String? json = resp.json_text();
-
-resp.raise_for_status();
-
-Stream* content = resp.content();
-
-resp.release();
-```
-
-Connector:
-
-```c3 
-import ext::aiohttp;
-
-/*
-fn TcpConnector* connector_new(
-    int        limit                = 100,
-    int        limit_per_host       = 0,
-    TlsConfig* tls                  = null,
-    usz        read_bufsize         = 65536,
-    bool       use_dns_cache        = true,
-    ulong      ttl_dns_cache_us     = 10_000_000,
-    ulong      keepalive_timeout_us = 15_000_000,
-    bool       force_close          = false,
-)
-*/
-
-TcpConnector* connector = aiohttp::connector_new(
-    100, // limit: 100,
-    10, // limit_per_host: 10,
-    null, // TlsConfig*
-    65_536, // read_bufsize
-    true, // use_dns_cache
-    10_000_000, // ttl_dns_cache_us
-    15_000_000, // keepalive_timeout_us
-);
-
-/*
-fn ClientSession* session_new(
-    TcpConnector* connector        = null,
-    ClientTimeout timeout          = { .total_us = 30_000_000 },
-    Headers*      default_headers  = null,
-    BasicAuth*    auth             = null,
-    CookieJar*    cookie_jar       = null,
-    bool          raise_for_status = false,
-)
-*/
-
-ClientSession* session = aiohttp::session_new(connector);
-
-int total = connector.total_conns();
-
-session.close();
-```
-
-Timeout:
-
-```c3 
-import ext::aiohttp;
-
-ClientTimeout timeout = {
-    .total_us = 30_000_000,
-};
-
-TcpConnector* connector = null;
-ClientSession* session = aiohttp::session_new(connector, timeout);
-```
-
-TLS configuration:
-
-* Note: TLS is not yet supported
-
-```c3 
-import ext::aiohttp;
-
-TlsConfig tls = {
-    .verify_peer = true,
-};
-
-ClientResponse*? resp = session.get(
-    "https://example.com/",
-    null, // params
-    null, // headers
-    &tls,
-);
-```
-
-Basic auth:
-
-```c3 
-import ext::aiohttp;
-
-BasicAuth auth = {
-    .login = "user",
-    .password = "password",
-};
-
-/*
-fn ClientSession* session_new(
-    TcpConnector* connector        = null,
-    ClientTimeout timeout          = { .total_us = 30_000_000 },
-    Headers*      default_headers  = null,
-    BasicAuth*    auth             = null,
-    CookieJar*    cookie_jar       = null,
-    bool          raise_for_status = false,
-)
-*/
-TcpConnector* connector = null;
-ClientTimeout timeout = {};
-Headers* headers = null;
-
-ClientSession* session = aiohttp::session_new(connector, timeout, headers, &auth);
-```
-
-Cookie jar:
-
-```c3 
-import ext::aiohttp;
-
-TcpConnector* connector = null;
-ClientTimeout timeout = {};
-Headers* headers = null;
-BasicAuth* auth = null;
-
-CookieJar* jar = aiohttp::cookiejar_new();
-
-ClientSession* session = aiohttp::session_new(connector, timeout, headers, auth, jar);
-```
-
-Client WebSocket:
-
-```c3 
-import ext::aiohttp;
-
-ClientSession* session = aiohttp::session_new();
-
-ClientWs*? ws = session.ws_connect("ws://localhost:8080/ws");
-if (catch err = ws) return err~;
-
-ws.send_str("hello")!!;
-
-WsMessage? msg = ws.receive();
-if (try msg) {
-    if (msg.type == WsMsgType.TEXT) {
-        io::printfn("received: %s", msg.as_str());
+import ext::httpserver;
+import ext::asyncio;
+
+fn Response* api_auth(Ctx* c, Next next)
+{
+    String? auth = c.req_header("Authorization");
+
+    if (catch err = auth) {
+        c.status(401);
+        return c.text("Unauthorized");
     }
-    msg.free();
+
+    return next(c);
 }
 
-ws.close()!!;
-ws.free();
+fn void main_coro()
+{
+    Application app;
+    app.init();
+    defer app.free();
 
-session.close();
-```
+    app.use_path("/api", &api_auth)!!;
 
-WebSocket send helpers:
+    app.get("/api/users", &users_handler)!!;
 
-```c3 
-import ext::aiohttp;
-
-ws.send_str("hello")!!;
-ws.send_bytes(data, len)!!;
-ws.send_json("{\"op\":\"ping\"}")!!;
-ws.ping()!!;
-ws.pong()!!;
-```
-
-WebSocket receive helpers:
-
-```c3
-import ext::aiohttp;
-
-WsMessage? msg = ws.receive();
-
-String? text = ws.receive_str();
-
-usz len;
-char*? data = ws.receive_bytes(&len);
-
-String? json = ws.receive_json();
-```
-
-Shared types
-
-HTTP method:
-
-```c3
-import ext::aiohttp;
-
-HttpMethod m = HttpMethod.GET;
-String s = m.str();
-
-HttpMethod? m = http_method_from_str("POST");
-```
-
-Headers:
-
-```c3
-import ext::aiohttp;
-
-Headers* h = aiohttp::headers_new();
-
-h.set("Content-Type", "application/json");
-h.add("Set-Cookie", "a=1");
-
-String ct = h.get("Content-Type") ?? "";
-bool has_ct = h.has("Content-Type");
-
-Header first = h.get_at(0);
-usz count = h.len();
-
-h.del("Content-Type");
-h.free();
-```
-
-Cookies:
-
-```c3 
-import ext::aiohttp;
-
-CookieJar* jar = aiohttp::cookiejar_new();
-
-Cookie cookie = {
-    .name = "sid",
-    .value = "123",
-    .path = "/",
-    .http_only = true,
-};
-
-jar.update(&cookie, 1, &url);
-
-usz count;
-Cookie* cookies = jar.filter(&url, &count);
-
-jar.free();
-```
-
-FormData:
-
-```c3 
-import ext::aiohttp;
-
-FormData* form = aiohttp::formdata_new();
-
-form.add_str("name", "value");
-
-form.add_field(
-    "file",
-    data,
-    data_len,
-    "file.txt",
-    "text/plain",
-);
-
-form.free();
-```
-
-Status helpers:
-
-```c3 
-import ext::aiohttp;
-
-String reason = aiohttp::http_reason(200);
-
-bool ok = aiohttp::http_status_is_success(200);
-bool redirect = aiohttp::http_status_is_redirect(302);
-bool err = aiohttp::http_status_is_error(500);
-bool client_err = aiohttp::http_status_is_client_err(404);
-bool server_err = aiohttp::http_status_is_server_err(500);
-```
-
-URL utilities
-
-```c3 
-import ext::aiohttp;
-
-aiohttp::Url? url = aiohttp::url_parse("https://example.com:8443/path?q=1");
-
-bool tls = url.is_tls();
-ushort port = url.effective_port();
-
-String encoded = aiohttp::pct_encode(localmem, "hello world", false);
-String decoded = aiohttp::pct_decode(localmem, "hello%20world", false);
-
-String full = url.to_string(localmem);
-```
-
-Query building:
-
-```c3 
-import ext::aiohttp;
-
-Headers* params = aiohttp::headers_new();
-params.set("q", "c3");
-params.set("page", "1");
-
-String query = aiohttp::query_build(localmem, params);
-```
-
-Chunked transfer utilities
-
-```c3 
-import ext::aiohttp;
-
-usz size = aiohttp::chunk_encoded_size(data_len);
-
-char* out = localmem.malloc(size);
-usz n = aiohttp::chunk_encode(out, data, data_len);
-
-char[16] final_chunk;
-usz final_len = aiohttp::chunk_encode_final(&final_chunk[0]);
-```
-
-Chunk decoder:
-
-```c3 
-import ext::aiohttp;
-
-ChunkDecoder dec;
-dec.init();
-
-dec.feed(data, len)!!;
-
-ChunkFrame frame;
-while (dec.next(&frame)) {
-    if (frame.is_final) break;
-
-    char* chunk_data = frame.data;
-    usz chunk_len = frame.data_len;
+    app.listen(8080)!!;
 }
 
-bool done = dec.done();
+fn void main()
+{
+    asyncio::run(&main_coro);
+}
 ```
 
-WebSocket utilities
+Early return middleware:
 
-Low-level WebSocket helpers are available for protocol implementation.
-
-```c3 
-import ext::aiohttp;
-
-String accept = aiohttp::ws_accept_key(localmem, client_key);
-
-usz frame_size = aiohttp::ws_frame_size(payload_len, true);
-
-String? frame = aiohttp::ws_frame_encode_alloc(
-    localmem,
-    WsMsgType.TEXT,
-    data,
-    len,
-    true,
-);
+```c3
+fn Response* block_all(Ctx* c, Next next)
+{
+    c.status(403);
+    return c.text("Forbidden");
+}
 ```
 
-Decoder:
+Middleware is executed in registration order.
+
+## Built-in middleware
+
+```c3
+fn Response* middleware_logger(Ctx* c, Next next);
+fn Response* middleware_powered_by(Ctx* c, Next next);
+```
+
+Example:
+
+```c3
+app.use(&httpserver::middleware_logger);
+app.use(&httpserver::middleware_powered_by);
+```
+
+`middleware_powered_by` adds:
+
+```http
+X-Powered-By: ext::httpserver
+```
+
+### CORS
 
 ```c3 
-import ext::aiohttp;
+    // Default:
+    // Access-Control-Allow-Origin: *
+    app.use(&httpserver::cors_default);
 
-/*
-fn void WsDecoder.init(&self, bool expect_masked, usz max_payload = 0)
-*/
-WsDecoder dec;
-dec.init(true);
+    // Turn on Credential
+    httpserver::cors_allow_credentials(true);
+    httpserver::cors_allow_origin("*");
+    httpserver::cors_allow_headers("Content-Type, Authorization");
+    httpserver::cors_allow_methods("GET, POST, PUT, PATCH, DELETE, OPTIONS");
 
-dec.feed(data, len)!!;
+    app.use(&httpserver::cors);
+```
 
-WsFrame frame;
-while (dec.next(&frame)!!) {
-    switch (frame.type) {
-        case WsMsgType.TEXT:
-        case WsMsgType.BINARY:
-        case WsMsgType.PING:
-        case WsMsgType.PONG:
-        case WsMsgType.CLOSE:
-        default:
+
+## Cookies
+
+Cookies are represented through HTTP headers.
+
+To send cookies, use `Ctx.set_cookie()`:
+
+```c3
+fn Response* login(Ctx* c)
+{
+    c.set_cookie("session_id=abc123; Path=/; HttpOnly; SameSite=Lax");
+    return c.text("logged in");
+}
+```
+
+To delete cookies:
+
+```c3
+fn Response* logout(Ctx* c)
+{
+    c.set_cookie("session_id=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax");
+    return c.text("logged out");
+}
+```
+
+
+Full cookie example:
+
+```c3
+fn Response* index(Ctx* c)
+{
+    String? sid = c.cookie("session_id");
+
+    if (catch err = sid) {
+        c.set_cookie("session_id=abc123; Path=/; HttpOnly; SameSite=Lax");
+        c.set_cookie("theme=dark; Path=/; Max-Age=3600; SameSite=Lax");
+
+        return c.text("No session cookie. New cookies were set.");
     }
+
+    c.set_cookie("last_visit=now; Path=/; Max-Age=3600; SameSite=Lax");
+
+    return c.text("session_id cookie received");
 }
 ```
 
-Examples
+Because `Headers` allows repeated names, multiple `Set-Cookie` headers are preserved.
 
-../../examples/aiohttp/web_hello.c3
+## Server
 
-../../examples/aiohttp/web_routes.c3
+Basic serving APIs:
 
-../../examples/aiohttp/web_middleware.c3
+```c3
+fn void? Application.serve(&self, String host, ushort port);
+fn void? Application.listen(&self, ushort port);
 
-../../examples/aiohttp/web_static.c3
+fn void? http_serve(Application* app, String host, ushort port);
+```
 
-../../examples/aiohttp/websocket_server.c3
+Example:
 
-../../examples/aiohttp/client_get.c3
+```c3
+fn Response* hello(Ctx* c)
+{
+    return c.text("hello");
+}
 
-../../examples/aiohttp/client_post.c3
+fn void main_coro()
+{
+    Application app;
+    app.init();
+    defer app.free();
 
-../../examples/aiohttp/websocket_client.c3
+    app.get("/", &hello)!!;
 
+    app.serve("127.0.0.1", 8080)!!;
+}
 
-This is a part of extended C3 library.  
-Back to [ext.c3l](../../README.md) library.
+fn void main()
+{
+    asyncio::run(&main_coro);
+}
+```
+
+`listen(port)` is shorthand for:
+
+```c3
+app.serve("127.0.0.1", port);
+```
+
+The current server implementation closes the connection after one request. This avoids unsafe behavior with pipelined data until per-connection buffered parsing is implemented.
+
+## Raw fetch API
+
+You can dispatch a parsed `Request` manually:
+
+```c3
+Response* Application.fetch(&self, Request* req);
+```
+
+Example:
+
+```c3
+Request* req = request_new();
+defer request_free(req);
+
+// fill req fields manually...
+
+Response* res = app.fetch(req);
+defer response_free(res);
+```
+
+You can also parse and dispatch a raw HTTP request:
+
+```c3
+Response* Application.fetch_raw(&self, char[] raw);
+```
+
+Example:
+
+```c3
+char[] raw = (char[])"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
+
+Response* res = app.fetch_raw(raw);
+defer response_free(res);
+
+String wire = res.serialize();
+defer localmem.free(wire);
+
+io::printfn("%s", wire);
+```
+
+## Error behavior
+
+Typical parser faults:
+
+```c3
+BAD_REQUEST
+REQUEST_TOO_LARGE
+INVALID_METHOD
+INVALID_VERSION
+INVALID_HEADER
+BODY_INCOMPLETE
+INVALID_URL_ENCODING
+```
+
+Router faults:
+
+```c3
+ROUTE_NOT_FOUND
+METHOD_NOT_ALLOWED
+INVALID_ROUTE_PATH
+```
+
+Middleware fault:
+
+```c3
+INVALID_MIDDLEWARE_PATH
+```
+
+`Application.fetch()` converts routing errors into normal responses:
+
+```text
+ROUTE_NOT_FOUND      -> 404 Not Found
+METHOD_NOT_ALLOWED   -> 405 Method Not Allowed
+other errors         -> 500 Internal Server Error
+```
+
+`Application.fetch_raw()` converts request parsing errors into:
+
+```text
+REQUEST_TOO_LARGE -> 413 Payload Too Large
+other parse errors -> 400 Bad Request
+```
+
+## Memory ownership
+
+This module uses `localmem` / `LocalAllocator` from `ext::mem`.
+
+Important ownership rules:
+
+### Request
+
+`request_parse()` returns an owned `Request*`.
+
+```c3
+Request* req = request_parse(raw)!!;
+defer request_free(req);
+```
+
+### Response
+
+Handlers return `Response*`.
+
+When using `Application.fetch()` or `Application.fetch_raw()`, the caller owns the returned response.
+
+```c3
+Response* res = app.fetch(req);
+defer response_free(res);
+```
+
+Inside handlers, prefer using `Context` response builders:
+
+```c3
+return c.text("ok");
+```
+
+### Query
+
+`Ctx.query()` returns a string owned by the context query cache. It is valid until `Ctx.free()`.
+
+`Request.query_copy()` returns an allocated copy. The caller must free it.
+
+### Headers
+
+`Headers.add()` and `Headers.set()` copy name and value into the header list.
+
+```c3
+headers.set("Content-Type", "text/plain");
+```
+
+The caller does not need to keep the original strings alive.
+
+## Complete example
+
+```c3
+module examples::app;
+
+import std::io;
+import ext::httpserver;
+import ext::asyncio;
+
+fn Response* home(Ctx* c)
+{
+    return c.text("Hello");
+}
+
+fn Response* user(Ctx* c)
+{
+    String? id = c.param("id");
+
+    if (catch err = id) {
+        c.status(400);
+        return c.text("missing id");
+    }
+
+    return c.json(string::tformat("{\"id\":\"%s\"}", id));
+}
+
+fn Response* search(Ctx* c)
+{
+    String? q = c.query("q");
+
+    if (catch err = q) {
+        return c.text("missing query");
+    }
+
+    return c.text(q);
+}
+
+fn Response* auth(Ctx* c, Next next)
+{
+    String? token = c.req_header("Authorization");
+
+    if (catch err = token) {
+        c.status(401);
+        return c.text("Unauthorized");
+    }
+
+    return next(c);
+}
+
+fn void main_coro()
+{
+    Application app;
+    app.init();
+    defer app.free();
+
+    app.use(&middleware_logger);
+    app.use(&middleware_powered_by);
+
+    app.get("/", &home)!!;
+    app.get("/users/:id", &user)!!;
+
+    app.use_path("/api", &auth)!!;
+    app.get("/api/search", &search)!!;
+
+    app.listen(8080)!!;
+}
+
+fn void main()
+{
+    asyncio::run(&main_coro);
+}
+```
+
+## Suggested file layout
+
+```text
+ext/httpserver/
+  header.c3
+  response.c3
+  request.c3
+  url.c3
+  params.c3
+  router.c3
+  context.c3
+  middleware.c3
+  application.c3
+  server.c3
+  README.md
+```
+
+## Design notes
+
+`ext::httpserver` intentionally follows a Hono-like simple programming model, but it is adapted to C3:
+
+- explicit memory ownership
+- explicit fault handling
+- no closures for middleware `next`
+- duplicate headers preserved
+- route params owned by `Context`
+- query params cached by `Context`
+- response builders return `Response*`
+
+The goal is a small, understandable HTTP framework that works naturally with C3 and can later grow into a richer async web framework.

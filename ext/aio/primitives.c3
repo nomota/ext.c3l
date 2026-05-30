@@ -22,7 +22,7 @@ fn void wake_one(LinkedList{Waiter*}* waiters) @local
     if (waiters == null) return;
     if (waiters.is_empty()) return;
 
-    Waiter* waiter = waiters.pop_front()!!;
+    Waiter* waiter = waiters.pop_first()!!;
 
     if (waiter != null) waiter.wake();
 }
@@ -33,7 +33,7 @@ fn void wake_all(LinkedList{Waiter*}* waiters) @local
 
     while (!waiters.is_empty())
     {
-        Waiter* waiter = waiters.pop_front()!!;
+        Waiter* waiter = waiters.pop_first()!!;
 
         if (waiter != null) waiter.wake();
     }
@@ -45,7 +45,7 @@ fn void cancel_all_waiters(LinkedList{Waiter*}* waiters, fault err = CANCELLED) 
 
     while (!waiters.is_empty())
     {
-        Waiter* waiter = waiters.pop_front()!!;
+        Waiter* waiter = waiters.pop_first()!!;
 
         if (waiter != null)
         {
@@ -305,15 +305,15 @@ fn void? Event.wait(&self) @maydiscard
 // operation needs its own cancellation-safe wait token.
 // 
 
-const usz QUEUE_CAP_DEFAULT = 64;
+const sz QUEUE_CAP_DEFAULT = 64;
 
 struct Queue
 {
     void*[] buf;
-    usz capacity;
-    usz head;
-    usz tail;
-    usz count;
+    sz capacity;
+    sz head;
+    sz tail;
+    sz count;
 
     bool closed;
 
@@ -321,7 +321,7 @@ struct Queue
     LinkedList{Waiter*} put_waiters;
 }
 
-fn Queue*? queue_new(usz capacity = QUEUE_CAP_DEFAULT)
+fn Queue*? queue_new(sz capacity = QUEUE_CAP_DEFAULT)
 {
     if (capacity == 0) capacity = QUEUE_CAP_DEFAULT;
 
@@ -341,7 +341,7 @@ fn Queue*? queue_new(usz capacity = QUEUE_CAP_DEFAULT)
     return q;
 }
 
-fn void? Queue.init(&self, usz capacity = QUEUE_CAP_DEFAULT) @maydiscard
+fn void? Queue.init(&self, sz capacity = QUEUE_CAP_DEFAULT) @maydiscard
 {
     if (capacity == 0) capacity = QUEUE_CAP_DEFAULT;
 
@@ -384,7 +384,7 @@ fn void Queue.free(&self)
     localmem.free(self);
 }
 
-fn usz Queue.size(&self) @inline
+fn sz Queue.size(&self) @inline
 {
     return self.count;
 }
@@ -399,7 +399,7 @@ fn bool Queue.full(&self) @inline
     return self.count == self.capacity;
 }
 
-fn usz Queue.maxsize(&self) @inline
+fn sz Queue.maxsize(&self) @inline
 {
     return self.capacity;
 }

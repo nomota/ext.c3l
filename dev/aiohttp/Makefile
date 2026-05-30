@@ -3,13 +3,27 @@ all:
 	@echo make clean
 
 build:
-	@make client1
+	#@make client1
 	@make server1
+	@make server2
+	@make test_router
+	@make test_request
+	@make test_response
+	@make test_url
+	@make test_form_cookie
+	@make test_application
 
 clean:
-	-@rm -f x y
+	-@rm -f x y *.exe *.pdb
 	-@rm -f server1
-	-@rm -f client1
+	-@rm -f server2
+	-@rm -f test_router
+	-@rm -f test_request
+	-@rm -f test_response
+	-@rm -f test_url
+	-@rm -f test_form_cookie
+	-@rm -f test_application
+	# -@rm -f client1
 	
 
 C3C = c3c compile
@@ -21,16 +35,36 @@ FIBER = $(EXT)/fiber/*.c3
 ASYNCIO = $(EXT)/asyncio/*.c3
 AIOFILES = $(EXT)/aiofiles/*.c3
 SERIALIZER = $(EXT)/serializer/*.c3
-AIOHTTP = util.url.c3 util.chunk.c3 util.ws.c3 client.dns.c3 client.pool.c3 client.req.c3 web.router.c3 web.middleware.c3 web.static.c3 aiohttp.types.c3 aiohttp.client.c3 aiohttp.clientws.c3 aiohttp.web.c3 aiohttp.webresp.c3
+HTTP = headers.c3 response.c3 request.c3 url.c3 params.c3 router.c3 context.c3 cookies.c3 form.c3 body.c3 middleware.c3 cors.c3 application.c3 server.c3 static.c3
 
-LIBS = $(AIOFILES) $(ASYNCIO) $(FIBER) $(IO) $(MEM) $(LIBC) $(SERIALIZER) $(AIOHTTP)
+LIBS = $(AIOFILES) $(ASYNCIO) $(FIBER) $(IO) $(MEM) $(LIBC) $(SERIALIZER) $(HTTP)
 
 SAN = --sanitize=address
 SAN =
 
-client1: client1.c3
-	$(C3C) $^ $(LIBS) -o $@ $(SAN)
+#client1: client1.c3
+#	$(C3C) $^ $(LIBS) -o $@ $(SAN)
 
 server1: server1.c3
 	$(C3C) $^ $(LIBS) -o $@ $(SAN)
 
+server2: server2.c3
+	$(C3C) $^ $(LIBS) -o $@ $(SAN)
+
+test_router: test_router.c3
+	$(C3C) $^ $(LIBS) -o $@ $(SAN)
+
+test_request: test_request.c3
+	$(C3C) $^ $(LIBS) -o $@ $(SAN)
+
+test_response: test_response.c3
+	$(C3C) $^ $(LIBS) -o $@ $(SAN)
+
+test_url: test_url.c3
+	$(C3C) $^ $(LIBS) -o $@ $(SAN)
+
+test_form_cookie: test_form_cookie.c3
+	$(C3C) $^ $(LIBS) -o $@ $(SAN)
+
+test_application: test_application.c3
+	$(C3C) $^ $(LIBS) -o $@ $(SAN)

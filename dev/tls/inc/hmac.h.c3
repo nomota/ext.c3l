@@ -56,7 +56,7 @@ struct HMACKeyContext {
   param key_len         HMAC secret key length (in bytes).
 *>
 extern fn void hmac_key_init(HMACKeyContext* kc,
-    HashClass* digest_vtable, void* key, usz key_len);
+    HashClass* digest_vtable, void* key, sz key_len);
 
 <*
   Get the hash function vtable from an HMAC key context.
@@ -95,7 +95,7 @@ fn HashClass* hmac_key_get_digest(HMACKeyContext* kc) @inline
 struct HMACContext {
     HashCompatContext dig;      // running inner hash state
     char[64]         kso;      // copy of outer padded key block
-    usz              out_len;  // actual output length (bytes)
+    sz              out_len;  // actual output length (bytes)
 }
 
 <*
@@ -112,7 +112,7 @@ struct HMACContext {
   param kc        HMAC key context (already initialised with the key).
   param out_len   desired output length in bytes (0 = natural length).
 *>
-extern fn void hmac_init(HMACContext* ctx, HMACKeyContext* kc, usz out_len);
+extern fn void hmac_init(HMACContext* ctx, HMACKeyContext* kc, sz out_len);
 
 <*
   Get the HMAC output size for an initialised computation context.
@@ -126,7 +126,7 @@ extern fn void hmac_init(HMACContext* ctx, HMACKeyContext* kc, usz out_len);
   param ctx   HMAC computation context (already initialised).
   return HMAC output size in bytes.
 *>
-fn usz hmac_size(HMACContext* ctx) @inline
+fn sz hmac_size(HMACContext* ctx) @inline
 {
     return ctx.out_len;
 }
@@ -153,7 +153,7 @@ fn HashClass* hmac_get_digest(HMACContext* ctx) @inline
   param data   input bytes to process.
   param len    number of input bytes (may be zero).
 *>
-extern fn void hmac_update(HMACContext* ctx, void* data, usz len);
+extern fn void hmac_update(HMACContext* ctx, void* data, sz len);
 
 <*
   Compute the HMAC output (non-destructive).
@@ -168,7 +168,7 @@ extern fn void hmac_update(HMACContext* ctx, void* data, usz len);
   param out   destination buffer for the HMAC output.
   return number of bytes written to out.
 *>
-extern fn usz hmac_out(HMACContext* ctx, void* out);
+extern fn sz hmac_out(HMACContext* ctx, void* out);
 
 <*
   Constant-time HMAC computation.
@@ -195,6 +195,6 @@ extern fn usz hmac_out(HMACContext* ctx, void* out);
   param out       destination buffer for the HMAC output.
   return number of bytes written to out.
 *>
-extern fn usz hmac_out_ct(HMACContext* ctx,
-    void* data, usz len, usz min_len, usz max_len,
+extern fn sz hmac_out_ct(HMACContext* ctx,
+    void* data, sz len, sz min_len, sz max_len,
     void* out);
