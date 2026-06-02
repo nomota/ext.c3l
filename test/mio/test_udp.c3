@@ -56,7 +56,7 @@ fn void main()
 
     char[128] server_buf;
     char[64] ip_buf;
-    ushort port;;
+    ushort port;
 
     sz server_n = server.recv_from(server_buf[..], ip_buf[..], &port)!!;
 

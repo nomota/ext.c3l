@@ -22,8 +22,8 @@ fn void main() @if(env::POSIX)
     mio::Fd read_fd = (mio::Fd)fds[0];
     mio::Fd write_fd = (mio::Fd)fds[1];
 
-    mio::set_nonblock(read_fd)!!;
-    mio::set_nonblock(write_fd)!!;
+    mio::set_nonblock_fd(read_fd)!!;
+    mio::set_nonblock_fd(write_fd)!!;
 
     mio::Poll* poll = mio::poll_new(16)!!;
     defer poll.free();

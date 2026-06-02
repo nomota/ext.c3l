@@ -74,7 +74,7 @@ fn fault socket_fault()
     return errno::wsa_fault();
 }
 
-fn void? set_nonblock(Fd fd)
+fn void? set_nonblock_fd(Fd fd)
 {
     winsock2::Socket sock = fd_to_socket(fd);
 
@@ -85,7 +85,7 @@ fn void? set_nonblock(Fd fd)
     }
 }
 
-fn void? set_reuseaddr(Fd fd) @private
+fn void? set_reuseaddr_fd(Fd fd)
 {
     winsock2::Socket sock = fd_to_socket(fd);
 
@@ -150,6 +150,10 @@ fn void? make_sockaddr(String ip, ushort port, winsock2::SockAddrStorage* addr, 
 
 fn void? sockaddr_to_addr(winsock2::SockAddr* addr, char[] ip_buf, ushort* port)
 {
+    if (addr == null) return MIO_INVALID~;
+    if (ip_buf.len == 0) return MIO_INVALID~;
+    if (port == null) return MIO_INVALID~;
+
     char* p = null;
     
     if (addr.sa_family == winsock2::AF_INET)
@@ -183,102 +187,197 @@ fn void? sockaddr_to_addr(winsock2::SockAddr* addr, char[] ip_buf, ushort* port)
     if (p == null) return NET_ADDR_ERROR~;
 }
 
-fn int? socket_family(Fd fd) @private
+fn void? peer_addr_fd(Fd fd, char[] ip_buf, ushort* port)
+{
+    if (fd_invalid(fd)) return errno::E_INVALID_ARG~;
+
+    winsock2::SockAddrStorage peer = {};
+    winsock2::SockLen peer_len = winsock2::SockAddrStorage::size;
+
+    int rc = winsock2::getpeername(
+        fd_to_socket(fd),
+        (winsock2::SockAddr*)&peer,
+        (int*)&peer_len
+    );
+    if (rc != 0) return socket_fault()~;
+
+    sockaddr_to_addr((winsock2::SockAddr*)&peer, ip_buf, port)!;
+}
+
+fn void socket_close_fd(Fd fd)
+{
+    if (fd_invalid(fd)) return;
+
+    winsock2::closesocket((winsock2::Socket)fd);
+}
+
+fn Fd? socket_new_fd(int family, int type) @private
+{
+    Fd fd = (Fd)winsock2::socket(family, type, 0);
+
+    if (fd_invalid(fd)) return socket_fault()~;
+
+    if (catch err = set_nonblock_fd(fd))
+    {
+        socket_close_fd(fd);
+        return err~;
+    }
+
+    return fd;
+}
+
+fn Fd? tcp_socket_fd(int family = winsock2::AF_INET)
+{
+    return socket_new_fd(family, winsock2::SOCK_STREAM);
+}
+
+fn Fd? udp_socket_fd(int family = winsock2::AF_INET)
+{
+    return socket_new_fd(family, winsock2::SOCK_DGRAM);
+}
+
+fn int? socket_family_fd(Fd fd)
 {
     winsock2::SockAddrStorage addr = {};
     int len = winsock2::SockAddrStorage::size;
 
     if (winsock2::getsockname((winsock2::Socket)fd, (winsock2::SockAddr*)&addr, &len) != 0)
     {
-        return NET_ADDR_ERROR~;
+        return socket_fault()~;
     }
 
     return ((winsock2::SockAddr*)&addr).sa_family;
 }
 
-fn int socket_family_from_ip(String ip) @private
+fn bool ip_is_v6(String ip) @private
 {
-    char[128] buf;
-    char* ip_str = str2cptr(ip, buf[..])!!;
+    for (sz i = 0; i < ip.len; i++)
+    {
+        if (ip[i] == ':') return true;
+    }
 
-    if (string::strchr(ip_str, ':') != null) return winsock2::AF_INET6;
+    return false;
+}
+
+fn int socket_family_from_ip(String ip)
+{
+    if (ip_is_v6(ip)) return winsock2::AF_INET6;
     return winsock2::AF_INET;
 }
 
-fn void? socket_bind(Fd fd, String ip, ushort port)
+fn void? socket_bind_fd(Fd fd, String ip, ushort port)
 {
     winsock2::SockAddrStorage addr = {};
     winsock2::SockLen len = @sizeof(addr);
     make_sockaddr(ip, port, &addr, &len)!;
 
     // bind to address
-    int b = winsock2::bind((winsock2::Socket) fd, (winsock2::SockAddr*)&addr, len);
+    int b = winsock2::bind(fd_to_socket(fd), (winsock2::SockAddr*)&addr, (int)len);
     if (b != 0) return socket_fault()~;
+}
+
+fn void? socket_bind_any_fd(Fd fd, int family)
+{
+    if (family == winsock2::AF_INET6)
+    {
+        winsock2::SockAddrIn6 a6 = {};
+        a6.sin6_family = (ushort)winsock2::AF_INET6;
+        a6.sin6_port = 0;
+
+        if (winsock2::bind((winsock2::Socket)fd, (winsock2::SockAddr*)&a6, @sizeof(a6)) != 0)
+        {
+            return socket_fault()~;
+        }
+
+        return;
+    }
+
+    winsock2::SockAddrIn a4 = {};
+    a4.sin_family = (ushort)winsock2::AF_INET;
+    a4.sin_port = 0;
+
+    if (winsock2::bind((winsock2::Socket)fd, (winsock2::SockAddr*)&a4, @sizeof(a4)) != 0)
+    {
+        return socket_fault()~;
+    }
+}
+
+fn void? tcp_listen_fd(Fd fd, int backlog = DEFAULT_BACKLOG)
+{
+    int rc = winsock2::listen((winsock2::Socket) fd, backlog);
+    if (rc < 0) return socket_fault()~;
 }
 
 fn TcpListener? tcp_listen(String ip, ushort port, int backlog = DEFAULT_BACKLOG)
 {
     int family = socket_family_from_ip(ip);
-    winsock2::Socket sock = winsock2::socket(family, winsock2::SOCK_STREAM, winsock2::IPPROTO_TCP);
-    if (socket_invalid(sock)) return socket_fault()~;
-
-    defer catch winsock2::closesocket(sock);
-
-    set_reuseaddr(socket_to_fd(sock))!;
-    set_nonblock(socket_to_fd(sock))!;
-
-    socket_bind(socket_to_fd(sock), ip, port)!;
     
-    if (winsock2::listen(sock, backlog) != 0)
-    {
-        return socket_fault()~;
-    }
+    Fd fd = tcp_socket_fd(family)!;
 
+    defer catch socket_close_fd(fd);
+
+    set_reuseaddr_fd(fd)!;
+
+    socket_bind_fd(fd, ip, port)!;
+    
+    tcp_listen_fd(fd, backlog)!;
+    
     return {
-        .fd = socket_to_fd(sock),
+        .fd = fd,
         .closed = false,
     };
+}
+
+fn bool connect_ok_or_pending(int err)
+{
+    return
+        err == winsock2::WSAEWOULDBLOCK ||
+        err == winsock2::WSAEINPROGRESS ||
+        err == winsock2::WSAEALREADY ||
+        err == winsock2::WSAEISCONN;
+}
+
+fn void? tcp_connect_fd(Fd fd, String ip, ushort port) // unbound fd only
+{
+    winsock2::SockAddrStorage addr = {};
+    winsock2::SockLen len = @sizeof(addr);
+    make_sockaddr(ip, port, &addr, &len)!;
+
+    int rc = winsock2::connect(fd_to_socket(fd), (winsock2::SockAddr*)&addr, (int)len);
+    if (rc != 0)
+    {
+        int err = last_socket_error();
+
+        if (!connect_ok_or_pending(err))
+        {
+            return socket_fault()~;
+        }
+    }
 }
 
 fn TcpStream? tcp_connect(String ip, ushort port)
 {
     int family = socket_family_from_ip(ip);
 
-    winsock2::Socket sock = winsock2::socket(family, winsock2::SOCK_STREAM, winsock2::IPPROTO_TCP);
-    if (socket_invalid(sock)) return socket_fault()~;
+    Fd fd = tcp_socket_fd(family)!;
 
-    defer catch winsock2::closesocket(sock);
+    defer catch socket_close_fd(fd);
 
-    set_nonblock(socket_to_fd(sock))!;
-
-    winsock2::SockAddrStorage addr = {};
-    winsock2::SockLen len = @sizeof(addr);
-    make_sockaddr(ip, port, &addr, &len)!;
-
-    int rc = winsock2::connect(sock, (winsock2::SockAddr*)&addr, len);
-    if (rc != 0)
-    {
-        int err = last_socket_error();
-
-        if (err != winsock2::WSAEWOULDBLOCK && err != winsock2::WSAEINPROGRESS && err != winsock2::WSAEALREADY)
-        {
-            return socket_fault()~;
-        }
-    }
+    tcp_connect_fd(fd, ip, port)!;
 
     return {
-        .fd = socket_to_fd(sock),
+        .fd = fd,
         .closed = false,
     };
 }
 
-fn int TcpStream.take_error(&self)
+fn int take_error_fd(Fd fd)
 {
     int err = 0;
     int len = (int)@sizeof(err);
 
     if (winsock2::getsockopt(
-        fd_to_socket(self.fd),
+        fd_to_socket(fd),
         winsock2::SOL_SOCKET,
         winsock2::SO_ERROR,
         (char*)&err,
@@ -290,36 +389,62 @@ fn int TcpStream.take_error(&self)
     return err;
 }
 
-fn TcpStream? TcpListener.accept(&self, char[] ip_buf, ushort* port)
+fn int TcpStream.take_error(&self)
 {
-    if (self.closed) return MIO_CLOSED~;
-    if (fd_invalid(self.fd)) return MIO_INVALID~;
-    if (ip_buf.len < 8) return MIO_INVALID~;
-    if (port == null) return MIO_INVALID~;
+    return take_error_fd(self.fd);
+}
 
+fn Fd? tcp_accept_fd(Fd listen_fd, void* peer = null)
+{
     winsock2::SockAddrStorage addr = {};
     winsock2::SockLen len = @sizeof(addr);
  
+    if (peer == null) peer = &addr;
+     
     winsock2::Socket sock = winsock2::accept(
-        fd_to_socket(self.fd),
-        (winsock2::SockAddr*)&addr,
-        (int*)&len
-    );
+        fd_to_socket(listen_fd),
+        (winsock2::SockAddr*)peer,
+        (int*)&len);
     if (socket_invalid(sock))
     {
         return socket_fault()~;
     }
 
-    defer catch winsock2::closesocket(sock);
+    defer catch socket_close_fd(socket_to_fd(sock));
 
-    set_nonblock(socket_to_fd(sock))!;
+    set_nonblock_fd(socket_to_fd(sock))!;
+
+    return socket_to_fd(sock);
+}
+
+fn TcpStream? TcpListener.accept(&self, char[] ip_buf, ushort* port)
+{
+    if (self.closed) return MIO_CLOSED~;
+    if (fd_invalid(self.fd)) return MIO_INVALID~;
+    if (ip_buf.len == 0) return MIO_INVALID~;
+    if (port == null) return MIO_INVALID~;
+
+    winsock2::SockAddrStorage addr = {};
+
+    Fd fd = tcp_accept_fd(self.fd, &addr)!;
 
     sockaddr_to_addr((winsock2::SockAddr*)&addr, ip_buf, port)!;
 
     return {
-        .fd = socket_to_fd(sock),
+        .fd = fd,
         .closed = false,
     };
+}
+
+fn sz? tcp_read_fd(Fd fd, char[] buf)
+{
+    if (fd_invalid(fd)) return MIO_INVALID~;
+    if (buf.len == 0) return 0;
+
+    int n = winsock2::recv(fd_to_socket(fd), buf.ptr, (int)buf.len, 0);
+    if (n < 0) return socket_fault()~;
+
+    return (sz)n;
 }
 
 fn sz? TcpStream.read(&self, char[] buf)
@@ -327,7 +452,17 @@ fn sz? TcpStream.read(&self, char[] buf)
     if (self.closed) return MIO_CLOSED~;
     if (fd_invalid(self.fd)) return MIO_INVALID~;
 
-    int n = winsock2::recv(fd_to_socket(self.fd), buf.ptr, (int)buf.len, 0);
+    sz n = tcp_read_fd(self.fd, buf)!;
+    
+    return (sz)n;
+}
+
+fn sz? tcp_write_fd(Fd fd, char[] buf)
+{
+    if (fd_invalid(fd)) return MIO_INVALID~;
+    if (buf.len == 0) return 0;
+
+    int n = winsock2::send(fd_to_socket(fd), buf.ptr, (int)buf.len, 0);
     if (n < 0) return socket_fault()~;
 
     return (sz)n;
@@ -338,8 +473,7 @@ fn sz? TcpStream.write(&self, char[] buf)
     if (self.closed) return MIO_CLOSED~;
     if (fd_invalid(self.fd)) return MIO_INVALID~;
 
-    int n = winsock2::send(fd_to_socket(self.fd), buf.ptr, (int)buf.len, 0);
-    if (n < 0) return socket_fault()~;
+    sz n = tcp_write_fd(self.fd, buf)!;
 
     return (sz)n;
 }
@@ -374,49 +508,41 @@ fn UdpSocket? udp_bind(String ip, ushort port)
 {
     int family = socket_family_from_ip(ip);
 
-    winsock2::Socket sock = winsock2::socket(family, winsock2::SOCK_DGRAM, winsock2::IPPROTO_UDP);
-    if (socket_invalid(sock)) return socket_fault()~;
+    Fd fd = udp_socket_fd(family)!;
+    
+    defer catch socket_close_fd(fd);
 
-    defer catch winsock2::closesocket(sock);
+    set_reuseaddr_fd(fd)!;
 
-    set_reuseaddr(socket_to_fd(sock))!;
-    set_nonblock(socket_to_fd(sock))!;
-
-    socket_bind(socket_to_fd(sock), ip, port)!;
+    socket_bind_fd(fd, ip, port)!;
     
     return {
-        .fd = socket_to_fd(sock),
+        .fd = fd,
         .closed = false,
     };
 }
 
 fn UdpSocket? udp_socket(int family = winsock2::AF_INET)
 {
-    winsock2::Socket sock = winsock2::socket(family, winsock2::SOCK_DGRAM, winsock2::IPPROTO_UDP);
-    if (socket_invalid(sock)) return socket_fault()~;
-
-    defer catch winsock2::closesocket(sock);
-
-    set_nonblock(socket_to_fd(sock))!;
+    Fd fd = udp_socket_fd(family)!;
 
     return {
-        .fd = socket_to_fd(sock),
+        .fd = fd,
         .closed = false,
     };
 }
 
-fn sz? UdpSocket.recv_from(&self, char[] buf, char[] ip_buf, ushort* port)
+fn sz? udp_recvfrom_fd(Fd fd, char[] buf, char[] ip_buf, ushort* port)
 {
-    if (self.closed) return MIO_CLOSED~;
-    if (fd_invalid(self.fd)) return MIO_INVALID~;
-    if (ip_buf.len < 8) return MIO_INVALID~;
+    if (fd_invalid(fd)) return MIO_INVALID~;
+    if (ip_buf.len == 0) return MIO_INVALID~;
     if (port == null) return MIO_INVALID~;
-    
+
     winsock2::SockAddrStorage addr = {};
     winsock2::SockLen len = @sizeof(addr);
 
     int n = winsock2::recvfrom(
-        fd_to_socket(self.fd),
+        fd_to_socket(fd),
         buf.ptr,
         (int)buf.len,
         0,
@@ -430,17 +556,27 @@ fn sz? UdpSocket.recv_from(&self, char[] buf, char[] ip_buf, ushort* port)
     return (sz)n;
 }
 
-fn sz? UdpSocket.send_to(&self, char[] buf, String ip, ushort port)
+fn sz? UdpSocket.recv_from(&self, char[] buf, char[] ip_buf, ushort* port)
 {
     if (self.closed) return MIO_CLOSED~;
     if (fd_invalid(self.fd)) return MIO_INVALID~;
+    if (ip_buf.len == 0) return MIO_INVALID~;
+    if (port == null) return MIO_INVALID~;
+    
+    return udp_recvfrom_fd(self.fd, buf, ip_buf, port)!;
+}
 
+fn sz? udp_sendto_fd(Fd fd, char[] buf, String ip, ushort port)
+{
+    if (fd_invalid(fd)) return MIO_INVALID~;
+    if (buf.len == 0) return 0;
+    
     winsock2::SockAddrStorage addr = {};
     winsock2::SockLen len = @sizeof(addr);
     make_sockaddr(ip, port, &addr, &len)!;
     
     int n = winsock2::sendto(
-        fd_to_socket(self.fd),
+        fd_to_socket(fd),
         buf.ptr,
         (int)buf.len,
         0,
@@ -450,6 +586,14 @@ fn sz? UdpSocket.send_to(&self, char[] buf, String ip, ushort port)
     if (n < 0) return socket_fault()~;
 
     return (sz)n;
+}
+
+fn sz? UdpSocket.send_to(&self, char[] buf, String ip, ushort port)
+{
+    if (self.closed) return MIO_CLOSED~;
+    if (fd_invalid(self.fd)) return MIO_INVALID~;
+    
+    return udp_sendto_fd(self.fd, buf, ip, port)!;
 }
 
 fn void UdpSocket.close(&self)
@@ -590,15 +734,15 @@ fn void Waker.free(&self)
 fn void? socket_local_addr(Fd fd, char[] ip_buf, ushort* port) @private
 {
     if (fd_invalid(fd)) return MIO_INVALID~;
-    if (ip_buf.len < 8) return MIO_INVALID~;
+    if (ip_buf.len == 0) return MIO_INVALID~;
     if (port == null) return MIO_INVALID~;
 
     winsock2::SockAddrStorage addr = {};
     winsock2::SockLen len = (winsock2::SockLen)@sizeof(addr);
 
-    if (winsock2::getsockname((int)fd, (winsock2::SockAddr*)&addr, (int*)&len) < 0)
+    if (winsock2::getsockname((winsock2::Socket)fd, (winsock2::SockAddr*)&addr, (int*)&len) < 0)
     {
-        return errno::get_fault()~;
+        return socket_fault()~;
     }
 
     return sockaddr_to_addr((winsock2::SockAddr*)&addr, ip_buf, port)!;
@@ -607,15 +751,15 @@ fn void? socket_local_addr(Fd fd, char[] ip_buf, ushort* port) @private
 fn void? socket_peer_addr(Fd fd, char[] ip_buf, ushort* port) @private
 {
     if (fd_invalid(fd)) return MIO_INVALID~;
-    if (ip_buf.len < 8) return MIO_INVALID~;
+    if (ip_buf.len == 0) return MIO_INVALID~;
     if (port == null) return MIO_INVALID~;
 
     winsock2::SockAddrStorage addr = {};
     winsock2::SockLen len = (winsock2::SockLen)@sizeof(addr);
 
-    if (winsock2::getpeername((int)fd, (winsock2::SockAddr*)&addr, (int*)&len) < 0)
+    if (winsock2::getpeername((winsock2::Socket)fd, (winsock2::SockAddr*)&addr, (int*)&len) < 0)
     {
-        return errno::get_fault()~;
+        return socket_fault()~;
     }
 
     return sockaddr_to_addr((winsock2::SockAddr*)&addr, ip_buf, port)!;

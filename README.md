@@ -1,3 +1,5 @@
+// ext.c3l/README.md 
+
 # ext.c3l - extended C3 library
 
 An extended library for the C3 programming language, providing essential system-level functionality, networking capabilities, and cross-platform C header bindings, and more
@@ -209,6 +211,33 @@ It is built on top of the [fiber](../fiber/README.md) coroutine module.
 
 * More about [Serializers, Encode/decoders](ext/serializer/README.md)
 
+### wepoll (epoll for Windows)
+
+`c::wepoll` is Windows-only epoll-compatible polling API for C3.
+
+| Module | Feature |
+|--------|--------|
+| `c::wepoll` | epoll_create()`, `epoll_create1()`, `epoll_close()`, `epoll_ctl()`, `epoll_wait()` |
+| commands | `EPOLL_CTL_ADD`, `EPOLL_CTL_MOD`, `EPOLL_CTL_DEL` |
+| polls | `EPOLLIN`, `EPOLLOUT` |
+| events | `EPOLLERR`, `EPOLLHUP`, `EPOLLRDHUP`, `EPOLLONESHOT` |
+
+* More about [`c::wepoll`](ext/wepoll/README.md)
+
+### ext::mio (Minimal async I/O)
+
+Minimal readiness-based I/O poller for C3.
+
+`ext::mio` provides a small cross-platform readiness API inspired by Rust's `mio`.
+It is intended to be a low-level building block for event loops, async runtimes, TCP/UDP servers, and wakeable poll loops.
+
+| Module | Feature |
+|--------|--------|
+| `ext::mio` | `Poll*`, `Event`, want_read(), want_write(), want_readwrite(), register(), reregister(), deregister(), poll(), wake() |
+| sockets | TcpListener, TcpStream, UdpSocket |
+| primitive non-blocking operation | tcp_socket_fd(), socket_bind_fd(), tcp_listen_fd(), tcp_connect_fd(), tcp_accept_fd(), tcp_read_fd(), tcp_write_fd(), udp_socket_fd(), udp_recvfrom_fd(), udp_sendto_fd(), socket_close_fd(), socket_family_fd(), peer_addr_fd() |
+
+* More about [`ext::mio`](ext/mio/README.md)
 
 ## Usage by test
 
@@ -249,3 +278,5 @@ MIT License
 ---
 
 For detailed documentation on specific modules, please refer to the README files in each subdirectory under `ext/`.
+
+// eof

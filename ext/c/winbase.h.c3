@@ -967,11 +967,11 @@ extern fn void wakeAllConditionVariable(ConditionVariable* condition_variable) @
 // 
 import std::atomic;
 
-fn long interlockedAdd(long* lp_addend, long value) => atomic::fetch_add(lp_addend, value);
-fn long interlockedIncrement(long* lp_addend) => atomic::fetch_add(lp_addend, 1);
-fn long interlockedDecrement(long* lp_addend) => atomic::fetch_add(lp_addend, -1);
-fn long interlockedExchange(long* target, long value) => mem::compare_exchange(target, *target, value);
-fn long interlockedCompareExchange(long* destination, long exchange, long comperand) => mem::compare_exchange(destination, exchange, comperand);
+fn int interlockedAdd(int* lp_addend, int value) => atomic::fetch_add(lp_addend, value);
+fn int interlockedIncrement(int* lp_addend) => atomic::fetch_add(lp_addend, 1);
+fn int interlockedDecrement(int* lp_addend) => atomic::fetch_add(lp_addend, -1);
+fn int interlockedExchange(int* target, int value) => mem::compare_exchange(target, *target, value);
+fn int interlockedCompareExchange(int* destination, int exchange, int comperand) => mem::compare_exchange(destination, exchange, comperand);
 fn long interlockedIncrement64(long* lp_addend) => atomic::fetch_add(lp_addend, 1);
 fn long interlockedDecrement64(long* lp_addend) => atomic::fetch_add(lp_addend, -1);
 fn long interlockedExchange64(long* target, long value) => mem::compare_exchange(target, *target, value);

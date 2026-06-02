@@ -44,17 +44,17 @@ const int EPOLL_CTL_ADD = 1;
 const int EPOLL_CTL_MOD = 2;
 const int EPOLL_CTL_DEL = 3;
 
-const uint EPOLLIN      = 1u << 0;
-const uint EPOLLPRI     = 1u << 1;
-const uint EPOLLOUT     = 1u << 2;
-const uint EPOLLERR     = 1u << 3;
-const uint EPOLLHUP     = 1u << 4;
-const uint EPOLLRDNORM  = 1u << 6;
-const uint EPOLLRDBAND  = 1u << 7;
-const uint EPOLLWRNORM  = 1u << 8;
-const uint EPOLLWRBAND  = 1u << 9;
-const uint EPOLLMSG     = 1u << 10;
-const uint EPOLLRDHUP   = 1u << 13;
+const uint EPOLLIN = 1u << 0;
+const uint EPOLLPRI = 1u << 1;
+const uint EPOLLOUT = 1u << 2;
+const uint EPOLLERR = 1u << 3;
+const uint EPOLLHUP = 1u << 4;
+const uint EPOLLRDNORM = 1u << 6;
+const uint EPOLLRDBAND = 1u << 7;
+const uint EPOLLWRNORM = 1u << 8;
+const uint EPOLLWRBAND = 1u << 9;
+const uint EPOLLMSG = 1u << 10;
+const uint EPOLLRDHUP = 1u << 13;
 const uint EPOLLONESHOT = 1u << 31;
 
 const uint FILE_OPEN = 0x00000001;
@@ -65,14 +65,14 @@ const uint KEYEDEVENT_ALL_ACCESS = winnt::STANDARD_RIGHTS_REQUIRED | KEYEDEVENT_
 
 const uint IOCTL_AFD_POLL = 0x00012024;
 
-const uint AFD_POLL_RECEIVE           = 0x0001;
+const uint AFD_POLL_RECEIVE = 0x0001;
 const uint AFD_POLL_RECEIVE_EXPEDITED = 0x0002;
-const uint AFD_POLL_SEND              = 0x0004;
-const uint AFD_POLL_DISCONNECT        = 0x0008;
-const uint AFD_POLL_ABORT             = 0x0010;
-const uint AFD_POLL_LOCAL_CLOSE       = 0x0020;
-const uint AFD_POLL_ACCEPT            = 0x0080;
-const uint AFD_POLL_CONNECT_FAIL      = 0x0100;
+const uint AFD_POLL_SEND = 0x0004;
+const uint AFD_POLL_DISCONNECT = 0x0008;
+const uint AFD_POLL_ABORT = 0x0010;
+const uint AFD_POLL_LOCAL_CLOSE = 0x0020;
+const uint AFD_POLL_ACCEPT = 0x0080;
+const uint AFD_POLL_CONNECT_FAIL = 0x0100;
 
 const uint ERROR_IO_PENDING = 997;
 const uint ERROR_INVALID_PARAMETER = 87;
@@ -145,26 +145,10 @@ struct AfdPollInfo
     AfdPollHandleInfo[1] handles;
 }
 
-/*
-// C3 Macro
-macro sz @offsetof($Type, #field)
-{
-    $Type* p = null;
-    return (sz)(uptr)&p.#field;
-    //return $reflect($Type.$field).offset;
-}
-*/
 fn bool nt_success(NtStatus status) @inline
 {
     return status >= 0;
 }
-
-// Forward declarations by convention.
-// C3 may not require these if definitions appear before use in your build setup.
-
-//struct PortState;
-//struct SockState;
-//struct PollGroup;
 
 // ntdll dynamic function pointers
 
@@ -232,169 +216,17 @@ NtReleaseKeyedEventFn ntReleaseKeyedEvent = null;
 NtWaitForKeyedEventFn ntWaitForKeyedEvent = null;
 RtlNtStatusToDosErrorFn rtlNtStatusToDosError = null;
 
-// Error mapping
-
-/*
-  case errno::ERROR_ACCESS_DENIED: return errno::EACCES;
-  case errno::ERROR_ALREADY_EXISTS: return errno::EEXIST;
-  case errno::ERROR_BAD_COMMAND: return errno::EACCES;
-  case errno::ERROR_BAD_EXE_FORMAT: return errno::ENOEXEC;
-  case errno::ERROR_BAD_LENGTH: return errno::EACCES;
-  case errno::ERROR_BAD_NETPATH: return errno::ENOENT;
-  case errno::ERROR_BAD_NET_NAME: return errno::ENOENT;
-  case errno::ERROR_BAD_NET_RESP: return errno::ENETDOWN;
-  case errno::ERROR_BAD_PATHNAME: return errno::ENOENT;
-  case errno::ERROR_BROKEN_PIPE: return errno::EPIPE;
-  case errno::ERROR_CANNOT_MAKE: return errno::EACCES;
-  case errno::ERROR_COMMITMENT_LIMIT: return errno::ENOMEM;
-  case errno::ERROR_CONNECTION_ABORTED: return errno::ECONNABORTED;
-  case errno::ERROR_CONNECTION_ACTIVE: return errno::EISCONN;
-  case errno::ERROR_CONNECTION_REFUSED: return errno::ECONNREFUSED;
-  case errno::ERROR_CRC: return errno::EACCES;
-  case errno::ERROR_DIR_NOT_EMPTY: return errno::ENOTEMPTY;
-  case errno::ERROR_DISK_FULL: return errno::ENOSPC;
-  case errno::ERROR_DUP_NAME: return errno::EADDRINUSE;
-  case errno::ERROR_FILENAME_EXCED_RANGE: return errno::ENOENT;
-  case errno::ERROR_FILE_NOT_FOUND: return errno::ENOENT;
-  case errno::ERROR_GEN_FAILURE: return errno::EACCES;
-  case errno::ERROR_GRACEFUL_DISCONNECT: return errno::EPIPE;
-  case errno::ERROR_HOST_DOWN: return errno::EHOSTUNREACH;
-  case errno::ERROR_HOST_UNREACHABLE: return errno::EHOSTUNREACH;
-  case errno::ERROR_INSUFFICIENT_BUFFER: return errno::EFAULT;
-  case errno::ERROR_INVALID_ADDRESS: return errno::EADDRNOTAVAIL;
-  case errno::ERROR_INVALID_FUNCTION: return errno::EINVAL;
-  case errno::ERROR_INVALID_HANDLE: return errno::EBADF;
-  case errno::ERROR_INVALID_NETNAME: return errno::EADDRNOTAVAIL;
-  case errno::ERROR_INVALID_PARAMETER: return errno::EINVAL;
-  case errno::ERROR_INVALID_USER_BUFFER: return errno::EMSGSIZE;
-  case errno::ERROR_IO_PENDING: return errno::EINPROGRESS;
-  case errno::ERROR_LOCK_VIOLATION: return errno::EACCES;
-  case errno::ERROR_MORE_DATA: return errno::EMSGSIZE;
-  case errno::ERROR_NETNAME_DELETED: return errno::ECONNABORTED;
-  case errno::ERROR_NETWORK_ACCESS_DENIED: return errno::EACCES;
-  case errno::ERROR_NETWORK_BUSY: return errno::ENETDOWN;
-  case errno::ERROR_NETWORK_UNREACHABLE: return errno::ENETUNREACH;
-  case errno::ERROR_NOACCESS: return errno::EFAULT;
-  case errno::ERROR_NONPAGED_SYSTEM_RESOURCES: return errno::ENOMEM;
-  case errno::ERROR_NOT_ENOUGH_MEMORY: return errno::ENOMEM;
-  case errno::ERROR_NOT_ENOUGH_QUOTA: return errno::ENOMEM;
-  case errno::ERROR_NOT_FOUND: return errno::ENOENT;
-  case errno::ERROR_NOT_LOCKED: return errno::EACCES;
-  case errno::ERROR_NOT_READY: return errno::EACCES;
-  case errno::ERROR_NOT_SAME_DEVICE: return errno::EXDEV;
-  case errno::ERROR_NOT_SUPPORTED: return errno::ENOTSUP;
-  case errno::ERROR_NO_MORE_FILES: return errno::ENOENT;
-  case errno::ERROR_NO_SYSTEM_RESOURCES: return errno::ENOMEM;
-  case errno::ERROR_OPERATION_ABORTED: return errno::EINTR;
-  case errno::ERROR_OUT_OF_PAPER: return errno::EACCES;
-  case errno::ERROR_PAGED_SYSTEM_RESOURCES: return errno::ENOMEM;
-  case errno::ERROR_PAGEFILE_QUOTA: return errno::ENOMEM;
-  case errno::ERROR_PATH_NOT_FOUND: return errno::ENOENT;
-  case errno::ERROR_PIPE_NOT_CONNECTED: return errno::EPIPE;
-  case errno::ERROR_PORT_UNREACHABLE: return errno::ECONNRESET;
-  case errno::ERROR_PROTOCOL_UNREACHABLE: return errno::ENETUNREACH;
-  case errno::ERROR_REM_NOT_LIST: return errno::ECONNREFUSED;
-  case errno::ERROR_REQUEST_ABORTED: return errno::EINTR;
-  case errno::ERROR_REQ_NOT_ACCEP: return errno::EWOULDBLOCK;
-  case errno::ERROR_SECTOR_NOT_FOUND: return errno::EACCES;
-  case errno::ERROR_SEM_TIMEOUT: return errno::ETIMEDOUT;
-  case errno::ERROR_SHARING_VIOLATION: return errno::EACCES;
-  case errno::ERROR_TOO_MANY_NAMES: return errno::ENOMEM;
-  case errno::ERROR_TOO_MANY_OPEN_FILES: return errno::EMFILE;
-  case errno::ERROR_UNEXP_NET_ERR: return errno::ECONNABORTED;
-  case errno::ERROR_WAIT_NO_CHILDREN: return errno::ECHILD;
-  case errno::ERROR_WORKING_SET_QUOTA: return errno::ENOMEM;
-  case errno::ERROR_WRITE_PROTECT: return errno::EACCES;
-  case errno::ERROR_WRONG_DISK: return errno::EACCES;
-  case errno::WSAEACCES: return errno::EACCES;
-  case errno::WSAEADDRINUSE: return errno::EADDRINUSE;
-  case errno::WSAEADDRNOTAVAIL: return errno::EADDRNOTAVAIL;
-  case errno::WSAEAFNOSUPPORT: return errno::EAFNOSUPPORT;
-  case errno::WSAECONNABORTED: return errno::ECONNABORTED;
-  case errno::WSAECONNREFUSED: return errno::ECONNREFUSED;
-  case errno::WSAECONNRESET: return errno::ECONNRESET;
-  case errno::WSAEDISCON: return errno::EPIPE;
-  case errno::WSAEFAULT: return errno::EFAULT;
-  case errno::WSAEHOSTDOWN: return errno::EHOSTUNREACH;
-  case errno::WSAEHOSTUNREACH: return errno::EHOSTUNREACH;
-  case errno::WSAEINPROGRESS: return errno::EBUSY;
-  case errno::WSAEINTR: return errno::EINTR;
-  case errno::WSAEINVAL: return errno::EINVAL;
-  case errno::WSAEISCONN: return errno::EISCONN;
-  case errno::WSAEMSGSIZE: return errno::EMSGSIZE;
-  case errno::WSAENETDOWN: return errno::ENETDOWN;
-  case errno::WSAENETRESET: return errno::EHOSTUNREACH;
-  case errno::WSAENETUNREACH: return errno::ENETUNREACH;
-  case errno::WSAENOBUFS: return errno::ENOMEM;
-  case errno::WSAENOTCONN: return errno::ENOTCONN)
-  case errno::WSAENOTSOCK: return errno::ENOTSOCK;
-  case errno::WSAEOPNOTSUPP: return errno::EOPNOTSUPP;
-  case errno::WSAEPROCLIM: return errno::ENOMEM;
-  case errno::WSAESHUTDOWN: return errno::EPIPE;
-  case errno::WSAETIMEDOUT: return errno::ETIMEDOUT;
-  case errno::WSAEWOULDBLOCK: return errno::EWOULDBLOCK;
-  case errno::WSANOTINITIALISED: return errno::ENETDOWN;
-  case errno::WSASYSNOTREADY: return errno::ENETDOWN;
-  case errno::WSAVERNOTSUPPORTED: return errno::ENOSYS;
-*/
-
-fn fault err_map_win_error_to_errno(DWord error)
-{
-    switch (error)
-    {
-        case winbase::ERROR_ACCESS_DENIED: return errno::E_ACCESS_DENIED;
-        case winbase::ERROR_ALREADY_EXISTS: return errno::E_EXISTS;
-        case winbase::ERROR_FILE_NOT_FOUND: return errno::E_NOT_FOUND;
-        case winbase::ERROR_PATH_NOT_FOUND: return errno::E_NOT_FOUND;
-        case winbase::ERROR_NOT_ENOUGH_MEMORY: return errno::E_NO_MEMORY;
-        case winbase::ERROR_INVALID_HANDLE: return errno::E_BAD_FILE_DESC;
-        case winbase::ERROR_INVALID_PARAMETER: return errno::E_INVALID;
-        case winbase::ERROR_TOO_MANY_OPEN_FILES: return errno::E_TOO_MANY_FILES;
-        case winbase::ERROR_OPERATION_ABORTED: return errno::E_INTERRUPTED;
-        case winbase::ERROR_SEM_TIMEOUT: return errno::E_TIMED_OUT;
-        case winbase::ERROR_BROKEN_PIPE: return errno::E_BROKEN_PIPE;
-        case winbase::ERROR_IO_PENDING: return errno::E_IN_PROGRESS;
-
-        case winsock2::WSAEACCES: return errno::E_ACCESS_DENIED;
-        case winsock2::WSAEADDRINUSE: return errno::E_ADDR_IN_USE;
-        case winsock2::WSAEADDRNOTAVAIL: return errno::E_ADDR_NOT_AVAIL;
-        case winsock2::WSAEAFNOSUPPORT: return errno::E_ADDR_FAMILY_NOT_SUPPORTED;
-        case winsock2::WSAECONNABORTED: return errno::E_CONN_ABORTED;
-        case winsock2::WSAECONNREFUSED: return errno::E_CONN_REFUSED;
-        case winsock2::WSAECONNRESET: return errno::E_CONN_RESET;
-        case winsock2::WSAEFAULT: return errno::E_BAD_ADDRESS;
-        case winsock2::WSAEHOSTDOWN: return errno::E_HOST_DOWN;
-        case winsock2::WSAEHOSTUNREACH: return errno::E_HOST_UNREACHABLE;
-        case winsock2::WSAEINPROGRESS: return errno::E_BUSY;
-        case winsock2::WSAEINTR: return errno::E_INTERRUPTED;
-        case winsock2::WSAEINVAL: return errno::E_INVALID;
-        case winsock2::WSAEISCONN: return errno::E_IS_CONNECTED;
-        case winsock2::WSAEMSGSIZE: return errno::E_MSG_TOO_LONG;
-        case winsock2::WSAENETDOWN: return errno::E_NET_DOWN;
-        case winsock2::WSAENETRESET: return errno::E_NET_RESET;
-        case winsock2::WSAENETUNREACH: return errno::E_NET_UNREACHABLE;
-        case winsock2::WSAENOBUFS: return errno::E_NO_MEMORY;
-        case winsock2::WSAENOTCONN: return errno::E_NOT_CONNECTED;
-        case winsock2::WSAENOTSOCK: return errno::E_NOT_SOCKET;
-        case winsock2::WSAEOPNOTSUPP: return errno::E_OP_NOT_SUPPORTED;
-        case winsock2::WSAESHUTDOWN: return errno::E_BROKEN_PIPE;
-        case winsock2::WSAETIMEDOUT: return errno::E_TIMED_OUT;
-        case winsock2::WSAEWOULDBLOCK: return errno::E_WOULD_BLOCK;
-    }
-
-    return errno::E_INVALID;
-}
 
 fn void err_set_win_error(DWord error)
 {
-    // winbase::setLastError(error);
-    // errno::set_errno((int)err_map_win_error_to_errno(error));
+    winbase::setLastError(error);
+    // errno::set_errno((int)errno::win_error_to_errno(error));
 }
 
 fn void err_map_win_error()
 {
-    // DWord error = winbase::getLastError();
-    // errno::set_errno((int)err_map_win_error_to_errno(error));
+    //DWord error = winbase::getLastError();
+    //errno::set_errno((int)errno::win_error_to_errno(error));
 }
 
 fn int err_check_handle(Handle handle)
@@ -715,14 +547,14 @@ fn void queue_remove(QueueNode* node)
 
 struct Reflock
 {
-    long state;
+    int state;
 }
 
-const long REFLOCK_REF          = 0x00000001;
-const long REFLOCK_REF_MASK     = 0x0fffffff;
-const long REFLOCK_DESTROY      = 0x10000000;
-const long REFLOCK_DESTROY_MASK = (long)0xf0000000;
-const long REFLOCK_POISON       = 0x300dead0;
+const int REFLOCK_REF = 0x00000001;
+const int REFLOCK_REF_MASK = 0x0fffffff;
+const int REFLOCK_DESTROY = 0x10000000;
+const int REFLOCK_DESTROY_MASK = (int)0xf0000000;
+const int REFLOCK_POISON = 0x300dead0;
 
 Handle reflock_keyed_event = null;
 
@@ -775,15 +607,17 @@ fn void reflock_await_event(void* address)
 
 fn void reflock_ref(Reflock* reflock)
 {
-    long state = winbase::interlockedAdd(&reflock.state, REFLOCK_REF);
-
+// warn("%d", reflock.state);
+    int state = winbase::interlockedAdd(&reflock.state, REFLOCK_REF);
+// warn("%s %d", state, reflock.state);
     @assert((state & REFLOCK_DESTROY_MASK) == 0, "reflock_ref(): invalid state");
 }
 
 fn void reflock_unref(Reflock* reflock)
 {
-    long state = winbase::interlockedAdd(&reflock.state, -REFLOCK_REF);
-
+// warn("%d", reflock.state);
+    int state = winbase::interlockedAdd(&reflock.state, -REFLOCK_REF);
+// warn("%d %d", state, reflock.state);
     @assert((state & REFLOCK_DESTROY_MASK & ~REFLOCK_DESTROY) == 0, "reflock_unref(): invalid state");
 
     if (state == REFLOCK_DESTROY)
@@ -794,14 +628,15 @@ fn void reflock_unref(Reflock* reflock)
 
 fn void reflock_unref_and_destroy(Reflock* reflock)
 {
-    long state = winbase::interlockedAdd(
+// warn("%d", reflock.state);
+    int state = winbase::interlockedAdd(
         &reflock.state,
         REFLOCK_DESTROY - REFLOCK_REF
     );
+// warn("%d %d", state, reflock.state);
+    int ref_count = reflock.state & REFLOCK_REF_MASK;
 
-    long ref_count = state & REFLOCK_REF_MASK;
-
-    @assert((state & REFLOCK_DESTROY_MASK) == REFLOCK_DESTROY, "reflock_unref_and_destroy(): invalid state");
+    @assert((reflock.state & REFLOCK_DESTROY_MASK) == REFLOCK_DESTROY, "reflock_unref_and_destroy(): invalid state");
 
     if (ref_count != 0)
     {
@@ -2174,17 +2009,19 @@ fn int port_poll(
         timeout,
         (Bool)false
     );
-
+    DWord error = 0;
+    if (!ok) error = winbase::getLastError();
+    
     winbase::enterCriticalSection(&port_state.lock);
 
     port_state.active_poll_count--;
 
     if (!ok)
     {
-        err_map_win_error();
+        winbase::setLastError(error);
+        if (error == WAIT_TIMEOUT) return 0;
         return -1;
     }
-
     return port_feed_events(port_state, epoll_events, iocp_events, completion_count);
 }
 

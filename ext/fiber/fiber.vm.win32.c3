@@ -80,7 +80,7 @@ fn char*? stack_alloc(
     //
     void* p = memoryapi::virtualAlloc(
         null,
-        total_size,
+        (ulong)total_size,
         winnt::MEM_RESERVE,
         winnt::PAGE_NOACCESS
     );
@@ -93,7 +93,7 @@ fn char*? stack_alloc(
 
     void* committed = memoryapi::virtualAlloc(
         stack_low,
-        usable_size,
+        (ulong)usable_size,
         winnt::MEM_COMMIT,
         winnt::PAGE_READWRITE
     );

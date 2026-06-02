@@ -9,7 +9,8 @@ build:
 	@make test_udp
 	@make test_waker
 	@make test_addr
-	@make test_wepoll_basic
+	@make test_error_paths
+	@make test_multi_udp_batch
 	
 clean:
 	-@rm -f x y *.exe *.pdb
@@ -19,19 +20,21 @@ clean:
 	-@rm -f test_udp
 	-@rm -f test_waker
 	-@rm -f test_addr
-	-@rm -f test_wepoll_basic
+	-@rm -f test_error_paths
+	-@rm -f test_multi_udp_batch
 
 C3C = c3c compile
 EXT = ../../ext
 LIBC = $(EXT)/c/*.c3
 MEM = $(EXT)/debug/*.c3 $(EXT)/mem/*.c3
-MIO = mio.c3 mio.epoll.c3 mio.posix.c3 mio.wsapoll.c3 mio.win32.c3
+WEPOLL = $(EXT)/wepoll/*.c3
+MIO = $(EXT)/mio/*.c3
 
-LIBS = $(MIO) $(MEM) $(LIBC)
+LIBS = $(WEPOLL) $(MIO) $(MEM) $(LIBC)
 
 SAN = --sanitize=address
 SAN = --target windows-x64
-# SAN = 
+SAN = 
 
 test_pipe: test_pipe.c3
 	$(C3C) $^ $(LIBS) -o $@ $(SAN)
@@ -51,5 +54,8 @@ test_waker: test_waker.c3
 test_addr: test_addr.c3
 	$(C3C) $^ $(LIBS) -o $@ $(SAN)
 
-test_wepoll_basic: test_wepoll_basic.c3 wepoll.impl.c3
+test_error_paths: test_error_paths.c3
+	$(C3C) $^ $(LIBS) -o $@ $(SAN)
+
+test_multi_udp_batch: test_multi_udp_batch.c3
 	$(C3C) $^ $(LIBS) -o $@ $(SAN)

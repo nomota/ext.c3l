@@ -187,7 +187,7 @@ fn void? socket_bind(Fd fd, String ip, ushort port)
     if (rc != 0) return aio::BIND_ERROR~;
 
     // bind to address
-    int b = winsock2::bind((winsock2::Socket) fd, (winsock2::SockAddr*)&addr, len);
+    int b = winsock2::bind((winsock2::Socket) fd, (winsock2::SockAddr*)&addr, (int)len);
     if (b != 0) {
         return aio::BIND_ERROR~;
     }
@@ -442,7 +442,7 @@ fn void? tcp_connect(Fd fd, String ip, ushort port) // unbound fd only
     
     winbase::DWord sent = 0;
     winbase::Bool ok = connectEx(
-        (winsock2::Socket)fd, (winsock2::SockAddr*)&addr, len,
+        (winsock2::Socket)fd, (winsock2::SockAddr*)&addr, (int)len,
         null, 0, &sent, &op.ov
     );
 

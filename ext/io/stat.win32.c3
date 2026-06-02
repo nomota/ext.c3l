@@ -12,11 +12,11 @@ import ext::debug;
 
 fn Char16*? utf8to16(String path, Char16[] wpath) @private
 {
-    if (path.len == 0) return errno::F_BAD_LENGTH~;
+    if (path.len == 0) return errno::E_INVALID_ARG~;
     Char16[] p2 = path.to_utf16(tmem)!;
     // defer free(p2);
     
-    if (p2.len >= wpath.len-1) return errno::F_BAD_LENGTH~;
+    if (p2.len >= wpath.len-1) return errno::E_INVALID_ARG~;
     
     wpath[0:p2.len] = p2[0:p2.len];
     wpath[p2.len] = 0;
@@ -132,7 +132,7 @@ fn sz? read_link(String path, char[] output)
     ioapiset::ReparseDataBuffer* reparse = (ioapiset::ReparseDataBuffer*)&buffer;
     
     if ((reparse.reparseTag != ioapiset::IO_REPARSE_TAG_SYMLINK)) {
-        return errno::GENERAL_ERR~;
+        return errno::E_GENERAL_ERR~;
     }
 
     Char16* target = (Char16*)&reparse.pathBuffer[reparse.printNameOffset / 2];
@@ -141,7 +141,7 @@ fn sz? read_link(String path, char[] output)
     String s = string::from_utf16(tmem, target[0:len])!;
     // defer s.free(tmem);
     
-    if (s.len >= output.len) return errno::F_BAD_LENGTH~;
+    if (s.len >= output.len) return errno::E_GENERAL_ERR~;
     
     output[0:s.len] = s[0:s.len];
     output[s.len] = 0;
@@ -260,7 +260,7 @@ fn void? symlink(String old, String new) @maydiscard
     Char16[512] wpath2;
     Char16* wnew = utf8to16(new, &wpath2)!;
 
-    int flag = 0; // file 
+    uint flag = 0; // file 
     if (is_dir(old)) flag = 1; // dir
     
     // winbase::SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE (0x2)

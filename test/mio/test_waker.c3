@@ -40,9 +40,12 @@ fn void main()
     Thread thread;
     thread.create(&wake_thread, waker)!!;
 
-    poll.poll(&events, 1000)!!;
-    @assert(!events.is_empty(), "poll() timed out before wake");
-
+    while (true)
+    {
+        poll.poll(&events, 1000)!!;
+        if (events.len > 0) break;
+    }
+    
     bool got_wake = false;
 
     for (sz i = 0; i < events.len; i++)

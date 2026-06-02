@@ -6,13 +6,33 @@
 
 module ext::mio;
 
+import std::thread;
 import ext::mem;
 
 LocalAllocator localmem = null;
 
 faultdef MIO_INVALID, MIO_CLOSED, MIO_FULL, MIO_UNSUPPORTED;
 
-alias Fd = iptr;
+alias Fd @if(env::POSIX) = int;
+alias Fd @if(env::WIN32) = int;
+
+fn bool fd_invalid(Fd fd) @inline
+{
+  $if !env::WIN32:
+    return fd < 0;
+  $else
+    return fd == 0 || fd == (Fd)-1;
+  $endif
+}
+
+fn Fd fd_null()@inline
+{
+  $if !env::WIN32:
+    return -1;
+  $else
+    return 0;
+  $endif
+}
 
 struct Interest
 {
@@ -66,6 +86,8 @@ interface SysPoll
 struct Poll
 {
     SysPoll sys;
+    Waker* waker;
+    thread::Mutex mutex;
 }
 
 fn void init() @init
@@ -163,19 +185,49 @@ fn Event* Events.push(&self, Event event)
     return &self.items[self.len - 1];
 }
 
+fn void Events.remove_at(&self, sz idx)
+{
+    if (idx >= self.len) return;
+
+    sz move_len = self.len - idx - 1;
+
+    if (move_len > 0)
+    {
+        self.items[idx:move_len] = self.items[idx + 1:move_len];
+    }
+
+    self.len--;
+}
+
 fn Poll*? poll_new(sz event_capacity = 1024)
 {
     if (event_capacity == 0) return MIO_INVALID~;
 
     Poll* poll = localmem.alloc(Poll)!;
+    defer catch poll.free();
+    
     poll.sys.init(event_capacity)!;
+    
+    poll.waker = waker_new()!;
+    defer catch poll.waker.free();
+    
+    poll.mutex.init()!;
+    poll.sys.register(poll.waker.fd(), want_read())!;
 
     return poll;
 }
 
 fn void Poll.free(&self)
 {
+    if (self.waker != null)
+    {
+        (void)self.sys.deregister(self.waker.fd());
+        self.waker.free();
+        self.waker = null;
+    }
+
     self.sys.free();
+    self.mutex.destroy();
     localmem.free(self);
 }
 
@@ -183,40 +235,71 @@ fn void? Poll.poll(&self, Events* events, long timeout_ms = -1)
 {
     if (events == null) return MIO_INVALID~;
 
-    return self.sys.wait(events, timeout_ms)!;
+    self.sys.wait(events, timeout_ms)!;
+
+    sz found_i = -1;
+    for (sz i = 0; i < events.len; i++)
+    {
+        mio::Event* event = events.get(i);
+        if (event == null) continue;
+
+        if (event.fd == self.waker.fd() && event.read)
+        {
+            self.waker.drain()!;
+            found_i = i;
+            break;
+        }
+    }
+    if (found_i >= 0) events.remove_at(found_i);
+}
+
+fn void? Poll.wake(&self)
+{
+    if (self.waker == null) return MIO_CLOSED~;
+
+    self.waker.wake()!;
 }
 
 fn void? Poll.register(&self, Fd fd, Interest interest)
 {
     if (fd_invalid(fd)) return MIO_INVALID~;
     if (interest.is_empty()) return MIO_INVALID~;
+    if (self.waker != null && fd == self.waker.fd()) return MIO_INVALID~;
 
-    return self.sys.register(fd, interest)!;
+    self.mutex.lock()!;
+    defer (void)self.mutex.unlock();
+    
+    self.sys.register(fd, interest)!;
+
+    self.waker.wake()!;
 }
 
 fn void? Poll.reregister(&self, Fd fd, Interest interest)
 {
     if (fd_invalid(fd)) return MIO_INVALID~;
     if (interest.is_empty()) return MIO_INVALID~;
+    if (self.waker != null && fd == self.waker.fd()) return MIO_INVALID~;
+    
+    self.mutex.lock()!;
+    defer (void)self.mutex.unlock();
+    
+    self.sys.reregister(fd, interest)!;
 
-    return self.sys.reregister(fd, interest)!;
+    self.waker.wake()!;
 }
 
 fn void? Poll.deregister(&self, Fd fd)
 {
     if (fd_invalid(fd)) return MIO_INVALID~;
+    if (self.waker != null && fd == self.waker.fd()) return MIO_INVALID~;
+    
+    self.mutex.lock()!;
+    defer (void)self.mutex.unlock();
+    
+    self.sys.deregister(fd)!;
 
-    return self.sys.deregister(fd)!;
+    self.waker.wake()!;
 }
 
-fn bool fd_invalid(Fd fd) @if(!env::WIN32) @inline
-{
-    return fd < 0;
-}
-
-fn bool fd_invalid(Fd fd) @if(env::WIN32) @inline
-{
-    return fd == 0 || fd == (Fd)-1;
-}
 
 // eof

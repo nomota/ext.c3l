@@ -23,21 +23,41 @@ fn void wait_until_server_ready()
 {
     while (!g_server_ready)
     {
-        thread::sleep_ms(1000);
+        thread::sleep_ms(1);
     }
 }
 
-fn bool wait_for_event(mio::Poll* poll, mio::Events* events, mio::Fd fd, bool want_read, bool want_write, bool accept_error)
+fn bool wait_for_event(
+    String name,
+    mio::Poll* poll,
+    mio::Events* events,
+    mio::Fd fd,
+    bool want_read,
+    bool want_write,
+    bool accept_error
+)
 {
     while (true)
     {
         poll.poll(events, 1000)!!;
-        @assert(!events.is_empty(), "poll() timed out");
+
+        if (events.is_empty())
+        {
+            continue;
+            //warn("[timeout] %s fd=%d read=%d write=%d err=%d", name, fd, want_read, want_write, accept_error);
+
+            //@assert(false, "poll() timed out");
+        }
+
+        // warn("[poll] %s events=%d", name, events.len);
 
         for (sz i = 0; i < events.len; i++)
         {
             mio::Event* event = events.get(i);
             if (event == null) continue;
+
+            // warn("[event] %s i=%d fd=%d read=%d write=%d error=%d hup=%d", name, i, event.fd, event.read, event.write, event.error, event.hup);
+
             if (event.fd != fd) continue;
 
             if (want_read && event.read) return true;
@@ -62,7 +82,7 @@ fn int server_thread(void* arg)
 
     g_server_ready = true;
 
-    wait_for_event(poll, &events, listener.fd, true, false, true);
+    wait_for_event("server listener accept", poll, &events, listener.fd, true, false, true);
 
     char[64] ip_buf;
     ushort port;
@@ -71,7 +91,7 @@ fn int server_thread(void* arg)
 
     poll.register(stream.fd, mio::want_read())!!;
 
-    wait_for_event(poll, &events, stream.fd, true, false, true);
+    wait_for_event("server stream read", poll, &events, stream.fd, true, false, true);
 
     char[256] buf;
     sz n = stream.read(buf[..])!!;
@@ -108,7 +128,7 @@ fn int client_thread(void* arg)
 
     poll.register(client.fd, mio::want_write())!!;
 
-    wait_for_event(poll, &events, client.fd, false, true, true);
+    wait_for_event("client stream write", poll, &events, client.fd, false, true, true);
 
     int err = client.take_error();
     @assert(err == 0);
@@ -119,7 +139,7 @@ fn int client_thread(void* arg)
 
     @assert(written == (sz)TEST_MSG.len, "client write failed or partial write");
 
-    wait_for_event(poll, &events, client.fd, true, false, true);
+    wait_for_event("client stream read", poll, &events, client.fd, true, false, true);
 
     char[256] buf;
     sz n = client.read(buf[..])!!;

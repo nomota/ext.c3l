@@ -15,6 +15,8 @@ build-all:
 	@cd ./test/fiber && make build TARGET=$(TARGET)
 	@cd ./test/serializer && make build TARGET=$(TARGET)
 	@cd ./test/aio && make build TARGET=$(TARGET)
+	@cd ./test/wepoll && make build TARGET=$(TARGET)
+	@cd ./test/mio && make build TARGET=$(TARGET)
 
 clean:
 	@rm -rf ./build/*
@@ -26,6 +28,8 @@ clean:
 	@cd ./test/fiber && make clean
 	@cd ./test/serializer && make clean
 	@cd ./test/aio && make clean
+	@cd ./test/wepoll && make clean
+	@cd ./test/mio && make clean
 
 push:
 	@make clean

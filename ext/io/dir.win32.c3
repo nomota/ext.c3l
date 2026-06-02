@@ -21,12 +21,12 @@ faultdef NO_MORE_ENTRY;
 
 fn Char16*? utf8to16(String path, Char16[] wpath) @private
 {
-    if (path.len == 0) return errno::F_BAD_LENGTH~;
+    if (path.len == 0) return errno::E_INVALID_ARG~;
 
     Char16[] p2 = path.to_utf16(tmem)!;
     // defer free(p2);
     
-    if (p2.len >= wpath.len-1) return errno::F_BAD_LENGTH~;
+    if (p2.len >= wpath.len-1) return errno::E_INVALID_ARG~;
     
     wpath[0:p2.len] = p2[0:p2.len];
     wpath[p2.len] = 0;
@@ -44,7 +44,7 @@ fn String? u16to8(Char16[] from, char[] buf) @private
     String s = string::from_utf16(tmem, from)!;
     // defer s.free(tmem);
     
-    if (s.len >= buf.len+1) return errno::F_BAD_LENGTH~;
+    if (s.len >= buf.len+1) return errno::E_INVALID_ARG~;
     
     buf[0:s.len] = s[0:s.len];
     buf[s.len] = 0;
@@ -65,7 +65,7 @@ fn String? get_cur_dir(char[] buf)
     }
     
     if (len >= wbuf.len) {
-        return errno::F_BAD_LENGTH~;
+        return errno::E_INVALID_ARG~;
     }
     
     return u16to8(wbuf[0:len], buf)!;
@@ -177,7 +177,7 @@ returned List{String} must be freed properly, not only list itself, but also con
 *>
 fn List{String}? list_dir(Allocator allocx, String path)
 {
-    if (path.len+2 >= MAX_PATH) return errno::F_BAD_LENGTH~;
+    if (path.len+2 >= MAX_PATH) return errno::E_INVALID_ARG~;
 
     // create search pattern (path\*)
     
@@ -254,7 +254,7 @@ fn DirIterator? scan_dir(Allocator allocx, String path)
 {
     localmem = allocx;
     
-    if (path.len+2 >= MAX_PATH) return errno::F_BAD_LENGTH~;
+    if (path.len+2 >= MAX_PATH) return errno::E_INVALID_ARG~;
 
     if (path[path.len-1] == '\\') {
         path = path.trim_right("\\");

@@ -8,12 +8,13 @@ module ext::mio @if(env::WIN32) @link("ws2_32");
 
 import c::errno;
 import c::wepoll;
+import c::winsock2;
 import ext::mem;
 
 struct SysPoll
 {
-    wepoll::EpollFd epfd;
-    wepoll::EpollEvent[] raw_events;
+    wepoll::EPollFd epfd;
+    wepoll::EPollEvent[] raw_events;
     sz capacity;
 }
 
@@ -36,9 +37,9 @@ fn void wepoll_to_event(uint flags, Event* event) @private
     if ((flags & wepoll::EPOLLRDHUP) != 0) event.hup = true;
 }
 
-fn wepoll::EpollEvent wepoll_event_new(Fd fd, Interest interest) @private
+fn wepoll::EPollEvent wepoll_event_new(Fd fd, Interest interest) @private
 {
-    wepoll::EpollEvent event = {};
+    wepoll::EPollEvent event = {};
 
     event.events = interest_to_wepoll(interest);
     event.data.u64 = (ulong)fd;
@@ -54,7 +55,7 @@ fn void? SysPoll.init(&self, sz event_capacity)
     self.raw_events = {};
     self.capacity = 0;
 
-    wepoll::EpollFd epfd = wepoll::epoll_create(1);
+    wepoll::EPollFd epfd = wepoll::epoll_create(1);
     if (epfd == null)
     {
         return errno::get_fault()~;
@@ -79,7 +80,7 @@ fn void? SysPoll.init(&self, sz event_capacity)
         self.capacity = 0;
     }
 
-    self.raw_events = localmem.alloc_array(wepoll::EpollEvent, event_capacity)!;
+    self.raw_events = localmem.alloc_array(wepoll::EPollEvent, event_capacity)!;
     self.capacity = event_capacity;
 }
 
@@ -129,7 +130,7 @@ fn void? SysPoll.wait(&self, Events* events, long timeout_ms)
 
     for (int i = 0; i < n; i++)
     {
-        wepoll::EpollEvent* raw = &self.raw_events[i];
+        wepoll::EPollEvent* raw = &self.raw_events[i];
 
         Event event = {};
         event.fd = (Fd)raw.data.u64;
@@ -149,9 +150,9 @@ fn void? SysPoll.register(&self, Fd fd, Interest interest)
     if (fd_invalid(fd)) return MIO_INVALID~;
     if (interest.is_empty()) return MIO_INVALID~;
 
-    wepoll::EpollEvent event = wepoll_event_new(fd, interest);
+    wepoll::EPollEvent event = wepoll_event_new(fd, interest);
 
-    if (wepoll::epoll_ctl(self.epfd, wepoll::EPOLL_CTL_ADD, (sz)fd, &event) < 0)
+    if (wepoll::epoll_ctl(self.epfd, wepoll::EPOLL_CTL_ADD, (winsock2::Socket)fd, &event) < 0)
     {
         return errno::get_fault()~;
     }
@@ -163,9 +164,9 @@ fn void? SysPoll.reregister(&self, Fd fd, Interest interest)
     if (fd_invalid(fd)) return MIO_INVALID~;
     if (interest.is_empty()) return MIO_INVALID~;
 
-    wepoll::EpollEvent event = wepoll_event_new(fd, interest);
+    wepoll::EPollEvent event = wepoll_event_new(fd, interest);
 
-    if (wepoll::epoll_ctl(self.epfd, wepoll::EPOLL_CTL_MOD, (sz)fd, &event) < 0)
+    if (wepoll::epoll_ctl(self.epfd, wepoll::EPOLL_CTL_MOD, (winsock2::Socket)fd, &event) < 0)
     {
         return errno::get_fault()~;
     }
@@ -176,7 +177,7 @@ fn void? SysPoll.deregister(&self, Fd fd)
     if (self.epfd == null) return MIO_CLOSED~;
     if (fd_invalid(fd)) return MIO_INVALID~;
 
-    if (wepoll::epoll_ctl(self.epfd, wepoll::EPOLL_CTL_DEL, (sz)fd, null) < 0)
+    if (wepoll::epoll_ctl(self.epfd, wepoll::EPOLL_CTL_DEL, (winsock2::Socket)fd, null) < 0)
     {
         return errno::get_fault()~;
     }

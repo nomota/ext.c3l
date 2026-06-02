@@ -21,11 +21,11 @@ struct File
 
 fn Char16*? utf8to16(String path, Char16[] wpath) @private
 {
-    if (path.len == 0) return errno::F_INVAL~;
+    if (path.len == 0) return errno::E_INVALID_ARG~;
     Char16[] p2 = path.to_utf16(tmem)!;
     // defer free(p2);
     
-    if (p2.len >= wpath.len-1) return errno::F_BAD_LENGTH~;
+    if (p2.len >= wpath.len-1) return errno::E_INVALID_ARG~;
     
     wpath[0:p2.len] = p2[0:p2.len];
     wpath[p2.len] = 0;
@@ -167,7 +167,7 @@ fn sz? File.seek(&self, long pos, int whence) @dynamic @maydiscard
         case 0: move_method = windows::FILE_BEGIN;
         case 1: move_method = windows::FILE_CURRENT;
         case 2: move_method = windows::FILE_END;
-        default: return errno::F_INVAL~;
+        default: return errno::E_INVALID_ARG~;
     }
     
     windows::Bool ok = windows::setFilePointerEx(self.fp, pos, null, move_method);
