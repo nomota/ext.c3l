@@ -47,9 +47,11 @@ LIBC = $(EXT)/c/*.c3
 MEM = $(EXT)/debug/*.c3 $(EXT)/mem/*.c3
 FIBER = $(EXT)/fiber/*.c3
 IO = $(EXT)/io/*.c3
+WEPOLL = $(EXT)/wepoll/*.c3
+MIO = $(EXT)/mio/*.c3
 AIO = $(EXT)/aio/*.c3
 
-LIBS = $(AIO) $(FIBER) $(MEM) $(LIBC) $(IO)
+LIBS = $(AIO) $(MIO) $(WEPOLL) $(FIBER) $(MEM) $(LIBC) $(IO)
 
 SAN = --sanitize=address
 SAN = --target windows-x64

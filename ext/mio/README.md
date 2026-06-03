@@ -104,7 +104,7 @@ defer events.free();
 ## Registering fds
 
 ```c3
-Fd fd; // file descripter, socket handle
+mio::Fd fd; // file descripter, socket handle
 poll.register(fd, mio::want_read())!!;
 poll.reregister(fd, mio::want_write())!!;
 poll.deregister(fd)!!;
@@ -174,7 +174,7 @@ poll.register(stream.fd, mio::want_read())!!;
 
 ## TCP connect
 
-`tcp_connect()` starts a non-blocking connect.
+`mio::tcp_connect()` starts a non-blocking connect.
 
 ```c3
 mio::TcpStream client = mio::tcp_connect("127.0.0.1", 8080)!!;
