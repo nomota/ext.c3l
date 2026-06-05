@@ -1,12 +1,14 @@
 // router.c3
 
-module ext::httpserver;
+// Nomota <hiongun@gmail.com>; MIT License
+
+module ext::aiohttp;
 
 import std::io;
 import std::collections::list;
 import ext::mem;
 import ext::debug;
-
+import c::errno;
 
 // 
 // Faults
@@ -23,24 +25,27 @@ faultdef INVALID_ROUTE_PATH;
 
 // Context is defined later in context.c3.
 // C3 module-level symbols can be resolved across files.
-alias Handler = fn Response*(Context* c);
+alias Handler = fn Response*?(Context* c);
 
 
 // 
 // Route
 // 
 
-struct Route {
+struct Route
+{
     String method;
     String path;
     Handler handler;
 }
 
-struct Router {
+struct Router
+{
     List{Route} routes;
 }
 
-struct RouteMatch {
+struct RouteMatch
+{
     Handler handler;
     Params params;
 }
@@ -54,6 +59,34 @@ fn bool route_path_valid(String path)
 {
     if (path.len == 0) return false;
     if (path[0] != '/') return false;
+
+    if (path.len > 1 && path[path.len - 1] == '/')
+    {
+        return false;
+    }
+
+    sz pos = 1;
+
+    while (pos < path.len)
+    {
+        String? seg_opt = next_segment(path, &pos);
+        if (catch err = seg_opt) return false;
+
+        String seg = seg_opt;
+        if (seg.len == 0) return false;
+
+        if (is_route_splat(seg))
+        {
+            return pos >= path.len;
+        }
+
+        if (is_route_param(seg))
+        {
+            String name = route_param_name(seg);
+            if (!param_name_valid(name)) return false;
+        }
+    }
+
     return true;
 }
 
@@ -80,7 +113,8 @@ fn String route_param_name(String seg)
 
 fn sz find_slash_from(String s, sz start)
 {
-    for (sz i = start; i < s.len; i++) {
+    for (sz i = start; i < s.len; i++)
+    {
         if (s[i] == '/') return (sz)i;
     }
 
@@ -99,14 +133,13 @@ fn sz find_slash_from(String s, sz start)
 // If no more segment exists, returns NOT_FOUND.
 fn String? next_segment(String path, sz* pos)
 {
-    if (*pos >= path.len) {
-        return NOT_FOUND~;
-    }
+    if (*pos >= path.len) return NOT_FOUND~;
 
     sz start = *pos;
 
     sz slash = find_slash_from(path, start);
-    if (slash < 0) {
+    if (slash < 0)
+    {
         *pos = path.len;
         return path[start:path.len - start];
     }
@@ -129,9 +162,7 @@ fn String rest_path(String path, sz pos)
     if (pos >= path.len) return "";
 
     // If pos points to a slash, skip it.
-    if (path[pos] == '/') {
-        pos++;
-    }
+    if (path[pos] == '/') pos++;
 
     if (pos >= path.len) return "";
 
@@ -170,7 +201,8 @@ fn void Router.init(&self)
 
 fn void Router.free(&self)
 {
-    for (sz i = 0; i < self.routes.len(); i++) {
+    for (sz i = 0; i < self.routes.len(); i++)
+    {
         self.routes[i].free();
     }
 
@@ -179,16 +211,17 @@ fn void Router.free(&self)
 
 fn void Router.clear(&self)
 {
-    for (sz i = 0; i < self.routes.len(); i++) {
+    for (sz i = 0; i < self.routes.len(); i++)
+    {
         self.routes[i].free();
     }
 
     self.routes.clear();
 }
 
-fn Router* router_new()
+fn Router*? router_new()
 {
-    Router* r = localmem.alloc(Router);
+    Router* r = localmem.alloc(Router)!;
     r.init();
     return r;
 }
@@ -206,11 +239,9 @@ fn void router_free(Router* r)
 // Add routes
 // 
 
-fn void? Router.add(&self, String method, String path, Handler handler)
+fn void? Router.add(&self, String method, String path, Handler handler) @maydiscard
 {
-    if (!route_path_valid(path)) {
-        return INVALID_ROUTE_PATH~;
-    }
+    if (!route_path_valid(path)) return INVALID_ROUTE_PATH~;
 
     self.routes.push((Route){
         .method = str_clone(method),
@@ -219,37 +250,37 @@ fn void? Router.add(&self, String method, String path, Handler handler)
     });
 }
 
-fn void? Router.get(&self, String path, Handler handler)
+fn void? Router.get(&self, String path, Handler handler) @maydiscard
 {
     self.add("GET", path, handler)!;
 }
 
-fn void? Router.post(&self, String path, Handler handler)
+fn void? Router.post(&self, String path, Handler handler) @maydiscard
 {
     self.add("POST", path, handler)!;
 }
 
-fn void? Router.put(&self, String path, Handler handler)
+fn void? Router.put(&self, String path, Handler handler) @maydiscard
 {
     self.add("PUT", path, handler)!;
 }
 
-fn void? Router.patch(&self, String path, Handler handler)
+fn void? Router.patch(&self, String path, Handler handler) @maydiscard
 {
     self.add("PATCH", path, handler)!;
 }
 
-fn void? Router.delete(&self, String path, Handler handler)
+fn void? Router.delete(&self, String path, Handler handler) @maydiscard
 {
     self.add("DELETE", path, handler)!;
 }
 
-fn void? Router.options(&self, String path, Handler handler)
+fn void? Router.options(&self, String path, Handler handler) @maydiscard
 {
     self.add("OPTIONS", path, handler)!;
 }
 
-fn void? Router.head(&self, String path, Handler handler)
+fn void? Router.head(&self, String path, Handler handler) @maydiscard
 {
     self.add("HEAD", path, handler)!;
 }
@@ -276,15 +307,13 @@ fn bool route_match_exact(String pattern, String path)
 // On failure, clears params before returning false.
 fn bool route_match_path(String pattern, String path, Params* params)
 {
+    if (params == null) return false;
+    
     params.clear();
 
-    if (pattern == path) {
-        return true;
-    }
+    if (pattern == path) return true;
 
-    if (pattern == "/" || path == "/") {
-        return false;
-    }
+    if (pattern == "/" || path == "/") return false;
 
     sz ppos = 0;
     sz rpos = 0;
@@ -296,61 +325,61 @@ fn bool route_match_path(String pattern, String path, Params* params)
     ppos = 1;
     rpos = 1;
 
-    while (true) {
+    while (true)
+    {
         bool pattern_done = ppos >= pattern.len;
         bool path_done = rpos >= path.len;
 
-        if (pattern_done && path_done) {
+        if (pattern_done && path_done)
+        {
             return true;
         }
 
-        if (pattern_done && !path_done) {
+        if (pattern_done && !path_done)
+        {
             break;
         }
 
         String? pseg_opt = next_segment(pattern, &ppos);
-        if (catch err = pseg_opt) {
-            break;
-        }
+        if (catch err = pseg_opt) break;
 
         String pseg = pseg_opt;
 
         // Wildcard splat consumes the rest of path.
-        if (is_route_splat(pseg)) {
+        if (is_route_splat(pseg))
+        {
             String rest = rest_path(path, rpos);
-            if (catch params.set_splat_decoded(rest)) {
+            if (catch params.set_splat_decoded(rest))
+            {
                 break;
             }
             return true;
         }
 
-        if (path_done) {
-            break;
-        }
+        if (path_done) break;
 
         String? rseg_opt = next_segment(path, &rpos);
-        if (catch err = rseg_opt) {
-            break;
-        }
+        if (catch err = rseg_opt) break;
 
         String rseg = rseg_opt;
 
-        if (is_route_param(pseg)) {
+        if (is_route_param(pseg))
+        {
             String name = route_param_name(pseg);
 
-            if (!param_name_valid(name)) {
+            if (!param_name_valid(name))
+            {
                 break;
             }
 
-            if (catch params.put_decoded(name, rseg)) {
+            if (catch params.put_decoded(name, rseg))
+            {
                 break;
             }
             continue;
         }
 
-        if (pseg != rseg) {
-            break;
-        }
+        if (pseg != rseg) break;
     }
 
     params.clear();
@@ -366,7 +395,8 @@ fn RouteMatch? Router.match(&self, String method, String path)
 {
     bool path_matched = false;
 
-    for (sz i = 0; i < self.routes.len(); i++) {
+    for (sz i = 0; i < self.routes.len(); i++)
+    {
         Route* route = &self.routes[i];
 
         Params params;
@@ -374,14 +404,16 @@ fn RouteMatch? Router.match(&self, String method, String path)
 
         bool matched = route_match_path(route.path, path, &params);
 
-        if (!matched) {
+        if (!matched)
+        {
             params.free();
             continue;
         }
 
         path_matched = true;
 
-        if (!method_eq(route.method, method)) {
+        if (!method_eq(route.method, method))
+        {
             params.free();
             continue;
         }
@@ -392,7 +424,8 @@ fn RouteMatch? Router.match(&self, String method, String path)
         };
     }
 
-    if (path_matched) {
+    if (path_matched)
+    {
         return METHOD_NOT_ALLOWED~;
     }
 
@@ -402,9 +435,7 @@ fn RouteMatch? Router.match(&self, String method, String path)
 fn bool Router.has_route(&self, String method, String path)
 {
     RouteMatch? m = self.match(method, path);
-    if (catch err = m) {
-        return false;
-    }
+    if (catch err = m) return false;
 
     m.free();
     return true;
@@ -415,41 +446,39 @@ fn bool Router.has_route(&self, String method, String path)
 // Mount child router
 // 
 
-fn String join_paths(String prefix, String path)
+fn String? join_paths(String prefix, String path)
 {
-    if (prefix == "/") {
-        return str_clone(path);
-    }
+    if (prefix == "/") return str_clone(path);
 
-    if (path == "/") {
-        return str_clone(prefix);
-    }
+    if (path == "/") return str_clone(prefix);
 
     bool prefix_slash = prefix[prefix.len - 1] == '/';
     bool path_slash = path[0] == '/';
 
     sz extra = 0;
 
-    if (!prefix_slash && !path_slash) {
+    if (!prefix_slash && !path_slash)
+    {
         extra = 1;
     }
 
     sz n = prefix.len + path.len + extra;
-    char* out = localmem.malloc(n + 1);
+    char* out = localmem.malloc(n + 1)!;
 
     sz pos = 0;
 
     out[pos:prefix.len] = prefix[0:prefix.len];
     pos += prefix.len;
 
-    if (extra == 1) {
-        out[pos++] = '/';
-    }
+    if (extra == 1) out[pos++] = '/';
 
-    if (prefix_slash && path_slash) {
+    if (prefix_slash && path_slash)
+    {
         out[pos:path.len - 1] = path[1:path.len - 1];
         pos += path.len - 1;
-    } else {
+    }
+    else
+    {
         out[pos:path.len] = path[0:path.len];
         pos += path.len;
     }
@@ -460,14 +489,14 @@ fn String join_paths(String prefix, String path)
 
 fn void? Router.mount(&self, String prefix, Router* child)
 {
-    if (!route_path_valid(prefix)) {
-        return INVALID_ROUTE_PATH~;
-    }
+    if (child == null) return errno::E_INVALID_ARG~;
+    if (!route_path_valid(prefix)) return INVALID_ROUTE_PATH~;
 
-    for (sz i = 0; i < child.routes.len(); i++) {
+    for (sz i = 0; i < child.routes.len(); i++)
+    {
         Route* r = &child.routes[i];
 
-        String joined = join_paths(prefix, r.path);
+        String joined = join_paths(prefix, r.path)!;
         defer localmem.free(joined);
 
         self.add(r.method, joined, r.handler)!;
@@ -481,8 +510,11 @@ fn void? Router.mount(&self, String prefix, Router* child)
 
 fn void Router.dump(&self)
 {
-    for (sz i = 0; i < self.routes.len(); i++) {
+    for (sz i = 0; i < self.routes.len(); i++)
+    {
         Route* r = &self.routes[i];
         io::printfn("%s %s", r.method, r.path);
     }
 }
+
+// eof

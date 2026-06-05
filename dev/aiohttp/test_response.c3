@@ -1,9 +1,9 @@
 // test_response.c3
 
-module test::httpserver_response;
+module test::aiohttp_response;
 
 import std::io;
-import ext::httpserver;
+import ext::aiohttp;
 import ext::debug;
 
 fn bool contains(String s, String needle)
@@ -11,7 +11,8 @@ fn bool contains(String s, String needle)
     if (needle.len == 0) return true;
     if (s.len < needle.len) return false;
 
-    for (sz i = 0; i + needle.len <= s.len; i++) {
+    for (sz i = 0; i + needle.len <= s.len; i++)
+    {
         if (s[i:needle.len] == needle) return true;
     }
 
@@ -20,163 +21,163 @@ fn bool contains(String s, String needle)
 
 fn void test_text_response()
 {
-    Response* res = httpserver::response_text("hello");
-    defer httpserver::response_free(res);
+    aiohttp::Response* res = aiohttp::response_text("hello")!!;
+    defer aiohttp::response_free(res);
 
-    assert(res.status == 200);
+    @assert(res.status == 200, "status mismatch");
 
     String ct = res.headers.get("Content-Type")!!;
-    assert(ct == "text/plain; charset=utf-8");
+    @assert(ct == "text/plain; charset=utf-8", "content type mismatch");
 
-    assert((String)res.body == "hello");
+    @assert((String)res.body == "hello", "body mismatch");
 
-    String wire = res.serialize();
-    defer httpserver::localmem.free(wire);
+    String wire = res.serialize()!!;
+    defer aiohttp::localmem.free(wire);
 
-    assert(contains(wire, "HTTP/1.1 200 OK\r\n"));
-    assert(contains(wire, "Content-Type: text/plain; charset=utf-8\r\n"));
-    assert(contains(wire, "Content-Length: 5\r\n"));
-    assert(contains(wire, "\r\n\r\nhello"));
+    @assert(contains(wire, "HTTP/1.1 200 OK\r\n"), "missing status line");
+    @assert(contains(wire, "Content-Type: text/plain; charset=utf-8\r\n"), "missing content type");
+    @assert(contains(wire, "Content-Length: 5\r\n"), "missing content length");
+    @assert(contains(wire, "\r\n\r\nhello"), "missing body");
 }
 
 fn void test_json_response()
 {
-    Response* res = httpserver::response_json("{\"ok\":true}");
-    defer httpserver::response_free(res);
+    aiohttp::Response* res = aiohttp::response_json("{\"ok\":true}")!!;
+    defer aiohttp::response_free(res);
 
     String ct = res.headers.get("Content-Type")!!;
-    assert(ct == "application/json; charset=utf-8");
+    @assert(ct == "application/json; charset=utf-8", "content type mismatch");
 
-    String wire = res.serialize();
-    defer httpserver::localmem.free(wire);
+    String wire = res.serialize()!!;
+    defer aiohttp::localmem.free(wire);
 
-    assert(contains(wire, "Content-Length: 11\r\n"));
-    assert(contains(wire, "\r\n\r\n{\"ok\":true}"));
+    @assert(contains(wire, "Content-Length: 11\r\n"), "missing content length");
+    @assert(contains(wire, "\r\n\r\n{\"ok\":true}"), "missing json body");
 }
 
 fn void test_html_response()
 {
-    Response* res = httpserver::response_html("<h1>Hello</h1>");
-    defer httpserver::response_free(res);
+    aiohttp::Response* res = aiohttp::response_html("<h1>Hello</h1>")!!;
+    defer aiohttp::response_free(res);
 
     String ct = res.headers.get("Content-Type")!!;
-    assert(ct == "text/html; charset=utf-8");
+    @assert(ct == "text/html; charset=utf-8", "content type mismatch");
 
-    String wire = res.serialize();
-    defer httpserver::localmem.free(wire);
+    String wire = res.serialize()!!;
+    defer aiohttp::localmem.free(wire);
 
-    assert(contains(wire, "<h1>Hello</h1>"));
+    @assert(contains(wire, "<h1>Hello</h1>"), "missing html body");
 }
 
 fn void test_custom_header()
 {
-    Response* res = httpserver::response_text("ok");
-    defer httpserver::response_free(res);
+    aiohttp::Response* res = aiohttp::response_text("ok")!!;
+    defer aiohttp::response_free(res);
 
-    res.header("X-Test", "yes");
+    res.header("X-Test", "yes")!!;
 
-    String wire = res.serialize();
-    defer httpserver::localmem.free(wire);
+    String wire = res.serialize()!!;
+    defer aiohttp::localmem.free(wire);
 
-    assert(contains(wire, "X-Test: yes\r\n"));
+    @assert(contains(wire, "X-Test: yes\r\n"), "missing custom header");
 }
 
 fn void test_repeated_set_cookie()
 {
-    Response* res = httpserver::response_text("ok");
-    defer httpserver::response_free(res);
+    aiohttp::Response* res = aiohttp::response_text("ok")!!;
+    defer aiohttp::response_free(res);
 
-    res.set_cookie("a=1; Path=/");
-    res.set_cookie("b=2; Path=/");
+    res.set_cookie("a=1; Path=/")!!;
+    res.set_cookie("b=2; Path=/")!!;
 
-    String wire = res.serialize();
-    defer httpserver::localmem.free(wire);
+    String wire = res.serialize()!!;
+    defer aiohttp::localmem.free(wire);
 
-    assert(contains(wire, "Set-Cookie: a=1; Path=/\r\n"));
-    assert(contains(wire, "Set-Cookie: b=2; Path=/\r\n"));
+    @assert(contains(wire, "Set-Cookie: a=1; Path=/\r\n"), "missing first Set-Cookie");
+    @assert(contains(wire, "Set-Cookie: b=2; Path=/\r\n"), "missing second Set-Cookie");
 }
 
 fn void test_auto_connection()
 {
-    Response* res = httpserver::response_text("ok");
-    defer httpserver::response_free(res);
+    aiohttp::Response* res = aiohttp::response_text("ok")!!;
+    defer aiohttp::response_free(res);
 
-    String wire = res.serialize();
-    defer httpserver::localmem.free(wire);
+    String wire = res.serialize()!!;
+    defer aiohttp::localmem.free(wire);
 
-    assert(contains(wire, "Connection: close\r\n"));
+    @assert(contains(wire, "Connection: close\r\n"), "missing default Connection header");
 }
 
 fn void test_manual_content_length_preserved()
 {
-    Response* res = httpserver::response_text("hello");
-    defer httpserver::response_free(res);
+    aiohttp::Response* res = aiohttp::response_text("hello")!!;
+    defer aiohttp::response_free(res);
 
-    res.content_length(999);
+    res.content_length(999)!!;
 
-    String wire = res.serialize();
-    defer httpserver::localmem.free(wire);
+    String wire = res.serialize()!!;
+    defer aiohttp::localmem.free(wire);
 
-    assert(contains(wire, "Content-Length: 999\r\n"));
+    @assert(contains(wire, "Content-Length: 999\r\n"), "manual Content-Length not preserved");
 }
 
 fn void test_no_body_status_204()
 {
-    Response* res = httpserver::response_text("hello");
-    defer httpserver::response_free(res);
+    aiohttp::Response* res = aiohttp::response_text("hello")!!;
+    defer aiohttp::response_free(res);
 
-    res.set_status(204);
+    res.set_status(204)!!;
 
-    String wire = res.serialize();
-    defer httpserver::localmem.free(wire);
+    String wire = res.serialize()!!;
+    defer aiohttp::localmem.free(wire);
 
-    assert(contains(wire, "HTTP/1.1 204 No Content\r\n"));
-    assert(contains(wire, "Content-Length: 0\r\n"));
-    assert(!contains(wire, "\r\n\r\nhello"));
+    @assert(contains(wire, "HTTP/1.1 204 No Content\r\n"), "missing 204 status line");
+    @assert(contains(wire, "Content-Length: 0\r\n"), "204 should serialize Content-Length: 0");
+    @assert(!contains(wire, "\r\n\r\nhello"), "204 response must not include body");
 }
 
 fn void test_redirect()
 {
-    Response* res = httpserver::response_redirect("/new-page", 302);
-    defer httpserver::response_free(res);
+    aiohttp::Response* res = aiohttp::response_redirect("/new-page", 302)!!;
+    defer aiohttp::response_free(res);
 
-    String wire = res.serialize();
-    defer httpserver::localmem.free(wire);
-    // warn("%s", wire);
-    assert(contains(wire, "HTTP/1.1 302 Moved Temporarily\r\n"));
-    assert(contains(wire, "Location: /new-page\r\n"));
+    String wire = res.serialize()!!;
+    defer aiohttp::localmem.free(wire);
+
+    @assert(contains(wire, "HTTP/1.1 302 Moved Temporarily\r\n"), "missing redirect status line");
+    @assert(contains(wire, "Location: /new-page\r\n"), "missing Location header");
 }
 
 fn void test_write_to_small_buffer()
 {
-    Response* res = httpserver::response_text("hello");
-    defer httpserver::response_free(res);
+    aiohttp::Response* res = aiohttp::response_text("hello")!!;
+    defer aiohttp::response_free(res);
 
     char[4] small;
-    sz n = res.write_to(&small);
+    sz n = res.write_to(small[..]);
 
-    assert(n == 0);
+    @assert(n == 0, "small buffer should fail with 0");
 }
 
 fn void test_write_to_exact_buffer()
 {
-    Response* res = httpserver::response_text("hello");
-    defer httpserver::response_free(res);
+    aiohttp::Response* res = aiohttp::response_text("hello")!!;
+    defer aiohttp::response_free(res);
 
     sz need = res.serialized_len();
 
-    char* p = httpserver::localmem.malloc(need);
-    defer httpserver::localmem.free(p);
+    char* p = aiohttp::localmem.malloc(need)!!;
+    defer aiohttp::localmem.free(p);
 
     char[] out = p[0:need];
 
     sz n = res.write_to(out);
 
-    assert(n == need);
+    @assert(n == need, "write_to exact buffer length mismatch");
 
     String wire = (String)out;
-    assert(contains(wire, "HTTP/1.1 200 OK\r\n"));
-    assert(contains(wire, "\r\n\r\nhello"));
+    @assert(contains(wire, "HTTP/1.1 200 OK\r\n"), "missing status line");
+    @assert(contains(wire, "\r\n\r\nhello"), "missing body");
 }
 
 fn void main()
@@ -193,5 +194,7 @@ fn void main()
     test_write_to_small_buffer();
     test_write_to_exact_buffer();
 
-    io::printfn("test_response: ok");
+    io::printfn("test_response: OK");
 }
+
+// eof

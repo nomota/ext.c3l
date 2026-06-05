@@ -5,7 +5,6 @@
 module ext::aio;
 
 import ext::mem;
-import c::errno;
 import ext::aio::io;
 
 faultdef FILE_CLOSED, FILE_EOF, INVALID_FD;
@@ -35,6 +34,7 @@ fn File*? file_open(String path, String mode, int permission = 0o644)
 {
     Fd fd = io::file_open(path, mode, permission)!;
     defer (catch err) { io::file_close(fd); }
+
     return file_from_fd(fd, true)!;
 }
 
@@ -90,7 +90,6 @@ fn void? File.write_all(&self, char[] data) @maydiscard
         char[] part = data[sent..];
 
         sz n = self.write(part)!;
-
         if (n == 0) return FILE_CLOSED~;
 
         sent += n;
@@ -108,7 +107,6 @@ fn void? File.read_exact(&self, char[] buf)
         char[] part = buf[got..];
 
         sz n = self.read(part)!;
-
         if (n == 0) return FILE_EOF~;
 
         got += n;
@@ -119,35 +117,35 @@ fn long? File.seek(&self, long offset, int whence)
 {
     if (self.is_closed()) return FILE_CLOSED~;
 
-    return io::file_seek(self.fd, offset, whence);
+    return io::file_seek(self.fd, offset, whence)!;
 }
 
 fn long? File.tell(&self)
 {
     if (self.is_closed()) return FILE_CLOSED~;
 
-    return io::file_tell(self.fd);
+    return io::file_tell(self.fd)!;
 }
 
 fn void? File.truncate(&self, long size) @maydiscard
 {
     if (self.is_closed()) return FILE_CLOSED~;
 
-    io::file_truncate(self.fd, size);
+    io::file_truncate(self.fd, size)!;
 }
 
 fn void? File.flush(&self) @maydiscard
 {
     if (self.is_closed()) return FILE_CLOSED~;
 
-    io::file_flush(self.fd);
+    io::file_flush(self.fd)!;
 }
 
 fn long? File.size(&self)
 {
     if (self.is_closed()) return FILE_CLOSED~;
 
-    return io::file_size(self.fd);
+    return io::file_size(self.fd)!;
 }
 
 fn File*? stdin()

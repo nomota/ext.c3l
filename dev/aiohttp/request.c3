@@ -1,5 +1,7 @@
 // request.c3
 
+// Nomota <hiongun@gmail.com>; MIT License
+
 module ext::aiohttp;
 
 import std::io;
@@ -24,8 +26,8 @@ faultdef BODY_INCOMPLETE;
 // 
 
 const sz MAX_REQUEST_LINE_LEN = 8192;
-const sz MAX_HEADER_BYTES     = 64 * 1024;
-const sz MAX_BODY_BYTES       = 16 * 1024 * 1024;
+const sz MAX_HEADER_BYTES = 64 * 1024;
+const sz MAX_BODY_BYTES = 16 * 1024 * 1024;
 
 
 // 
@@ -208,7 +210,7 @@ fn sz? parse_sz(String s)
         sz digit = (sz)(c - '0');
 
         // Simple overflow guard.
-        if (value > ((sz.max - digit) / 10))
+        if (value > ((sz::max - digit) / 10))
         {
             return REQUEST_TOO_LARGE~;
         }
@@ -231,6 +233,7 @@ fn void Request.init(&self)
     self.path = "";
     self.query_string = "";
     self.version = "";
+    self.remote_ip = "";
 
     self.headers.init();
 
@@ -245,6 +248,7 @@ fn void Request.free(&self)
     str_free(self.path);
     str_free(self.query_string);
     str_free(self.version);
+    str_free(self.remote_ip);
 
     self.headers.free();
 
@@ -255,14 +259,15 @@ fn void Request.free(&self)
     self.path = "";
     self.query_string = "";
     self.version = "";
+    self.remote_ip = "";
 
     self.body = {};
     self.owns_body = false;
 }
 
-fn Request* request_new()
+fn Request*? request_new()
 {
-    Request* req = localmem.alloc(Request);
+    Request* req = localmem.alloc(Request)!;
     req.init();
     return req;
 }
@@ -316,6 +321,10 @@ fn bool Request.is_http_10(&self) @inline
 
 fn void Request.set_target_parts(&self, String target)
 {
+    str_free(self.target);
+    str_free(self.path);
+    str_free(self.query_string);
+
     self.target = str_clone(target);
 
     sz q = find_char((char[])target, '?');
@@ -377,6 +386,9 @@ fn void? Request.parse_request_line(&self, String line)
 
     if (!version_valid(version)) return INVALID_VERSION~;
 
+    str_free(self.method);
+    str_free(self.version);
+
     self.method = str_clone(method);
     self.set_target_parts(target);
     self.version = str_clone(version);
@@ -387,7 +399,7 @@ fn void? Request.parse_request_line(&self, String line)
 // Header parser
 // 
 
-fn void? Request.parse_header_line(&self, String line)
+fn void? Request.parse_header_line(&self, String line) @maydiscard
 {
     if (line.len == 0) return;
 
@@ -403,10 +415,10 @@ fn void? Request.parse_header_line(&self, String line)
     // But invalid names should be parse errors, not silently ignored.
     if (!is_valid_name(name)) return INVALID_HEADER~;
 
-    self.headers.add(name, value);
+    self.headers.add(name, value)!;
 }
 
-fn void? Request.parse_headers_block(&self, char[] block)
+fn void? Request.parse_headers_block(&self, char[] block) @maydiscard
 {
     sz pos = 0;
 
@@ -453,7 +465,14 @@ fn void? Request.set_body_copy(&self, char[] body)
         bytes_free(self.body);
     }
 
-    self.body = bytes_clone(body);
+    if (body.len == 0)
+    {
+        self.body = {};
+        self.owns_body = false;
+        return;
+    }
+
+    self.body = bytes_clone(body)!;
     self.owns_body = true;
 }
 
@@ -492,13 +511,24 @@ fn Request*? request_parse(char[] raw)
         return REQUEST_TOO_LARGE~;
     }
 
-    Request* req = request_new();
+    Request* req = request_new()!;
     defer catch request_free(req);
 
     char[] header_block = raw[0:header_end + gap/2];
     req.parse_headers_block(header_block)!;
 
     sz available_body = raw.len - body_start;
+
+    char[] raw_body = raw[body_start:raw.len - body_start];
+    
+    if (req.is_chunked())
+    {
+        ChunkedDecodeResult decoded = chunked_decode(raw_body)!;
+        defer body_free(decoded.body);
+    
+        req.set_body_copy(decoded.body)!;
+        return req;
+    }
 
     sz content_len = req.content_length()!;
 
@@ -540,18 +570,27 @@ fn sz? request_expected_total_len(char[] raw)
     }
 
     sz header_end = p[0];
-    sz body_start = p[0]+p[1];
+    sz body_start = p[0] + p[1];
     sz gap = p[1];
     
     if (header_end > MAX_HEADER_BYTES)
     {
         return REQUEST_TOO_LARGE~;
     }
-    Request* tmp = request_new();
+
+    Request* tmp = request_new()!;
     defer request_free(tmp);
 
-    char[] header_block = raw[0:header_end + gap/2];
+    char[] header_block = raw[0:header_end + gap / 2];
     tmp.parse_headers_block(header_block)!;
+
+    char[] raw_body = raw[body_start:raw.len - body_start];
+
+    if (tmp.is_chunked())
+    {
+        sz chunked_len = chunked_expected_len(raw_body)!;
+        return body_start + chunked_len;
+    }
 
     sz content_len = tmp.content_length()!;
 

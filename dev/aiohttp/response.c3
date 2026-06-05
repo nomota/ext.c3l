@@ -1,5 +1,7 @@
 // response.c3
 
+// Nomota <hiongun@gmail.com>; MIT License
+
 module ext::aiohttp;
 
 import std::io;
@@ -86,11 +88,11 @@ fn bool status_allows_body(ushort status)
 // Internal helpers
 // 
 
-fn char[] bytes_clone(char[] data)
+fn char[]? bytes_clone(char[] data)
 {
     if (data.len == 0) return {};
 
-    char* p = localmem.malloc(data.len);
+    char* p = localmem.malloc(data.len)!;
     p[0:data.len] = data[0:data.len];
 
     return p[0:data.len];
@@ -127,9 +129,9 @@ fn void Response.free(&self)
     self.owns_body = false;
 }
 
-fn Response* response_new()
+fn Response*? response_new()
 {
-    Response* res = localmem.alloc(Response);
+    Response* res = localmem.alloc(Response)!;
     res.init();
     return res;
 }
@@ -146,41 +148,45 @@ fn void response_free(Response* res)
 // Basic mutators
 // 
 
-fn void Response.set_status(&self, ushort status)
+faultdef INVALID_STATUS;
+
+fn void? Response.set_status(&self, ushort status) @maydiscard
 {
+    if (status < 100 || status > 599) return INVALID_STATUS~;
+
     self.status = status;
 }
 
-fn void Response.header(&self, String name, String value)
+fn void? Response.header(&self, String name, String value) @maydiscard
 {
-    self.headers.set(name, value);
+    self.headers.set(name, value)!;
 }
 
-fn void Response.add_header(&self, String name, String value)
+fn void? Response.add_header(&self, String name, String value) @maydiscard
 {
-    self.headers.add(name, value);
+    self.headers.add(name, value)!;
 }
 
-fn void Response.content_type(&self, String value)
+fn void? Response.content_type(&self, String value) @maydiscard
 {
-    self.headers.content_type(value);
+    self.headers.content_type(value)!;
 }
 
-fn void Response.content_length(&self, sz value)
+fn void? Response.content_length(&self, sz value) @maydiscard
 {
-    self.headers.content_length(value);
+    self.headers.content_length(value)!;
 }
 
-fn void Response.set_cookie(&self, String value)
+fn void? Response.set_cookie(&self, String value) @maydiscard
 {
-    self.headers.set_cookie(value);
+    self.headers.set_cookie(value)!;
 }
 
-fn void Response.set_body_copy(&self, char[] body)
+fn void? Response.set_body_copy(&self, char[] body) @maydiscard
 {
     if (self.owns_body) body_free(self.body);
 
-    self.body = bytes_clone(body);
+    self.body = bytes_clone(body)!;
     self.owns_body = true;
 }
 
@@ -192,89 +198,102 @@ fn void Response.set_body_borrowed(&self, char[] body)
     self.owns_body = false;
 }
 
-fn void Response.set_text(&self, String text)
+fn void? Response.set_text(&self, String text) @maydiscard
 {
-    self.content_type("text/plain; charset=utf-8");
-    self.set_body_copy((char[])text);
+    self.content_type("text/plain; charset=utf-8")!;
+    self.set_body_copy((char[])text)!;
 }
 
-fn void Response.set_html(&self, String html)
+fn void? Response.set_html(&self, String html) @maydiscard
 {
-    self.content_type("text/html; charset=utf-8");
-    self.set_body_copy((char[])html);
+    self.content_type("text/html; charset=utf-8")!;
+    self.set_body_copy((char[])html)!;
 }
 
-fn void Response.set_json(&self, String json)
+fn void? Response.set_json(&self, String json) @maydiscard
 {
-    self.content_type("application/json; charset=utf-8");
-    self.set_body_copy((char[])json);
+    self.content_type("application/json; charset=utf-8")!;
+    self.set_body_copy((char[])json)!;
 }
 
 // 
 // Constructors
 // 
 
-fn Response* response_empty(ushort status)
+fn Response*? response_empty(ushort status)
 {
-    Response* res = response_new();
+    Response* res = response_new()!;
+    defer catch response_free(res);
+    
+    res.set_status(status)!;
+    return res;
+}
+
+fn Response*? response_body(char[] body)
+{
+    Response* res = response_new()!;
+    defer catch response_free(res);
+    
+    res.set_body_copy(body)!;
+    return res;
+}
+
+fn Response*? response_text(String text)
+{
+    Response* res = response_new()!;
+    defer catch response_free(res);
+    
+    res.set_text(text)!;
+    return res;
+}
+
+fn Response*? response_html(String html)
+{
+    Response* res = response_new()!;
+    defer catch response_free(res);
+    
+    res.set_html(html)!;
+    return res;
+}
+
+fn Response*? response_json(String json)
+{
+    Response* res = response_new()!;
+    defer catch response_free(res);
+    
+    res.set_json(json)!;
+    return res;
+}
+
+fn Response*? response_redirect(String location, ushort status = 302)
+{
+    Response* res = response_new()!;
+    defer catch response_free(res);
+    
     res.status = status;
-    return res;
-}
-
-fn Response* response_body(char[] body)
-{
-    Response* res = response_new();
-    res.set_body_copy(body);
-    return res;
-}
-
-fn Response* response_text(String text)
-{
-    Response* res = response_new();
-    res.set_text(text);
-    return res;
-}
-
-fn Response* response_html(String html)
-{
-    Response* res = response_new();
-    res.set_html(html);
-    return res;
-}
-
-fn Response* response_json(String json)
-{
-    Response* res = response_new();
-    res.set_json(json);
-    return res;
-}
-
-fn Response* response_redirect(String location, ushort status = 302)
-{
-    Response* res = response_new();
-
-    res.status = status;
-    res.headers.set("Location", location);
+    res.headers.set("Location", location)!;
 
     return res;
 }
 
-fn Response* response_not_found()
+fn Response*? response_not_found()
 {
-    Response* res = response_new();
-
+    Response* res = response_new()!;
+    defer catch response_free(res);
+    
     res.status = 404;
-    res.set_text("404 Not Found");
+    res.set_text("404 Not Found")!;
 
     return res;
 }
 
-fn Response* response_internal_error()
+fn Response*? response_internal_error()
 {
-    Response* res = response_new();
-
+    Response* res = response_new()!;
+    defer catch response_free(res);
+    
     res.status = 500;
-    res.set_text("500 Internal Server Error");
+    res.set_text("500 Internal Server Error")!;
 
     return res;
 }
@@ -417,6 +436,8 @@ fn sz Response.write_to(&self, char[] out)
     return pos;
 }
 
+faultdef RESPONSE_SERIALIZE_ERROR;
+
 fn String? Response.serialize(&self)
 {
     sz n = self.serialized_len();
@@ -427,6 +448,12 @@ fn String? Response.serialize(&self)
     char[] out = p[0:n];
 
     sz written = self.write_to(out);
+    if (written == 0 && n > 0)
+    {
+        localmem.free(p);
+        return RESPONSE_SERIALIZE_ERROR~;
+    }
+
     p[written] = 0;
 
     return (String)p[0:written];

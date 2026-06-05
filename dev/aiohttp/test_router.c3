@@ -1,158 +1,164 @@
-module test::httpserver_router;
+// test_router.c3
+
+module test::aiohttp_router;
 
 import std::io;
-import ext::httpserver;
+import ext::aiohttp;
 import ext::debug;
 
-fn Response* dummy_handler(Ctx* c)
+fn aiohttp::Response*? dummy_handler(aiohttp::Ctx* c)
 {
-    return c.text("ok");
+    return c.text("ok")!;
 }
 
 fn void test_exact_route()
 {
-    Router r;
+    aiohttp::Router r;
     r.init();
     defer r.free();
 
     r.get("/hello", &dummy_handler)!!;
 
-    RouteMatch m = r.match("GET", "/hello")!!;
+    aiohttp::RouteMatch m = r.match("GET", "/hello")!!;
     defer m.free();
 
-    assert(m.handler != null);
+    @assert(m.handler != null, "exact route handler is null");
 }
 
 fn void test_one_param()
 {
-    Router r;
+    aiohttp::Router r;
     r.init();
     defer r.free();
 
     r.get("/users/:id", &dummy_handler)!!;
 
-    RouteMatch m = r.match("GET", "/users/kim")!!;
+    aiohttp::RouteMatch m = r.match("GET", "/users/kim")!!;
     defer m.free();
 
     String id = m.params.get("id")!!;
-    assert(id == "kim");
+    @assert(id == "kim", "one param mismatch");
 }
 
 fn void test_two_params()
 {
-    Router r;
+    aiohttp::Router r;
     r.init();
     defer r.free();
 
     r.get("/users/:user_id/posts/:post_id", &dummy_handler)!!;
 
-    RouteMatch m = r.match("GET", "/users/kim/posts/42")!!;
+    aiohttp::RouteMatch m = r.match("GET", "/users/kim/posts/42")!!;
     defer m.free();
 
     String user_id = m.params.get("user_id")!!;
     String post_id = m.params.get("post_id")!!;
 
-    assert(user_id == "kim");
-    assert(post_id == "42");
+    @assert(user_id == "kim", "user_id mismatch");
+    @assert(post_id == "42", "post_id mismatch");
 }
 
 fn void test_splat()
 {
-    Router r;
+    aiohttp::Router r;
     r.init();
     defer r.free();
 
     r.get("/files/*", &dummy_handler)!!;
 
-    RouteMatch m = r.match("GET", "/files/css/app.css")!!;
+    aiohttp::RouteMatch m = r.match("GET", "/files/css/app.css")!!;
     defer m.free();
 
     String rest = m.params.splat()!!;
-    assert(rest == "css/app.css");
+    @assert(rest == "css/app.css", "splat mismatch");
 }
 
 fn void test_param_percent_decode()
 {
-    Router r;
+    aiohttp::Router r;
     r.init();
     defer r.free();
 
     r.get("/users/:id", &dummy_handler)!!;
 
-    RouteMatch m = r.match("GET", "/users/kim%20lee")!!;
+    aiohttp::RouteMatch m = r.match("GET", "/users/kim%20lee")!!;
     defer m.free();
 
     String id = m.params.get("id")!!;
-    assert(id == "kim lee");
+    @assert(id == "kim lee", "percent-decoded param mismatch");
 }
 
 fn void test_splat_percent_decode()
 {
-    Router r;
+    aiohttp::Router r;
     r.init();
     defer r.free();
 
     r.get("/files/*", &dummy_handler)!!;
 
-    RouteMatch m = r.match("GET", "/files/docs/my%20file.pdf")!!;
+    aiohttp::RouteMatch m = r.match("GET", "/files/docs/my%20file.pdf")!!;
     defer m.free();
 
     String rest = m.params.splat()!!;
-    assert(rest == "docs/my file.pdf");
+    @assert(rest == "docs/my file.pdf", "percent-decoded splat mismatch");
 }
 
 fn void test_not_found()
 {
-    Router r;
+    aiohttp::Router r;
     r.init();
     defer r.free();
 
     r.get("/hello", &dummy_handler)!!;
 
-    RouteMatch? m = r.match("GET", "/missing");
-    if (catch err = m) {
-        assert(err == httpserver::ROUTE_NOT_FOUND);
+    aiohttp::RouteMatch? m = r.match("GET", "/missing");
+    if (catch err = m)
+    {
+        @assert(err == aiohttp::ROUTE_NOT_FOUND, "expected ROUTE_NOT_FOUND");
         return;
     }
 
-    @assert(false, "error");
+    m.free();
+    @assert(false, "expected route not found");
 }
 
 fn void test_method_not_allowed()
 {
-    Router r;
+    aiohttp::Router r;
     r.init();
     defer r.free();
 
     r.get("/hello", &dummy_handler)!!;
 
-    RouteMatch? m = r.match("POST", "/hello");
-    if (catch err = m) {
-        assert(err == httpserver::METHOD_NOT_ALLOWED);
+    aiohttp::RouteMatch? m = r.match("POST", "/hello");
+    if (catch err = m)
+    {
+        @assert(err == aiohttp::METHOD_NOT_ALLOWED, "expected METHOD_NOT_ALLOWED");
         return;
     }
 
-    @assert(false, "error");
+    m.free();
+    @assert(false, "expected method not allowed");
 }
 
 fn void test_mount()
 {
-    Router api;
+    aiohttp::Router api;
     api.init();
     defer api.free();
 
     api.get("/users", &dummy_handler)!!;
 
-    Router root;
+    aiohttp::Router root;
     root.init();
     defer root.free();
 
     root.mount("/api", &api)!!;
 
-    RouteMatch m = root.match("GET", "/api/users")!!;
+    aiohttp::RouteMatch m = root.match("GET", "/api/users")!!;
     defer m.free();
 
-    assert(m.handler != null);
+    @assert(m.handler != null, "mounted route handler is null");
 }
 
 fn void main()
@@ -167,5 +173,7 @@ fn void main()
     test_method_not_allowed();
     test_mount();
 
-    io::printfn("test_router: ok");
+    io::printfn("test_router: OK");
 }
+
+// eof

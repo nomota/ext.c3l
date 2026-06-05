@@ -1,165 +1,177 @@
 // test_request.c3
 
-module test::httpserver_request;
+module test::aiohttp_request;
 
 import std::io;
-import ext::httpserver;
+import ext::aiohttp;
 import ext::debug;
 
 fn void test_basic_get()
 {
     char[] raw = (char[])"GET /hello HTTP/1.1\r\nHost: localhost\r\n\r\n";
 
-    Request* req = httpserver::request_parse(raw)!!;
-    defer httpserver::request_free(req);
+    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
+    defer aiohttp::request_free(req);
 
-    assert(req.method == "GET");
-    assert(req.target == "/hello");
-    assert(req.path == "/hello");
-    assert(req.query_string == "");
-    assert(req.version == "HTTP/1.1");
+    @assert(req.method == "GET", "method mismatch");
+    @assert(req.target == "/hello", "target mismatch");
+    @assert(req.path == "/hello", "path mismatch");
+    @assert(req.query_string == "", "query_string mismatch");
+    @assert(req.version == "HTTP/1.1", "version mismatch");
 
     String host = req.header("Host")!!;
-    assert(host == "localhost");
+    @assert(host == "localhost", "host mismatch");
 }
 
 fn void test_get_query()
 {
     char[] raw = (char[])"GET /search?q=c3&page=1 HTTP/1.1\r\nHost: localhost\r\n\r\n";
 
-    Request* req = httpserver::request_parse(raw)!!;
-    defer httpserver::request_free(req);
+    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
+    defer aiohttp::request_free(req);
 
-    assert(req.target == "/search?q=c3&page=1");
-    assert(req.path == "/search");
-    assert(req.query_string == "q=c3&page=1");
+    @assert(req.target == "/search?q=c3&page=1", "target mismatch");
+    @assert(req.path == "/search", "path mismatch");
+    @assert(req.query_string == "q=c3&page=1", "query_string mismatch");
 }
 
 fn void test_headers()
 {
     char[] raw = (char[])"GET / HTTP/1.1\r\nHost: localhost\r\nUser-Agent: curl\r\n\r\n";
 
-    Request* req = httpserver::request_parse(raw)!!;
-    defer httpserver::request_free(req);
+    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
+    defer aiohttp::request_free(req);
 
     String host = req.header("host")!!;
     String ua = req.header("USER-AGENT")!!;
 
-    assert(host == "localhost");
-    assert(ua == "curl");
+    @assert(host == "localhost", "case-insensitive Host lookup failed");
+    @assert(ua == "curl", "case-insensitive User-Agent lookup failed");
 }
 
 fn void test_post_body()
 {
     char[] raw = (char[])"POST /echo HTTP/1.1\r\nHost: localhost\r\nContent-Length: 5\r\n\r\nhello";
 
-    Request* req = httpserver::request_parse(raw)!!;
-    defer httpserver::request_free(req);
+    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
+    defer aiohttp::request_free(req);
 
-    assert(req.method == "POST");
-    assert(req.path == "/echo");
-    assert(req.has_body());
-    assert(req.body.len == 5);
-    assert((String)req.body == "hello");
+    @assert(req.method == "POST", "method mismatch");
+    @assert(req.path == "/echo", "path mismatch");
+    @assert(req.has_body(), "body missing");
+    @assert(req.body.len == 5, "body length mismatch");
+    @assert((String)req.body == "hello", "body text mismatch");
 }
 
 fn void test_lf_only()
 {
     char[] raw = (char[])"GET /hello HTTP/1.1\nHost: localhost\n\n";
 
-    Request* req = httpserver::request_parse(raw)!!;
-    defer httpserver::request_free(req);
+    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
+    defer aiohttp::request_free(req);
 
-    assert(req.method == "GET");
-    assert(req.path == "/hello");
+    @assert(req.method == "GET", "method mismatch");
+    @assert(req.path == "/hello", "path mismatch");
 
     String host = req.header("Host")!!;
-    assert(host == "localhost");
+    @assert(host == "localhost", "host mismatch");
 }
 
 fn void test_incomplete_body()
 {
     char[] raw = (char[])"POST /echo HTTP/1.1\r\nContent-Length: 10\r\n\r\nhello";
 
-    Request*? req = httpserver::request_parse(raw);
+    aiohttp::Request*? req = aiohttp::request_parse(raw);
 
-    if (catch err = req) {
-        assert(err == httpserver::BODY_INCOMPLETE);
+    if (catch err = req)
+    {
+        @assert(err == aiohttp::BODY_INCOMPLETE, "expected BODY_INCOMPLETE");
         return;
     }
 
-    httpserver::request_free(req);
-    @assert(false);
+    aiohttp::request_free(req);
+    @assert(false, "expected incomplete body error");
 }
 
 fn void test_invalid_method()
 {
     char[] raw = (char[])"GE T / HTTP/1.1\r\nHost: localhost\r\n\r\n";
 
-    Request*? req = httpserver::request_parse(raw);
+    aiohttp::Request*? req = aiohttp::request_parse(raw);
 
-    if (catch err = req) {
-        // warn("%s", err);
-        assert(err == httpserver::BAD_REQUEST || err == httpserver::INVALID_METHOD || err == httpserver::INVALID_VERSION);
+    if (catch err = req)
+    {
+        @assert(
+            err == aiohttp::BAD_REQUEST ||
+            err == aiohttp::INVALID_METHOD ||
+            err == aiohttp::INVALID_VERSION,
+            "expected invalid method style error"
+        );
         return;
     }
 
-    httpserver::request_free(req);
-    @assert(false);
+    aiohttp::request_free(req);
+    @assert(false, "expected invalid method error");
 }
 
 fn void test_invalid_version()
 {
     char[] raw = (char[])"GET / HTTP/2.0\r\nHost: localhost\r\n\r\n";
 
-    Request*? req = httpserver::request_parse(raw);
+    aiohttp::Request*? req = aiohttp::request_parse(raw);
 
-    if (catch err = req) {
-        assert(err == httpserver::INVALID_VERSION);
+    if (catch err = req)
+    {
+        @assert(err == aiohttp::INVALID_VERSION, "expected INVALID_VERSION");
         return;
     }
 
-    httpserver::request_free(req);
-    @assert(false);
+    aiohttp::request_free(req);
+    @assert(false, "expected invalid version error");
 }
 
 fn void test_malformed_header()
 {
     char[] raw = (char[])"GET / HTTP/1.1\r\nBadHeader\r\n\r\n";
 
-    Request*? req = httpserver::request_parse(raw);
+    aiohttp::Request*? req = aiohttp::request_parse(raw);
 
-    if (catch err = req) {
-        assert(err == httpserver::INVALID_HEADER);
+    if (catch err = req)
+    {
+        @assert(err == aiohttp::INVALID_HEADER, "expected INVALID_HEADER");
         return;
     }
 
-    httpserver::request_free(req);
-    @assert(false);
+    aiohttp::request_free(req);
+    @assert(false, "expected malformed header error");
 }
 
 fn void test_too_large_body_length()
 {
     char[] raw = (char[])"POST / HTTP/1.1\r\nContent-Length: 999999999999999999999999999\r\n\r\n";
 
-    Request*? req = httpserver::request_parse(raw);
+    aiohttp::Request*? req = aiohttp::request_parse(raw);
 
-    if (catch err = req) {
-        assert(err == httpserver::REQUEST_TOO_LARGE);
+    if (catch err = req)
+    {
+        @assert(err == aiohttp::REQUEST_TOO_LARGE, "expected REQUEST_TOO_LARGE");
         return;
     }
 
-    httpserver::request_free(req);
-    @assert(false);
+    aiohttp::request_free(req);
+    @assert(false, "expected too large body length error");
 }
 
 fn void test_expected_total_len()
 {
     char[] raw = (char[])"POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\nhello trailing";
 
-    sz n = httpserver::request_expected_total_len(raw)!!;
+    sz n = aiohttp::request_expected_total_len(raw)!!;
 
-    assert(n == "POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\n".len + 5);
+    @assert(
+        n == "POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\n".len + 5,
+        "expected total length mismatch"
+    );
 }
 
 fn void test_message_complete()
@@ -167,27 +179,27 @@ fn void test_message_complete()
     char[] ok = (char[])"POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\nhello";
     char[] bad = (char[])"POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\nhe";
 
-    assert(httpserver::request_message_complete(ok));
-    assert(!httpserver::request_message_complete(bad));
+    @assert(aiohttp::request_message_complete(ok), "complete request not detected");
+    @assert(!aiohttp::request_message_complete(bad), "incomplete request detected as complete");
 }
 
 fn void test_missing_header()
 {
     char[] raw = (char[])"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
 
-    Request* req = httpserver::request_parse(raw)!!;
-    defer httpserver::request_free(req);
+    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
+    defer aiohttp::request_free(req);
 
     String? v = req.header("Missing");
 
-    if (catch err = v) {
-        assert(err == httpserver::NOT_FOUND);
+    if (catch err = v)
+    {
+        @assert(err == aiohttp::NOT_FOUND, "expected NOT_FOUND");
         return;
     }
 
-    @assert(false);
+    @assert(false, "expected missing header error");
 }
-
 
 fn void main()
 {
@@ -204,5 +216,8 @@ fn void main()
     test_expected_total_len();
     test_message_complete();
     test_missing_header();
-    io::printfn("test_request: ok");
+
+    io::printfn("test_request: OK");
 }
+
+// eof

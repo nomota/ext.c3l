@@ -1,6 +1,8 @@
 // cors.c3
 
-module ext::httpserver;
+// Nomota <hiongun@gmail.com>; MIT License
+
+module ext::aiohttp;
 
 import std::io;
 import ext::mem;
@@ -11,7 +13,8 @@ import ext::debug;
 // CORS
 // 
 
-struct CorsOptions {
+struct CorsOptions
+{
     String allow_origin;
     String allow_methods;
     String allow_headers;
@@ -52,14 +55,16 @@ tlocal bool cors_options_ready = false;
 
 fn void cors_init_default()
 {
-    if (!cors_options_ready) {
-        cors_options = cors_options_default();
-        cors_options_ready = true;
-    }
+    if (cors_options_ready) return;
+
+    cors_options = cors_options_default();
+    cors_options_ready = true;
 }
 
 fn void cors_set_options(CorsOptions* opt)
 {
+    if (opt == null) return;
+
     cors_options.allow_origin = opt.allow_origin;
     cors_options.allow_methods = opt.allow_methods;
     cors_options.allow_headers = opt.allow_headers;
@@ -76,25 +81,27 @@ fn void cors_set_options(CorsOptions* opt)
 
 fn bool cors_is_preflight(Ctx* c)
 {
+    if (c == null) return false;
     if (c.method() != "OPTIONS") return false;
 
     String? origin = c.req_header("Origin");
-    if (catch err = origin) {
-        return false;
-    }
+    if (catch err = origin) return false;
 
     String? req_method = c.req_header("Access-Control-Request-Method");
-    if (catch err = req_method) {
-        return false;
-    }
+    if (catch err = req_method) return false;
 
     return true;
 }
 
 fn String cors_origin_for_response(Ctx* c, CorsOptions* opt)
 {
-    if (opt.allow_origin == "*") {
-        if (opt.allow_credentials) {
+    if (c == null) return "*";
+    if (opt == null) return "*";
+
+    if (opt.allow_origin == "*")
+    {
+        if (opt.allow_credentials)
+        {
             // CORS does not allow:
             //   Access-Control-Allow-Origin: *
             // together with:
@@ -111,45 +118,59 @@ fn String cors_origin_for_response(Ctx* c, CorsOptions* opt)
     return opt.allow_origin;
 }
 
-fn void cors_apply_headers(Ctx* c, CorsOptions* opt)
+fn void? cors_apply_headers(Ctx* c, CorsOptions* opt) @maydiscard
 {
+    if (c == null) return CONTEXT_NOT_READY~;
+    if (opt == null) return;
+
     String origin = cors_origin_for_response(c, opt);
 
-    c.header("Access-Control-Allow-Origin", origin);
+    c.header("Access-Control-Allow-Origin", origin)!;
 
-    if (opt.allow_credentials) {
-        c.header("Access-Control-Allow-Credentials", "true");
+    if (opt.allow_credentials)
+    {
+        c.header("Access-Control-Allow-Credentials", "true")!;
     }
 
-    if (opt.expose_headers.len > 0) {
-        c.header("Access-Control-Expose-Headers", opt.expose_headers);
+    if (opt.expose_headers.len > 0)
+    {
+        c.header("Access-Control-Expose-Headers", opt.expose_headers)!;
     }
 
     // If we echo request Origin, response should vary by Origin.
-    if (origin != "*") {
-        c.header("Vary", "Origin");
+    if (origin != "*")
+    {
+        c.header("Vary", "Origin")!;
     }
 }
 
-fn void cors_apply_preflight_headers(Ctx* c, CorsOptions* opt)
+fn void? cors_apply_preflight_headers(Ctx* c, CorsOptions* opt) @maydiscard
 {
-    cors_apply_headers(c, opt);
+    if (c == null) return CONTEXT_NOT_READY~;
+    if (opt == null) return;
 
-    c.header("Access-Control-Allow-Methods", opt.allow_methods);
+    cors_apply_headers(c, opt)!;
 
-    if (opt.allow_headers.len > 0) {
-        c.header("Access-Control-Allow-Headers", opt.allow_headers);
-    } else {
+    c.header("Access-Control-Allow-Methods", opt.allow_methods)!;
+
+    if (opt.allow_headers.len > 0)
+    {
+        c.header("Access-Control-Allow-Headers", opt.allow_headers)!;
+    }
+    else
+    {
         // If user did not configure allow_headers,
         // echo Access-Control-Request-Headers when present.
         String? req_headers = c.req_header("Access-Control-Request-Headers");
-        if (try req_headers) {
-            c.header("Access-Control-Allow-Headers", req_headers);
+        if (try req_headers)
+        {
+            c.header("Access-Control-Allow-Headers", req_headers)!;
         }
     }
 
-    if (opt.max_age.len > 0) {
-        c.header("Access-Control-Max-Age", opt.max_age);
+    if (opt.max_age.len > 0)
+    {
+        c.header("Access-Control-Max-Age", opt.max_age)!;
     }
 }
 
@@ -158,19 +179,22 @@ fn void cors_apply_preflight_headers(Ctx* c, CorsOptions* opt)
 // Middleware
 // 
 
-fn Response* cors_default(Ctx* c, Next next)
+fn Response*? cors_default(Ctx* c, Next next)
 {
+    if (c == null) return CONTEXT_NOT_READY~;
+
     cors_init_default();
 
-    if (cors_is_preflight(c)) {
-        cors_apply_preflight_headers(c, &cors_options);
-        c.status(204);
+    if (cors_is_preflight(c))
+    {
+        cors_apply_preflight_headers(c, &cors_options)!;
+        c.status(204)!;
         return c.empty();
     }
 
-    Response* res = next(c);
+    Response* res = next(c)!;
 
-    cors_apply_headers(c, &cors_options);
+    cors_apply_headers(c, &cors_options)!;
 
     return res;
 }
@@ -223,9 +247,9 @@ fn void cors_allow_credentials(bool enabled)
 
 // Same implementation as cors_default, but separate name is useful
 // when the application explicitly configured cors_options beforehand.
-fn Response* cors(Ctx* c, Next next)
+fn Response*? cors(Ctx* c, Next next)
 {
-    return cors_default(c, next);
+    return cors_default(c, next)!;
 }
 
 
@@ -245,3 +269,5 @@ fn void cors_dump_options()
     io::printfn("  max_age           = %s", cors_options.max_age);
     io::printfn("  allow_credentials = %s", cors_options.allow_credentials ? "true" : "false");
 }
+
+// eof

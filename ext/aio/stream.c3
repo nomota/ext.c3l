@@ -68,6 +68,7 @@ fn void Stream.close(&self)
     self.closed = true;
 }
 
+// caller should free
 fn String? Stream.peer_ip(&self)
 {
     if (io::fd_invalid(self.fd)) return CLOSED~;

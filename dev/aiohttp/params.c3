@@ -1,11 +1,13 @@
 // params.c3
 
-module ext::httpserver;
+// Nomota <hiongun@gmail.com>; MIT License
+
+module ext::aiohttp;
 
 import std::io;
 import ext::mem;
 import ext::debug;
-
+import c::errno;
 
 // 
 // Faults
@@ -48,11 +50,13 @@ fn bool param_name_valid(String name)
     if (name.len == 0) return false;
 
     char first = name[0];
-    if (!is_alpha(first) && first != '_') {
+    if (!is_alpha(first) && first != '_')
+    {
         return false;
     }
 
-    for (sz i = 1; i < name.len; i++) {
+    for (sz i = 1; i < name.len; i++)
+    {
         char c = name[i];
 
         if (is_alnum(c)) continue;
@@ -72,16 +76,22 @@ fn bool param_name_valid(String name)
 
 fn void params_init(Params* params)
 {
+    if (params == null) return;
+
     params.init();
 }
 
 fn void params_free(Params* params)
 {
+    if (params == null) return;
+
     params.free();
 }
 
 fn void params_clear(Params* params)
 {
+    if (params == null) return;
+    
     params.clear();
 }
 
@@ -97,24 +107,26 @@ fn Params? params_new()
 // Params API
 // 
 
-fn void? Params.put(&self, String name, String value)
+fn void? Params.put(&self, String name, String value) @maydiscard
 {
-    if (!param_name_valid(name)) {
+    if (!param_name_valid(name))
+    {
         return INVALID_PARAM_NAME~;
     }
 
     // Route params should be unique.
     // If the same name appears again, overwrite it.
-    self.set(name, value);
+    self.set(name, value)!;
 }
 
-fn void? Params.add_param(&self, String name, String value)
+fn void? Params.add_param(&self, String name, String value) @maydiscard
 {
-    if (!param_name_valid(name)) {
+    if (!param_name_valid(name))
+    {
         return INVALID_PARAM_NAME~;
     }
 
-    self.add(name, value);
+    self.add(name, value)!;
 }
 
 fn String? Params.get_param(&self, String name)
@@ -137,9 +149,11 @@ fn bool Params.delete_param(&self, String name)
 // Copy helpers
 // 
 
-fn void? Params.copy_from(&self, Params* other)
+fn void? Params.copy_from(&self, Params* other) @maydiscard
 {
-    for (sz i = 0; i < other.len(); i++) {
+    if (other == null) return errno::E_INVALID_ARG~;
+    for (sz i = 0; i < other.len(); i++)
+    {
         Param* p = &other.items[i];
         self.put(p.name, p.value)!;
     }
@@ -147,10 +161,13 @@ fn void? Params.copy_from(&self, Params* other)
 
 fn Params? params_clone(Params* src)
 {
+    if (src == null) return errno::E_INVALID_ARG~;
+    
     Params dst;
     dst.init();
 
-    if (catch err = dst.copy_from(src)) {
+    if (catch err = dst.copy_from(src))
+    {
         dst.free();
         return err~;
     }
@@ -174,11 +191,13 @@ fn Params? params_clone(Params* src)
 // Param:
 //   "*" => "css/app.css"
 
-const String STAR = "__wildcard_splat_key";
+const String STAR = "__splat__";
 
-fn void? Params.set_splat(&self, String value)
+fn void? Params.set_splat(&self, String value) @maydiscard
 {
-    self.set(STAR, value);
+    // "*" is an internal wildcard key, not a normal route param name.
+    self.delete(STAR);
+    self.add(STAR, value)!;
 }
 
 fn String? Params.splat(&self)
@@ -186,6 +205,18 @@ fn String? Params.splat(&self)
     return self.get(STAR);
 }
 
+fn void? Params.set_splat_decoded(&self, String raw_value) @maydiscard
+{
+    String? decoded = url_decode(raw_value);
+    if (catch err = decoded) return err~;
+
+    defer localmem.free(decoded);
+
+    // Do not call put_decoded(STAR, ...).
+    // "*" is intentionally not valid as a normal param name.
+    self.delete(STAR);
+    self.add(STAR, decoded)!;
+}
 
 // 
 // Decoded param helpers
@@ -195,30 +226,19 @@ fn String? Params.splat(&self)
 //
 // Caller passes raw path segment.
 // This function percent-decodes it with url_decode().
-fn void? Params.put_decoded(&self, String name, String raw_value)
+fn void? Params.put_decoded(&self, String name, String raw_value) @maydiscard
 {
-    if (!param_name_valid(name)) {
+    if (!param_name_valid(name))
+    {
         return INVALID_PARAM_NAME~;
     }
 
     String? decoded = url_decode(raw_value);
-    if (catch err = decoded) {
-        return err~;
-    }
+    if (catch err = decoded) return err~;
+
     defer localmem.free(decoded);
 
-    self.set(name, decoded);
-}
-
-fn void? Params.set_splat_decoded(&self, String raw_value)
-{
-    String? decoded = url_decode(raw_value);
-    if (catch err = decoded) {
-        return err~;
-    }
-    defer localmem.free(decoded);
-
-    self.set(STAR, decoded);
+    self.set(name, decoded)!;
 }
 
 
@@ -246,7 +266,10 @@ fn void? Params.set_splat_decoded(&self, String raw_value)
 
 fn void Params.dump_params(&self)
 {
-    for (sz i = 0; i < self.len(); i++) {
+    for (sz i = 0; i < self.len(); i++)
+    {
         io::printfn("%s = %s", self.items[i].name, self.items[i].value);
     }
 }
+
+// eof

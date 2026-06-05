@@ -1,20 +1,28 @@
 // test_form_cookie.c3
 
-module test::httpserver_form_cookie;
+module test::aiohttp_form_cookie;
 
 import std::io;
-import ext::httpserver;
+import ext::aiohttp;
 import ext::debug;
 
-fn Response* dummy_handler(Ctx* c)
+fn aiohttp::Response*? dummy_handler(aiohttp::Ctx* c)
 {
-    return c.text("ok");
+    return c.text("ok")!;
 }
 
+fn bool contains(String s, String needle)
+{
+    if (needle.len == 0) return true;
+    if (s.len < needle.len) return false;
 
-// 
-// form-urlencoded
-// 
+    for (sz i = 0; i + needle.len <= s.len; i++)
+    {
+        if (s[i:needle.len] == needle) return true;
+    }
+
+    return false;
+}
 
 fn void test_request_form_params()
 {
@@ -27,19 +35,19 @@ fn void test_request_form_params()
         "username=kim&password=1234"
     );
 
-    Request* req = httpserver::request_parse(raw)!!;
-    defer httpserver::request_free(req);
+    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
+    defer aiohttp::request_free(req);
 
-    assert(req.is_form_urlencoded());
+    @assert(req.is_form_urlencoded(), "request should be form-urlencoded");
 
-    Query form = req.form_params()!!;
+    aiohttp::Query form = req.form_params()!!;
     defer form.free();
 
     String username = form.get("username")!!;
     String password = form.get("password")!!;
 
-    assert(username == "kim");
-    assert(password == "1234");
+    @assert(username == "kim", "username mismatch");
+    @assert(password == "1234", "password mismatch");
 }
 
 fn void test_request_form_plus_and_percent()
@@ -53,17 +61,17 @@ fn void test_request_form_plus_and_percent()
         "username=kim+lee&message=hello%20world"
     );
 
-    Request* req = httpserver::request_parse(raw)!!;
-    defer httpserver::request_free(req);
+    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
+    defer aiohttp::request_free(req);
 
-    Query form = req.form_params()!!;
+    aiohttp::Query form = req.form_params()!!;
     defer form.free();
 
     String username = form.get("username")!!;
     String message = form.get("message")!!;
 
-    assert(username == "kim lee");
-    assert(message == "hello world");
+    @assert(username == "kim lee", "plus decoding mismatch");
+    @assert(message == "hello world", "percent decoding mismatch");
 }
 
 fn void test_request_form_unsupported_type()
@@ -77,18 +85,19 @@ fn void test_request_form_unsupported_type()
         "{\"ok\":true}"
     );
 
-    Request* req = httpserver::request_parse(raw)!!;
-    defer httpserver::request_free(req);
+    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
+    defer aiohttp::request_free(req);
 
-    Query? form = req.form_params();
+    aiohttp::Query? form = req.form_params();
 
-    if (catch err = form) {
-        assert(err == httpserver::UNSUPPORTED_FORM_TYPE);
+    if (catch err = form)
+    {
+        @assert(err == aiohttp::UNSUPPORTED_FORM_TYPE, "expected UNSUPPORTED_FORM_TYPE");
         return;
     }
 
     form.free();
-    @assert(false);
+    @assert(false, "unsupported form type should fail");
 }
 
 fn void test_context_form()
@@ -102,28 +111,23 @@ fn void test_context_form()
         "username=kim&password=1234"
     );
 
-    Request* req = httpserver::request_parse(raw)!!;
-    defer httpserver::request_free(req);
+    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
+    defer aiohttp::request_free(req);
 
-    Ctx c;
-    c.init(req);
+    aiohttp::Ctx c;
+    c.init(req)!!;
     defer c.free();
 
     String username = c.form("username")!!;
     String password = c.form("password")!!;
 
-    assert(username == "kim");
-    assert(password == "1234");
+    @assert(username == "kim", "context form username mismatch");
+    @assert(password == "1234", "context form password mismatch");
 
-    Query* forms = c.forms();
-    assert(forms != null);
-    assert(forms.len() == 2);
+    aiohttp::Query* forms = c.forms();
+    @assert(forms != null, "forms should not be null");
+    @assert(forms.len() == 2, "form count mismatch");
 }
-
-
-// 
-// cookies
-// 
 
 fn void test_request_cookies()
 {
@@ -134,19 +138,19 @@ fn void test_request_cookies()
         "\r\n"
     );
 
-    Request* req = httpserver::request_parse(raw)!!;
-    defer httpserver::request_free(req);
+    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
+    defer aiohttp::request_free(req);
 
-    Cookies cookies = req.cookies()!!;
+    aiohttp::Cookies cookies = req.cookies()!!;
     defer cookies.free();
 
     String sid = cookies.get("session_id")!!;
     String theme = cookies.get("theme")!!;
     String count = cookies.get("count")!!;
 
-    assert(sid == "abc123");
-    assert(theme == "dark");
-    assert(count == "10");
+    @assert(sid == "abc123", "session_id cookie mismatch");
+    @assert(theme == "dark", "theme cookie mismatch");
+    @assert(count == "10", "count cookie mismatch");
 }
 
 fn void test_request_cookie_copy()
@@ -158,13 +162,13 @@ fn void test_request_cookie_copy()
         "\r\n"
     );
 
-    Request* req = httpserver::request_parse(raw)!!;
-    defer httpserver::request_free(req);
+    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
+    defer aiohttp::request_free(req);
 
     String sid = req.cookie_copy("session_id")!!;
-    defer httpserver::localmem.free(sid);
+    defer aiohttp::localmem.free(sid);
 
-    assert(sid == "abc123");
+    @assert(sid == "abc123", "cookie copy mismatch");
 }
 
 fn void test_context_cookie()
@@ -176,108 +180,120 @@ fn void test_context_cookie()
         "\r\n"
     );
 
-    Request* req = httpserver::request_parse(raw)!!;
-    defer httpserver::request_free(req);
+    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
+    defer aiohttp::request_free(req);
 
-    Ctx c;
-    c.init(req);
+    aiohttp::Ctx c;
+    c.init(req)!!;
     defer c.free();
 
     String sid = c.cookie("session_id")!!;
     String theme = c.cookie("theme")!!;
 
-    assert(sid == "abc123");
-    assert(theme == "dark");
+    @assert(sid == "abc123", "context session_id cookie mismatch");
+    @assert(theme == "dark", "context theme cookie mismatch");
 
-    Cookies* cookies = c.cookies();
-    assert(cookies != null);
-    assert(cookies.len() == 2);
+    aiohttp::Cookies* cookies = c.cookies();
+    @assert(cookies != null, "context cookies should not be null");
+    @assert(cookies.len() == 2, "context cookie count mismatch");
 }
 
 fn void test_cookie_build_default()
 {
-    CookieOptions opt = httpserver::cookie_options_default();
+    aiohttp::CookieOptions opt = aiohttp::cookie_options_default();
 
-    String cookie = httpserver::cookie_build("session_id", "abc123", &opt)!!;
-    defer httpserver::localmem.free(cookie);
+    String cookie = aiohttp::cookie_build("session_id", "abc123", &opt)!!;
+    defer aiohttp::localmem.free(cookie);
 
-    assert(cookie == "session_id=abc123; Path=/; SameSite=Lax");
+    @assert(cookie == "session_id=abc123; Path=/; SameSite=Lax", "default cookie build mismatch");
 }
 
 fn void test_cookie_build_full_options()
 {
-    CookieOptions opt = httpserver::cookie_options_default();
+    aiohttp::CookieOptions opt = aiohttp::cookie_options_default();
     opt.domain = "example.com";
     opt.max_age = "3600";
     opt.http_only = true;
     opt.secure = true;
     opt.same_site = "Strict";
 
-    String cookie = httpserver::cookie_build("sid", "abc", &opt)!!;
-    defer httpserver::localmem.free(cookie);
+    String cookie = aiohttp::cookie_build("sid", "abc", &opt)!!;
+    defer aiohttp::localmem.free(cookie);
 
-    assert(cookie == "sid=abc; Path=/; Domain=example.com; Max-Age=3600; SameSite=Strict; HttpOnly; Secure");
+    @assert(cookie == "sid=abc; Path=/; Domain=example.com; Max-Age=3600; SameSite=Strict; HttpOnly; Secure", "full cookie build mismatch");
 }
 
 fn void test_context_cookie_set_default()
 {
     char[] raw = (char[])"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
 
-    Request* req = httpserver::request_parse(raw)!!;
-    defer httpserver::request_free(req);
+    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
+    defer aiohttp::request_free(req);
 
-    Ctx c;
-    c.init(req);
+    aiohttp::Ctx c;
+    c.init(req)!!;
     defer c.free();
 
     c.cookie_set_default("theme", "dark")!!;
 
-    String wire = c.res.serialize();
-    defer httpserver::localmem.free(wire);
+    String wire = c.res.serialize()!!;
+    defer aiohttp::localmem.free(wire);
 
-    assert(contains(wire, "Set-Cookie: theme=dark; Path=/; SameSite=Lax\r\n"));
+    @assert(contains(wire, "Set-Cookie: theme=dark; Path=/; SameSite=Lax\r\n"), "Set-Cookie default missing");
 }
 
 fn void test_context_delete_cookie()
 {
     char[] raw = (char[])"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
 
-    Request* req = httpserver::request_parse(raw)!!;
-    defer httpserver::request_free(req);
+    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
+    defer aiohttp::request_free(req);
 
-    Ctx c;
-    c.init(req);
+    aiohttp::Ctx c;
+    c.init(req)!!;
     defer c.free();
 
     c.delete_cookie("session_id")!!;
 
-    String wire = c.res.serialize();
-    defer httpserver::localmem.free(wire);
+    String wire = c.res.serialize()!!;
+    defer aiohttp::localmem.free(wire);
 
-    assert(contains(wire, "Set-Cookie: session_id=; Path=/; Max-Age=0; SameSite=Lax\r\n"));
+    @assert(contains(wire, "Set-Cookie: session_id=; Path=/; Max-Age=0; SameSite=Lax\r\n"), "delete cookie header missing");
 }
 
-
-// 
-// local contains helper
-// 
-
-fn bool contains(String s, String needle)
+fn void test_cookie_invalid_value()
 {
-    if (needle.len == 0) return true;
-    if (s.len < needle.len) return false;
+    aiohttp::CookieOptions opt = aiohttp::cookie_options_default();
 
-    for (sz i = 0; i + needle.len <= s.len; i++) {
-        if (s[i:needle.len] == needle) return true;
+    String? cookie = aiohttp::cookie_build("sid", "abc;def", &opt);
+
+    if (catch err = cookie)
+    {
+        @assert(err == aiohttp::INVALID_COOKIE_VALUE, "expected INVALID_COOKIE_VALUE");
+        return;
     }
 
-    return false;
+    aiohttp::localmem.free(cookie);
+    @assert(false, "invalid cookie value should fail");
 }
 
+fn void test_cookie_invalid_same_site_none_without_secure()
+{
+    aiohttp::CookieOptions opt = aiohttp::cookie_options_default();
+    opt.same_site = "None";
+    opt.secure = false;
 
-// 
-// main
-// 
+    String? cookie = aiohttp::cookie_build("sid", "abc", &opt);
+
+    if (catch err = cookie)
+    {
+        @assert(err == aiohttp::INVALID_COOKIE_OPTION, "expected INVALID_COOKIE_OPTION");
+        return;
+    }
+
+    aiohttp::localmem.free(cookie);
+    @assert(false, "SameSite=None without Secure should fail");
+}
 
 fn void main()
 {
@@ -294,5 +310,10 @@ fn void main()
     test_context_cookie_set_default();
     test_context_delete_cookie();
 
-    io::printfn("test_form_cookie: ok");
+    test_cookie_invalid_value();
+    test_cookie_invalid_same_site_none_without_secure();
+
+    io::printfn("test_form_cookie: OK");
 }
+
+// eof

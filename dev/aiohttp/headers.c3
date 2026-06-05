@@ -1,5 +1,7 @@
 // header.c3
 
+// Nomota <hiongun@gmail.com>; MIT License
+
 module ext::aiohttp;
 
 import std::io;
@@ -45,14 +47,14 @@ alias Cookies = KeyVals;
 // Internal helpers
 // 
 
-fn bool ascii_eq_ignore_case(char a, char b) @inline @private
+fn bool ascii_eq_ignore_case(char a, char b) @inline
 {
     if (a >= 'A' && a <= 'Z') a = a + 32;
     if (b >= 'A' && b <= 'Z') b = b + 32;
     return a == b;
 }
 
-fn bool str_iequals(String a, String b) @private
+fn bool str_iequals(String a, String b)
 {
     if (a.len != b.len) return false;
 
@@ -64,7 +66,7 @@ fn bool str_iequals(String a, String b) @private
     return true;
 }
 
-fn bool is_valid_name(String name) @private
+fn bool is_valid_name(String name)
 {
     if (name.len == 0) return false;
 
@@ -168,8 +170,10 @@ fn bool KeyVals.empty(&self) @inline
 
 fn bool KeyVals.has(&self, String name)
 {
-    for (sz i = 0; i < self.len(); i++) {
-        if (str_iequals(self.items[i].name, name)) {
+    for (sz i = 0; i < self.len(); i++)
+    {
+        if (str_iequals(self.items[i].name, name))
+        {
             return true;
         }
     }
@@ -219,26 +223,26 @@ fn sz? KeyVals.find(&self, String name)
 
 faultdef INVALID_HEADER_NAME;
 
-fn void? KeyVals.add(&self, String name, String value)
+fn void? KeyVals.add(&self, String name, String value) @maydiscard
 {
     if (!is_valid_name(name)) return INVALID_HEADER_NAME~;
 
     self.items.push({
         .name = str_clone(name),
         .value = str_clone(value),
-    })!;
+    });
 }
 
 // Sets a header.
 //
 // Existing headers with the same name are removed,
 // then one new header is appended.
-fn void KeyVals.set(&self, String name, String value)
+fn void? KeyVals.set(&self, String name, String value) @maydiscard
 {
-    if (!is_valid_name(name)) return;
+    if (!is_valid_name(name)) return INVALID_HEADER_NAME~;
 
     self.delete(name);
-    self.add(name, value);
+    self.add(name, value)!;
 }
 
 // Deletes all headers with the given name.
@@ -308,6 +312,8 @@ fn sz KeyVals.serialized_len(&self)
     return n;
 }
 
+faultdef HEADER_SERIALIZE_ERROR;
+
 // Allocates and returns serialized header block.
 //
 // Format:
@@ -320,12 +326,15 @@ fn String? Headers.serialize(&self)
 {
     sz n = self.serialized_len();
 
-    if (n == 0) return "";
-
     char* p = localmem.malloc(n + 1)!;
     char[] out = p[0:n];
 
     sz written = self.write_to(out);
+    if (written != n)
+    {
+        localmem.free(p);
+        return HEADER_SERIALIZE_ERROR~;
+    }
     p[written] = 0;
 
     return (String)out;
@@ -335,30 +344,32 @@ fn String? Headers.serialize(&self)
 // Convenience helpers
 // 
 
-fn void Headers.content_type(&self, String value)
+fn void? Headers.content_type(&self, String value) @maydiscard
 {
-    self.set("Content-Type", value);
+    self.set("Content-Type", value)!;
 }
 
-fn void Headers.content_length(&self, sz value)
+fn void? Headers.content_length(&self, sz value) @maydiscard
 {
-    String s = string::tformat("%d", value);
-    self.set("Content-Length", s);
+    String s = string::format(localmem, "%d", value);
+    defer localmem.free(s);
+    
+    self.set("Content-Length", s)!;
 }
 
-fn void Headers.server(&self, String value)
+fn void? Headers.server(&self, String value) @maydiscard
 {
-    self.set("Server", value);
+    self.set("Server", value)!;
 }
 
-fn void Headers.connection(&self, String value)
+fn void? Headers.connection(&self, String value) @maydiscard
 {
-    self.set("Connection", value);
+    self.set("Connection", value)!;
 }
 
-fn void Headers.set_cookie(&self, String value)
+fn void? Headers.set_cookie(&self, String value) @maydiscard
 {
-    self.add("Set-Cookie", value);
+    self.add("Set-Cookie", value)!;
 }
 
 // 

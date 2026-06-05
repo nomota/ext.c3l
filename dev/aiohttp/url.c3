@@ -1,6 +1,8 @@
 // url.c3
 
-module ext::httpserver;
+// Nomota <hiongun@gmail.com>; MIT License
+
+module ext::aiohttp;
 
 import std::io;
 import ext::mem;
@@ -36,7 +38,8 @@ fn char hex_value(char c)
 
 fn sz find_char_from(String s, char needle, sz start)
 {
-    for (sz i = start; i < s.len; i++) {
+    for (sz i = start; i < s.len; i++)
+    {
         if (s[i] == needle) return (sz)i;
     }
 
@@ -58,24 +61,27 @@ fn String? url_decode_ex(String s, bool plus_as_space)
 {
     if (s.len == 0) return "";
 
-    char* out = localmem.malloc(s.len + 1);
-    defer (catch err) {
-        localmem.free(out);
-    }
+    char* out = localmem.malloc(s.len + 1)!;
+    defer catch localmem.free(out);
+
     sz pos = 0;
 
-    for (sz i = 0; i < s.len; i++) {
+    for (sz i = 0; i < s.len; i++)
+    {
         char c = s[i];
 
-        if (c == '%' ) {
-            if (i + 2 >= s.len) {
+        if (c == '%' )
+        {
+            if (i + 2 >= s.len)
+            {
                 return INVALID_URL_ENCODING~;
             }
 
             char hi = s[i + 1];
             char lo = s[i + 2];
 
-            if (!is_hex(hi) || !is_hex(lo)) {
+            if (!is_hex(hi) || !is_hex(lo))
+            {
                 return INVALID_URL_ENCODING~;
             }
 
@@ -84,7 +90,8 @@ fn String? url_decode_ex(String s, bool plus_as_space)
             continue;
         }
 
-        if (plus_as_space && c == '+') {
+        if (plus_as_space && c == '+')
+        {
             out[pos++] = ' ';
             continue;
         }
@@ -132,31 +139,31 @@ fn void? query_parse_pair(Query* out, String pair)
     String raw_name;
     String raw_value;
 
-    if (eq < 0) {
+    if (eq < 0)
+    {
         raw_name = pair;
         raw_value = "";
-    } else {
+    }
+    else
+    {
         sz p = (sz)eq;
         raw_name = pair[0:p];
         raw_value = pair[p + 1:pair.len - p - 1];
     }
 
-    if (raw_name.len == 0) {
-        return;
-    }
+    if (raw_name.len == 0) return;
 
     String? name_dec = query_decode(raw_name);
-    if (catch err = name_dec) {
-        return err~;
-    }
+    if (catch err = name_dec) return err~;
 
     String? value_dec = query_decode(raw_value);
-    if (catch err = value_dec) {
+    if (catch err = value_dec)
+    {
         localmem.free(name_dec);
         return err~;
     }
 
-    out.add(name_dec, value_dec);
+    out.add(name_dec, value_dec)!;
 
     localmem.free(name_dec);
     localmem.free(value_dec);
@@ -177,12 +184,14 @@ fn void? query_parse(Query* out, String query_string)
 
     sz start = 0;
 
-    while (start <= query_string.len) {
+    while (start <= query_string.len)
+    {
         sz amp = find_char_from(query_string, '&', start);
 
         String pair;
 
-        if (amp < 0) {
+        if (amp < 0)
+        {
             pair = query_string[start:query_string.len - start];
             query_parse_pair(out, pair)!;
             break;
@@ -208,7 +217,8 @@ fn Query? Request.query_params(&self)
     Query q;
     q.init();
 
-    if (catch err = query_parse(&q, self.query_string)) {
+    if (catch err = query_parse(&q, self.query_string))
+    {
         q.free();
         return err~;
     }
@@ -229,9 +239,9 @@ fn String? Request.query_copy(&self, String name)
     Query q = self.query_params()!;
     defer q.free();
 
-    return q.get(name).copy(localmem);
+    String value = q.get(name)!;
+    return value.copy(localmem);
 }
-
 
 // 
 // Path helpers
@@ -249,5 +259,8 @@ fn String? Request.decoded_path(&self)
 
 fn void query_dump(Query* q)
 {
+    if (q == null) return;
     q.dump();
 }
+
+// eof

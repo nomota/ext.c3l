@@ -116,8 +116,13 @@ fn void Server.close(&self)
     self.close_clients();
 }
 
+fn void Server.stop(&self)
+{
+    self.close();
+}
+
 // The caller must call wait_closed() before free() after close().
-fn void? Server.wait_closed(&self)
+fn void? Server.wait_closed(&self) @maydiscard
 {
     if (catch err = self.client_tasks.join_all())
     {

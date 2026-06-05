@@ -95,12 +95,14 @@ fn char*? str2cptr(String str, char[] buf) @inline @local
     return &buf[0];
 }
 
+// caller should free
 fn String? addr_buf_to_string(char[] buf)
 {
     sz len = (sz)string::strlen(&buf[0]);
     return ((String)buf[0:len]).copy(aio::localmem);
 }
 
+// caller should free
 fn String? peer_ip(mio::Fd fd)
 {
     if (io::fd_invalid(fd)) return aio::INVALID_STATE~;

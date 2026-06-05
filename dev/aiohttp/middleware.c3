@@ -1,5 +1,7 @@
 // middleware.c3
 
+// Nomota <hiongun@gmail.com>; MIT License
+
 module ext::aiohttp;
 
 import std::io;
@@ -19,25 +21,28 @@ faultdef INVALID_MIDDLEWARE_PATH;
 // Middleware types
 // 
 
-alias Next = fn Response*(Context* c);
-alias Middleware = fn Response*(Context* c, Next next);
+alias Next = fn Response*?(Context* c);
+alias Middleware = fn Response*?(Context* c, Next next);
 
 
 // 
 // Middleware item / stack
 // 
 
-struct MiddlewareItem {
+struct MiddlewareItem
+{
     String path;
     Middleware middleware;
     bool has_path;
 }
 
-struct MiddlewareStack {
+struct MiddlewareStack
+{
     List{MiddlewareItem} items;
 }
 
-struct MiddlewareChain {
+struct MiddlewareChain
+{
     MiddlewareStack* stack;
     Handler handler;
     sz index;
@@ -52,6 +57,12 @@ fn bool middleware_path_valid(String path)
 {
     if (path.len == 0) return false;
     if (path[0] != '/') return false;
+
+    if (path.len > 1 && path[path.len - 1] == '/')
+    {
+        return false;
+    }
+
     return true;
 }
 
@@ -69,11 +80,13 @@ fn bool path_matches_prefix(String prefix, String path)
 
     if (path.len < prefix.len) return false;
 
-    if (path[0:prefix.len] != prefix[0:prefix.len]) {
+    if (path[0:prefix.len] != prefix[0:prefix.len])
+    {
         return false;
     }
 
-    if (path.len == prefix.len) {
+    if (path.len == prefix.len)
+    {
         return true;
     }
 
@@ -87,9 +100,7 @@ fn bool path_matches_prefix(String prefix, String path)
 
 fn void MiddlewareItem.free(&self)
 {
-    if (self.has_path) {
-        str_free(self.path);
-    }
+    if (self.has_path) str_free(self.path);
 
     self.path = "";
     self.middleware = null;
@@ -108,7 +119,8 @@ fn void MiddlewareStack.init(&self)
 
 fn void MiddlewareStack.free(&self)
 {
-    for (sz i = 0; i < self.items.len(); i++) {
+    for (sz i = 0; i < self.items.len(); i++)
+    {
         self.items[i].free();
     }
 
@@ -117,16 +129,17 @@ fn void MiddlewareStack.free(&self)
 
 fn void MiddlewareStack.clear(&self)
 {
-    for (sz i = 0; i < self.items.len(); i++) {
+    for (sz i = 0; i < self.items.len(); i++)
+    {
         self.items[i].free();
     }
 
     self.items.clear();
 }
 
-fn MiddlewareStack* middleware_stack_new()
+fn MiddlewareStack*? middleware_stack_new()
 {
-    MiddlewareStack* s = localmem.alloc(MiddlewareStack);
+    MiddlewareStack* s = localmem.alloc(MiddlewareStack)!;
     s.init();
     return s;
 }
@@ -145,7 +158,7 @@ fn void middleware_stack_free(MiddlewareStack* s)
 // 
 
 // Global middleware.
-fn void MiddlewareStack.use(&self, Middleware middleware)
+fn void? MiddlewareStack.use(&self, Middleware middleware) @maydiscard
 {
     self.items.push((MiddlewareItem){
         .path = "",
@@ -155,9 +168,10 @@ fn void MiddlewareStack.use(&self, Middleware middleware)
 }
 
 // Path-scoped middleware.
-fn void? MiddlewareStack.use_path(&self, String path, Middleware middleware)
+fn void? MiddlewareStack.use_path(&self, String path, Middleware middleware) @maydiscard
 {
-    if (!middleware_path_valid(path)) {
+    if (!middleware_path_valid(path)) 
+    {
         return INVALID_MIDDLEWARE_PATH~;
     }
 
@@ -201,36 +215,42 @@ fn void MiddlewareChain.init(&self, MiddlewareStack* stack, Handler handler)
     self.index = 0;
 }
 
-fn Response* MiddlewareChain.run(&self, Context* c)
+fn Response*? MiddlewareChain.run(&self, Context* c)
 {
     self.index = 0;
-    return self.next(c);
+    return self.next(c)!;
 }
 
-fn Response* MiddlewareChain.next(&self, Context* c)
+fn Response*? MiddlewareChain.next(&self, Context* c)
 {
-    if (self.stack == null) {
-        return context_call(c, self.handler);
+    if (c == null) return CONTEXT_NOT_READY~;
+
+    if (self.stack == null) 
+    {
+        return context_call(c, self.handler)!;
     }
 
-    while (self.index < self.stack.items.len()) {
+    while (self.index < self.stack.items.len()) 
+    {
         sz i = self.index;
         self.index++;
 
         MiddlewareItem* item = &self.stack.items[i];
 
-        if (!item.matches(c.path())) {
+        if (!item.matches(c.path())) 
+        {
             continue;
         }
 
-        if (item.middleware == null) {
+        if (item.middleware == null) 
+        {
             continue;
         }
 
-        return item.middleware(c, &middleware_next);
+        return item.middleware(c, &middleware_next)!;
     }
 
-    return context_call(c, self.handler);
+    return context_call(c, self.handler)!;
 }
 
 
@@ -246,27 +266,32 @@ fn Response* MiddlewareChain.next(&self, Context* c)
 // the previous chain.
 tlocal MiddlewareChain* current_middleware_chain = null;
 
-fn Response* middleware_next(Context* c)
+fn Response*? middleware_next(Context* c)
 {
-    if (current_middleware_chain == null) {
-        return c.internal_error();
+    if (current_middleware_chain == null)
+    {
+        return CONTEXT_NOT_READY~;
     }
 
-    return current_middleware_chain.next(c);
+    return current_middleware_chain.next(c)!;
 }
 
-fn Response* middleware_run(MiddlewareStack* stack, Context* c, Handler handler)
+fn Response*? middleware_run(MiddlewareStack* stack, Context* c, Handler handler)
 {
+    if (c == null) return CONTEXT_NOT_READY~;
+
     MiddlewareChain chain;
     chain.init(stack, handler);
 
     MiddlewareChain* prev = current_middleware_chain;
     current_middleware_chain = &chain;
 
-    Response* res = chain.run(c);
+    defer
+    {
+        current_middleware_chain = prev;
+    }
 
-    current_middleware_chain = prev;
-    return res;
+    return chain.run(c)!;
 }
 
 
@@ -274,25 +299,38 @@ fn Response* middleware_run(MiddlewareStack* stack, Context* c, Handler handler)
 // Convenience middlewares
 // 
 
-fn Response* middleware_logger(Context* c, Next next)
+fn Response*? middleware_logger(Context* c, Next next)
 {
-    Response* res = next(c);
+    if (c == null) return CONTEXT_NOT_READY~;
 
-    io::printf("LOG %s %s %s ", c.req.remote_ip, c.method(), c.path());
+    Response* res = next(c)!;
 
-    if (res != null) {
-        io::printfn("-> %d", res.status );
-    } else {
+    String remote_ip = "";
+    if (c.req != null)
+    {
+        remote_ip = c.req.remote_ip;
+    }
+
+    io::printf("LOG %s %s %s ", remote_ip, c.method(), c.path());
+
+    if (res != null) 
+    {
+        io::printfn("-> %d", res.status);
+    } 
+    else 
+    {
         io::printfn("(response=null)");
     }
 
     return res;
 }
 
-fn Response* middleware_powered_by(Context* c, Next next)
+fn Response*? middleware_powered_by(Context* c, Next next)
 {
-    c.header("X-Powered-By", "ext::httpserver");
-    return next(c);
+    if (c == null) return CONTEXT_NOT_READY~;
+
+    c.header("X-Powered-By", "ext::aiohttp")!;
+    return next(c)!;
 }
 
 
@@ -302,13 +340,19 @@ fn Response* middleware_powered_by(Context* c, Next next)
 
 fn void MiddlewareStack.dump(&self)
 {
-    for (sz i = 0; i < self.items.len(); i++) {
+    for (sz i = 0; i < self.items.len(); i++) 
+    {
         MiddlewareItem* item = &self.items[i];
 
-        if (item.has_path) {
+        if (item.has_path) 
+        {
             io::printfn("use %s", item.path);
-        } else {
+        } 
+        else 
+        {
             io::printfn("use *");
         }
     }
 }
+
+// eof
