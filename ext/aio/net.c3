@@ -227,11 +227,8 @@ fn mio::Fd? udp_sendto_ip(String ip, ushort port, char[] data, mio::Fd fd = io::
     {
         if (new_fd) socket_close(fd);
     }
-
-    char[128] buf;
-    char* ip_str = str2cptr(ip, buf[..])!;
-
-    io::async_sendto(fd, data, ip_str, port)!;
+    
+    io::async_sendto(fd, data, ip, port)!;
 
     return fd;
 }
@@ -358,8 +355,23 @@ fn String? sockaddr_to_string_win32(void* raw_addr) @if(env::WIN32)
     return ((String)p[0:string::strlen(p)]).copy(aio::localmem);
 }
 
-fn List{String}? dns_resolve(String host, ushort port) @if(env::POSIX)
+faultdef NONE @local;
+
+struct Arg @local
 {
+    fault error;
+    String host;
+    ushort port;
+    List{String} ips;
+}
+
+fn void* dns_resolve_blocking(void* v_arg) @local @if(env::POSIX)
+{
+    Arg* arg = (Arg*)v_arg;
+    
+    String host = arg.host;
+    ushort port = arg.port;
+    
     char[16] port_str;
     stdio::snprintf(&port_str[0], 16, "%d", (int)port);
 
@@ -368,35 +380,50 @@ fn List{String}? dns_resolve(String host, ushort port) @if(env::POSIX)
     hints.ai_socktype = socket::SOCK_STREAM;
 
     char[256] host_buf;
-    char* host_cstr = str2cptr(host, host_buf[..])!;
-
+    char*? host_cstr = str2cptr(host, host_buf[..]);
+    if (catch err = host_cstr)
+    {
+        arg.error = err;
+        return v_arg;
+    }
     netdb::AddrInfo* res = null;
 
     if (netdb::getaddrinfo(host_cstr, &port_str[0], &hints, &res) != 0)
     {
-        return DNS_LOOKUP_ERROR~;
+        arg.error = DNS_LOOKUP_ERROR;
+        return v_arg;
     }
 
     defer netdb::freeaddrinfo(res);
 
-    List{String} ips;
-    ips.init(aio::localmem);
+    arg.ips.init(aio::localmem);
 
     netdb::AddrInfo* rp = res;
 
     while (rp != null)
     {
-        String ip = sockaddr_to_string_posix(rp.ai_addr)!;
-        ips.push(ip);
+        String? ip = sockaddr_to_string_posix(rp.ai_addr);
+        if (catch err = ip)
+        {
+            arg.error = err;
+            return v_arg;
+        }
+
+        arg.ips.push(ip);
 
         rp = rp.ai_next;
     }
 
-    return ips;
+    return v_arg;
 }
 
-fn List{String}? dns_resolve(String host, ushort port) @if(env::WIN32)
+fn void* dns_resolve_blocking(void* v_arg) @local @if(env::WIN32)
 {
+    Arg* arg = (Arg*)v_arg;
+    
+    String host = arg.host;
+    ushort port = arg.port;
+
     char[16] port_str;
     stdio::snprintf(&port_str[0], 16, "%d", (int)port);
 
@@ -406,7 +433,12 @@ fn List{String}? dns_resolve(String host, ushort port) @if(env::WIN32)
     hints.ai_protocol = winsock2::IPPROTO_TCP;
 
     char[256] host_buf;
-    char* host_cstr = str2cptr(host, host_buf[..])!;
+    char*? host_cstr = str2cptr(host, host_buf[..]);
+    if (catch err = host_cstr)
+    {
+        arg.error = err;
+        return v_arg;
+    }
 
     ws2tcpip::AddrInfo* res = null;
 
@@ -417,24 +449,49 @@ fn List{String}? dns_resolve(String host, ushort port) @if(env::WIN32)
         &res
     );
 
-    if (rc != 0) return DNS_LOOKUP_ERROR~;
+    if (rc != 0)
+    {
+        arg.error = DNS_LOOKUP_ERROR;
+        return v_arg;
+    }
 
     defer ws2tcpip::freeaddrinfo(res);
 
-    List{String} ips;
-    ips.init(aio::localmem);
+    arg.ips.init(aio::localmem);
 
     ws2tcpip::AddrInfo* rp = res;
 
     while (rp != null)
     {
-        String ip = sockaddr_to_string_win32(rp.ai_addr)!;
-        ips.push(ip);
+        String? ip = sockaddr_to_string_win32(rp.ai_addr);
+        if (catch err = ip)
+        {
+            arg.error = err;
+            return v_arg;
+        }
+
+        arg.ips.push(ip);
 
         rp = rp.ai_next;
     }
 
-    return ips;
+    return v_arg;
+}
+
+fn List{String}? dns_resolve(String host, ushort port) @local
+{
+    Arg arg = {
+        .error = NONE,
+        .host = host,
+        .port = port,
+    };
+    
+    Arg*? a = aio::run_in_executor(&dns_resolve_blocking, &arg);
+    
+    if (catch err = a) return err~;
+    if (a.error != NONE) return a.error~;
+    
+    return a.ips;
 }
 
 const ulong DNS_CACHE_TTL_US @private = 60_000_000;

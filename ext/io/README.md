@@ -6,7 +6,7 @@ Cross-platform file/directory operations in C3, filling the gap of missing piece
 
 | Module | Description |
 |--------|-------------|
-| `ext::io::stat` | File stat operations: exists(), size(), is_(file/dir/link), is_(readable/writable/executable), read_link(), link(), symlink(), last_modified(), change_mode() |
+| `ext::io::stat` | File stat operations: statinfo(), exists(), size(), is_(file/dir/link), is_(readable/writable/executable), read_link(), link(), symlink(), last_modified(), change_mode() |
 | `ext::io::cfile` | File operations: open(), close(), read(), read_byte(), write(), write_byte(), printf(), seek(), tell(), eof(), load(), save(), copy(), rename(), remove(), exists(), size(), last_modified(), is_file(), is_dir(), change_mode() |
 | `ext::io::dir` | Directory/folder operations: get_cur_dir(), change_dir(), make_dir(), remove_dir(), rename(), list_dir(), exists(), is_dir(), is_file(), change_mode(), scan_dir() |
 
@@ -23,6 +23,18 @@ Available functions are:
 
 ```c3
 import ext::io::stat;
+
+struct StatInfo
+{
+    sz size;
+    long mtime;
+
+    bool is_file;
+    bool is_dir;
+    bool is_link;
+}
+
+StatInfo? info = stat::statinfo(String path);
 
 bool b = stat::exists(String path);
 long? n = stat::size(String path);

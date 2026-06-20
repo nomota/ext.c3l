@@ -26,6 +26,14 @@ struct Datagram
 
 fn Datagram*? datagram_new(Fd fd) @private
 {
+    if (io::fd_invalid(fd)) return CLOSED~;
+
+    if (!io::set_nonblocking(fd))
+    {
+        net::socket_close(fd);
+        return aio::IO_ERROR~;
+    }
+
     Datagram* d = localmem.alloc(Datagram)!;
     *d = {
         .fd = fd,
@@ -79,10 +87,7 @@ fn sz? Datagram.sendto(&self, char[] data, String ip, ushort port)
 {
     if (self.is_closed()) return DATAGRAM_CLOSED~;
 
-    char[128] buf;
-    char* ip_str = str2cptr(ip, buf[..]);
-
-    sz? n = io::async_sendto(self.fd, data, ip_str, port);
+    sz? n = io::async_sendto(self.fd, data, ip, port);
 
     if (catch err = n)
     {
@@ -97,7 +102,7 @@ fn sz? Datagram.recvfrom(&self, char[] data, DatagramAddr* from)
 {
     if (self.is_closed()) return DATAGRAM_CLOSED~;
 
-    sz? n = io::async_recvfrom(self.fd, data, &from.ip[0], &from.ip_len, &from.port);
+    sz? n = io::async_recvfrom(self.fd, data, from.ip[..], &from.ip_len, &from.port);
 
     if (catch err = n)
     {

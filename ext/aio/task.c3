@@ -96,14 +96,14 @@ fn void fiber_trampoline()
     if (catch err = t.entry(t.arg))
     {
         t.error = err;
-        warn("task aborted: %s", err);
-        
         if (err == CANCELLED || err == TIMEOUT)
         {
             t.state = TASK_CANCELLED;
         }
         else
         {
+warn("task aborted: %s", err);
+        
             t.state = TASK_FAILED;
         }
     }

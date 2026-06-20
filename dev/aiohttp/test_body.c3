@@ -1,60 +1,60 @@
 // test_body.c3
 
-// Request body helper tests for ext::aiohttp
+// Request body helper tests for ext::aio::http
 
 // Nomota <hiongun@gmail.com>; MIT License
 
 module test::body;
 
 import std::io;
-import ext::aiohttp;
+import ext::aio::http;
 import ext::debug;
 
-fn aiohttp::Request* parse_request(char[] raw)
+fn aio::http::Request* parse_request(char[] raw)
 {
-    return aiohttp::request_parse(raw)!!;
+    return aio::http::request_parse(raw)!!;
 }
 
-fn aiohttp::Context* context_from_raw(char[] raw)
+fn aio::http::Context* context_from_raw(char[] raw)
 {
-    aiohttp::Request* req = parse_request(raw);
+    aio::http::Request* req = parse_request(raw);
 
-    aiohttp::Context* c = aiohttp::context_new(req)!!;
+    aio::http::Context* c = aio::http::context_new(req)!!;
 
     return c;
 }
 
-fn void context_from_raw_free(aiohttp::Context* c)
+fn void context_from_raw_free(aio::http::Context* c)
 {
     if (c == null) return;
 
-    aiohttp::Request* req = c.req;
+    aio::http::Request* req = c.req;
 
-    aiohttp::context_free(c);
+    aio::http::context_free(c);
 
     if (req != null)
     {
-        aiohttp::request_free(req);
+        aio::http::request_free(req);
     }
 }
 
 fn void test_content_type_base_plain()
 {
-    String base = aiohttp::content_type_base("application/json");
+    String base = aio::http::content_type_base("application/json");
 
     @assert(base == "application/json", "plain content type base mismatch");
 }
 
 fn void test_content_type_base_with_charset()
 {
-    String base = aiohttp::content_type_base("application/json; charset=utf-8");
+    String base = aio::http::content_type_base("application/json; charset=utf-8");
 
     @assert(base == "application/json", "charset content type base mismatch");
 }
 
 fn void test_content_type_base_trims()
 {
-    String base = aiohttp::content_type_base("  text/plain ; charset=utf-8  ");
+    String base = aio::http::content_type_base("  text/plain ; charset=utf-8  ");
 
     @assert(base == "text/plain", "trimmed content type base mismatch");
 }
@@ -69,8 +69,8 @@ fn void test_request_content_type_is()
         "\r\n"
         "{\"ok\":true}";
 
-    aiohttp::Request* req = parse_request(raw);
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = parse_request(raw);
+    defer aio::http::request_free(req);
 
     @assert(req.content_type_is("application/json"), "content_type_is json mismatch");
     @assert(!req.content_type_is("text/plain"), "content_type_is false mismatch");
@@ -86,7 +86,7 @@ fn void test_context_content_type_is()
         "\r\n"
         "hello";
 
-    aiohttp::Context* c = context_from_raw(raw);
+    aio::http::Context* c = context_from_raw(raw);
     defer context_from_raw_free(c);
 
     @assert(c.content_type_is("text/plain"), "context content_type_is mismatch");
@@ -103,8 +103,8 @@ fn void test_request_is_json_application_json()
         "\r\n"
         "{\"ok\":true}";
 
-    aiohttp::Request* req = parse_request(raw);
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = parse_request(raw);
+    defer aio::http::request_free(req);
 
     @assert(req.is_json(), "application/json should be json");
 }
@@ -119,8 +119,8 @@ fn void test_request_is_json_vendor_json()
         "\r\n"
         "{\"ok\":true}";
 
-    aiohttp::Request* req = parse_request(raw);
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = parse_request(raw);
+    defer aio::http::request_free(req);
 
     @assert(req.is_json(), "vendor +json should be json");
 }
@@ -135,8 +135,8 @@ fn void test_request_is_not_json()
         "\r\n"
         "hello";
 
-    aiohttp::Request* req = parse_request(raw);
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = parse_request(raw);
+    defer aio::http::request_free(req);
 
     @assert(!req.is_json(), "text/plain should not be json");
 }
@@ -151,8 +151,8 @@ fn void test_request_is_text_plain()
         "\r\n"
         "hello";
 
-    aiohttp::Request* req = parse_request(raw);
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = parse_request(raw);
+    defer aio::http::request_free(req);
 
     @assert(req.is_text(), "text/plain should be text");
 }
@@ -167,8 +167,8 @@ fn void test_request_is_text_subtype()
         "\r\n"
         "a,b,c\r\n";
 
-    aiohttp::Request* req = parse_request(raw);
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = parse_request(raw);
+    defer aio::http::request_free(req);
 
     @assert(req.is_text(), "text/csv should be text");
 }
@@ -183,8 +183,8 @@ fn void test_request_is_html()
         "\r\n"
         "<h1>Hi</h1>";
 
-    aiohttp::Request* req = parse_request(raw);
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = parse_request(raw);
+    defer aio::http::request_free(req);
 
     @assert(req.is_html(), "text/html should be html");
 }
@@ -199,8 +199,8 @@ fn void test_request_is_octet_stream()
         "\r\n"
         "data";
 
-    aiohttp::Request* req = parse_request(raw);
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = parse_request(raw);
+    defer aio::http::request_free(req);
 
     @assert(req.is_octet_stream(), "application/octet-stream mismatch");
 }
@@ -215,7 +215,7 @@ fn void test_context_body_type_checks()
         "\r\n"
         "{\"ok\":true}";
 
-    aiohttp::Context* c = context_from_raw(raw);
+    aio::http::Context* c = context_from_raw(raw);
     defer context_from_raw_free(c);
 
     @assert(c.req_is_json(), "context req_is_json mismatch");
@@ -234,8 +234,8 @@ fn void test_request_bytes()
         "\r\n"
         "hello";
 
-    aiohttp::Request* req = parse_request(raw);
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = parse_request(raw);
+    defer aio::http::request_free(req);
 
     char[] body = req.bytes();
 
@@ -253,8 +253,8 @@ fn void test_request_text()
         "\r\n"
         "hello";
 
-    aiohttp::Request* req = parse_request(raw);
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = parse_request(raw);
+    defer aio::http::request_free(req);
 
     String text = req.text();
 
@@ -271,8 +271,8 @@ fn void test_request_json_text()
         "\r\n"
         "{\"ok\":true}";
 
-    aiohttp::Request* req = parse_request(raw);
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = parse_request(raw);
+    defer aio::http::request_free(req);
 
     String json = req.json_text();
 
@@ -289,11 +289,11 @@ fn void test_request_bytes_copy()
         "\r\n"
         "hello";
 
-    aiohttp::Request* req = parse_request(raw);
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = parse_request(raw);
+    defer aio::http::request_free(req);
 
     char[] copied = req.bytes_copy()!!;
-    defer aiohttp::localmem.free(copied);
+    defer aio::http::localmem.free(copied);
 
     @assert(copied.len == 5, "bytes_copy len mismatch");
     @assert((String)copied == "hello", "bytes_copy value mismatch");
@@ -309,11 +309,11 @@ fn void test_request_text_copy()
         "\r\n"
         "hello";
 
-    aiohttp::Request* req = parse_request(raw);
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = parse_request(raw);
+    defer aio::http::request_free(req);
 
     String copied = req.text_copy()!!;
-    defer aiohttp::localmem.free(copied);
+    defer aio::http::localmem.free(copied);
 
     @assert(copied == "hello", "text_copy mismatch");
 }
@@ -325,12 +325,12 @@ fn void test_empty_body_copies()
         "Host: localhost\r\n"
         "\r\n";
 
-    aiohttp::Request* req = parse_request(raw);
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = parse_request(raw);
+    defer aio::http::request_free(req);
 
     if (catch err = req.bytes_copy())
     {
-        @assert(err == aiohttp::EMPTY_BODY, "empty bytes_copy fault mismatch");
+        @assert(err == aio::http::EMPTY_BODY, "empty bytes_copy fault mismatch");
     }
     else
     {
@@ -339,7 +339,7 @@ fn void test_empty_body_copies()
 
     if (catch err = req.text_copy())
     {
-        @assert(err == aiohttp::EMPTY_BODY, "empty text_copy fault mismatch");
+        @assert(err == aio::http::EMPTY_BODY, "empty text_copy fault mismatch");
         return;
     }
 
@@ -356,7 +356,7 @@ fn void test_context_body_readers()
         "\r\n"
         "{\"ok\":true}";
 
-    aiohttp::Context* c = context_from_raw(raw);
+    aio::http::Context* c = context_from_raw(raw);
     defer context_from_raw_free(c);
 
     @assert((String)c.req_bytes() == "{\"ok\":true}", "context req_bytes mismatch");
@@ -374,14 +374,14 @@ fn void test_context_body_copy_helpers()
         "\r\n"
         "hello";
 
-    aiohttp::Context* c = context_from_raw(raw);
+    aio::http::Context* c = context_from_raw(raw);
     defer context_from_raw_free(c);
 
     char[] copied = c.req_bytes_copy()!!;
-    defer aiohttp::localmem.free(copied);
+    defer aio::http::localmem.free(copied);
 
     String text = c.req_text_copy()!!;
-    defer aiohttp::localmem.free(text);
+    defer aio::http::localmem.free(text);
 
     @assert((String)copied == "hello", "context req_bytes_copy mismatch");
     @assert(text == "hello", "context req_text_copy mismatch");
@@ -389,7 +389,7 @@ fn void test_context_body_copy_helpers()
 
 fn void test_context_null_request_body_readers()
 {
-    aiohttp::Context c = {};
+    aio::http::Context c = {};
 
     @assert(c.req_bytes().len == 0, "null context req_bytes mismatch");
     @assert(c.req_text() == "", "null context req_text mismatch");
@@ -397,7 +397,7 @@ fn void test_context_null_request_body_readers()
 
     if (catch err = c.req_bytes_copy())
     {
-        @assert(err == aiohttp::EMPTY_BODY, "null context req_bytes_copy fault mismatch");
+        @assert(err == aio::http::EMPTY_BODY, "null context req_bytes_copy fault mismatch");
     }
     else
     {
@@ -406,7 +406,7 @@ fn void test_context_null_request_body_readers()
 
     if (catch err = c.req_text_copy())
     {
-        @assert(err == aiohttp::EMPTY_BODY, "null context req_text_copy fault mismatch");
+        @assert(err == aio::http::EMPTY_BODY, "null context req_text_copy fault mismatch");
         return;
     }
     else
@@ -425,7 +425,7 @@ fn void test_require_helpers()
         "\r\n"
         "{\"ok\":true}";
 
-    aiohttp::Context* c = context_from_raw(raw);
+    aio::http::Context* c = context_from_raw(raw);
     defer context_from_raw_free(c);
 
     @assert(c.require_json(), "require_json mismatch");

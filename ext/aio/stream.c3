@@ -21,6 +21,14 @@ struct Stream
 
 fn Stream*? stream_new(Fd fd)
 {
+    if (io::fd_invalid(fd)) return CLOSED~;
+
+    if (!io::set_nonblocking(fd))
+    {
+        net::socket_close(fd);
+        return aio::IO_ERROR~;
+    }
+
     Stream* s = localmem.alloc(Stream)!;
     *s = {
         .fd = fd,
@@ -81,6 +89,13 @@ fn bool Stream.is_closed(&self) @inline
     return self.closed || io::fd_invalid(self.fd);
 }
 
+fn sz? Stream.read_any(&self, char[] buf)
+{
+    if (self.is_closed()) return CLOSED~;
+
+    return io::async_read_any(self.fd, buf);
+}
+
 fn sz? Stream.read(&self, char[] buf)
 {
     if (self.is_closed()) return CLOSED~;
@@ -88,12 +103,19 @@ fn sz? Stream.read(&self, char[] buf)
     return io::async_read(self.fd, buf);
 }
 
-fn sz? Stream.read_timeout(&self, char[] buf, ulong timeout_ms)
+fn sz? Stream.read_timeout(&self, char[] buf, ulong timeout_us)
 {
-    Timer* timer = start_timer(timeout_ms)!;
-    defer timer.cancel();
+    if (self.is_closed()) return CLOSED~;
+    if (buf.len == 0) return 0;
 
-    return self.read(buf[..]);
+    return io::async_read_timeout(self.fd, buf, timeout_us)!;
+}
+
+fn sz? Stream.write_any(&self, char[] buf) @maydiscard
+{
+    if (self.is_closed()) return CLOSED~;
+
+    return io::async_write_any(self.fd, buf);
 }
 
 fn sz? Stream.write(&self, char[] buf) @maydiscard
@@ -121,12 +143,30 @@ fn void? Stream.write_all(&self, char[] data) @maydiscard
     }
 }
 
-fn void? Stream.write_all_timeout(&self, char[] data, ulong timeout_ms)
+fn void? Stream.write_all_timeout(&self, char[] data, ulong timeout_us)
 {
-    Timer* timer = start_timer(timeout_ms)!;
-    defer timer.cancel();
+    if (self.is_closed()) return CLOSED~;
 
-    self.write_all(data[..])!;
+    sz sent = 0;
+    ulong start = aio::time_us();
+
+    while (sent < data.len)
+    {
+        ulong now = aio::time_us();
+
+        if (now - start >= timeout_us)
+        {
+            return aio::TIMEOUT~;
+        }
+
+        char[] part = data[sent..];
+
+        sz n = io::async_write_timeout(self.fd, part, timeout_us - (now - start))!;
+
+        if (n == 0) return CLOSED~;
+
+        sent += n;
+    }
 }
 
 fn void? Stream.read_exact(&self, char[] buf)
@@ -172,9 +212,9 @@ fn sz? Stream.read_line(&self, char[] buf)
 }
 
 
-fn Stream*? stream_connect_timeout(String host, ushort port, ulong timeout_ms)
+fn Stream*? stream_connect_timeout(String host, ushort port, ulong timeout_us)
 {
-    Timer* timer = start_timer(timeout_ms)!;
+    Timer* timer = start_timer(timeout_us)!;
     defer timer.cancel();
 
     return stream_connect(host, port);

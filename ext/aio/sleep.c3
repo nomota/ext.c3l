@@ -21,6 +21,16 @@ fn ulong clock_now() @inline // micro second
     return (ulong) clock::now()/1_000; // nano to micro
 }
 
+fn ulong time_ms() @inline // mili second
+{
+    return (ulong) clock::now()/1_000_000; // nano to mili
+}
+
+fn ulong time_us() @inline // micro second
+{
+    return (ulong) clock::now()/1_000; // nano to micro
+}
+
 fn void Sleep.init(&self, Task* task, ulong deadline_us)
 {
     self.waiter.init(task);

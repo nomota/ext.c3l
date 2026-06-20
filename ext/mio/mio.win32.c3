@@ -101,7 +101,7 @@ fn void? set_reuseaddr_fd(Fd fd)
     }
 }
 
-fn char*? str2cptr(String str, char[] buf) @inline @private
+fn char*? str2cptr(char[] str, char[] buf) @inline @private
 {
     if (buf.len == 0) return NET_ADDR_ERROR~;
     if (str.len+1 > buf.len) return NET_ADDR_ERROR~;
@@ -112,7 +112,7 @@ fn char*? str2cptr(String str, char[] buf) @inline @private
     return &buf[0];
 }
 
-fn void? make_sockaddr(String ip, ushort port, winsock2::SockAddrStorage* addr, winsock2::SockLen* len) @maydiscard
+fn void? make_sockaddr(char[] ip, ushort port, winsock2::SockAddrStorage* addr, winsock2::SockLen* len) @maydiscard
 {
     if (addr == null) return MIO_INVALID~;
     if (len == null) return MIO_INVALID~;
@@ -249,7 +249,7 @@ fn int? socket_family_fd(Fd fd)
     return ((winsock2::SockAddr*)&addr).sa_family;
 }
 
-fn bool ip_is_v6(String ip) @private
+fn bool ip_is_v6(char[] ip) @private
 {
     for (sz i = 0; i < ip.len; i++)
     {
@@ -259,13 +259,13 @@ fn bool ip_is_v6(String ip) @private
     return false;
 }
 
-fn int socket_family_from_ip(String ip)
+fn int socket_family_from_ip(char[] ip)
 {
     if (ip_is_v6(ip)) return winsock2::AF_INET6;
     return winsock2::AF_INET;
 }
 
-fn void? socket_bind_fd(Fd fd, String ip, ushort port)
+fn void? socket_bind_fd(Fd fd, char[] ip, ushort port)
 {
     winsock2::SockAddrStorage addr = {};
     winsock2::SockLen len = @sizeof(addr);
@@ -308,7 +308,7 @@ fn void? tcp_listen_fd(Fd fd, int backlog = DEFAULT_BACKLOG)
     if (rc < 0) return socket_fault()~;
 }
 
-fn TcpListener? tcp_listen(String ip, ushort port, int backlog = DEFAULT_BACKLOG)
+fn TcpListener? tcp_listen(char[] ip, ushort port, int backlog = DEFAULT_BACKLOG)
 {
     int family = socket_family_from_ip(ip);
     
@@ -337,7 +337,7 @@ fn bool connect_ok_or_pending(int err)
         err == winsock2::WSAEISCONN;
 }
 
-fn void? tcp_connect_fd(Fd fd, String ip, ushort port) // unbound fd only
+fn void? tcp_connect_fd(Fd fd, char[] ip, ushort port) // unbound fd only
 {
     winsock2::SockAddrStorage addr = {};
     winsock2::SockLen len = @sizeof(addr);
@@ -355,7 +355,7 @@ fn void? tcp_connect_fd(Fd fd, String ip, ushort port) // unbound fd only
     }
 }
 
-fn TcpStream? tcp_connect(String ip, ushort port)
+fn TcpStream? tcp_connect(char[] ip, ushort port)
 {
     int family = socket_family_from_ip(ip);
 
@@ -504,7 +504,7 @@ fn void TcpStream.close(&self)
     self.closed = true;
 }
 
-fn UdpSocket? udp_bind(String ip, ushort port)
+fn UdpSocket? udp_bind(char[] ip, ushort port)
 {
     int family = socket_family_from_ip(ip);
 
@@ -566,7 +566,7 @@ fn sz? UdpSocket.recv_from(&self, char[] buf, char[] ip_buf, ushort* port)
     return udp_recvfrom_fd(self.fd, buf, ip_buf, port)!;
 }
 
-fn sz? udp_sendto_fd(Fd fd, char[] buf, String ip, ushort port)
+fn sz? udp_sendto_fd(Fd fd, char[] buf, char[] ip, ushort port)
 {
     if (fd_invalid(fd)) return MIO_INVALID~;
     if (buf.len == 0) return 0;
@@ -588,7 +588,7 @@ fn sz? udp_sendto_fd(Fd fd, char[] buf, String ip, ushort port)
     return (sz)n;
 }
 
-fn sz? UdpSocket.send_to(&self, char[] buf, String ip, ushort port)
+fn sz? UdpSocket.send_to(&self, char[] buf, char[] ip, ushort port)
 {
     if (self.closed) return MIO_CLOSED~;
     if (fd_invalid(self.fd)) return MIO_INVALID~;

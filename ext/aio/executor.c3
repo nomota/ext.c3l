@@ -13,7 +13,10 @@ import ext::aio::io;
 
 faultdef EXECUTOR_ERROR;
 
-ThreadPool{4} executor_pool;
+const int EXECUTOR_THREADS = 8;
+
+ThreadPool{EXECUTOR_THREADS} executor_pool;
+
 bool executor_pool_initialized = false;
 
 fn void executor_pool_init() @init
@@ -144,7 +147,7 @@ fn void ThreadSafe.deinit(&self)
     while (call != null)
     {
         ThreadSafeCall* next = call.next;
-        localmem.free(call);
+        mem::free(call);
         call = next;
     }
 
@@ -159,7 +162,7 @@ fn void? ThreadSafe.call_soon(&self, ThreadSafeFn func, void* arg = null) @maydi
 {
     if (func == null) return;
 
-    ThreadSafeCall* call = localmem.alloc(ThreadSafeCall)!;
+    ThreadSafeCall* call = mem::alloc(ThreadSafeCall); // inter thread memory. not localmem.alloc
     *call = {
         .func = func,
         .arg = arg,
@@ -211,7 +214,7 @@ fn void ThreadSafe.process(&self)
         ThreadSafeFn func = call.func;
         void* arg = call.arg;
 
-        localmem.free(call);
+        mem::free(call); // inter thread. not localmem.free
 
         if (func != null)
         {

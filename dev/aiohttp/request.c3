@@ -2,7 +2,7 @@
 
 // Nomota <hiongun@gmail.com>; MIT License
 
-module ext::aiohttp;
+module ext::aio::http;
 
 import std::io;
 import ext::mem;
@@ -297,11 +297,27 @@ fn bool Request.has_body(&self) @inline
 
 fn sz? Request.content_length(&self)
 {
-    String? v = self.headers.get("Content-Length");
-    if (catch err = v) return 0;
+    sz found = 0;
+    sz value = 0;
 
-    String s = trim_spaces(v);
-    return parse_sz(s)!;
+    for (sz i = 0; i < self.headers.items.len(); i++)
+    {
+        Header* h = &self.headers.items[i];
+
+        if (!str_iequals(h.name, "Content-Length")) continue;
+
+        sz n = parse_sz(trim_spaces(h.value))!;
+
+        if (found > 0 && n != value)
+        {
+            return BAD_REQUEST~;
+        }
+
+        value = n;
+        found++;
+    }
+
+    return value;
 }
 
 fn bool Request.is_http_11(&self) @inline
@@ -448,6 +464,15 @@ fn void? Request.parse_headers_block(&self, char[] block) @maydiscard
     }
 }
 
+fn bool Request.has_transfer_encoding(&self)
+{
+    if (catch self.header("Transfer-Encoding"))
+    {
+        return false;
+    }
+
+    return true;
+}
 
 // 
 // Body
@@ -521,32 +546,51 @@ fn Request*? request_parse(char[] raw)
 
     char[] raw_body = raw[body_start:raw.len - body_start];
     
-    if (req.is_chunked())
+    if (req.has_transfer_encoding())
     {
-        ChunkedDecodeResult decoded = chunked_decode(raw_body)!;
-        defer body_free(decoded.body);
+        if (!req.is_chunked())
+        {
+            return BAD_REQUEST~;
+        }
     
-        req.set_body_copy(decoded.body)!;
+        if (req.headers.has("Content-Length"))
+        {
+            return BAD_REQUEST~;
+        }
+    
+        ChunkedDecodeResult decoded = chunked_decode(raw_body)!;
+        defer bytes_free(decoded.body);
+    
+        if (decoded.body.len > 0)
+        {
+            req.set_body_copy(decoded.body)!;
+        }
+        else
+        {
+            req.body = {};
+            req.owns_body = false;
+        }
+    
         return req;
     }
-
+    
     sz content_len = req.content_length()!;
-
+    
     if (content_len > MAX_BODY_BYTES)
     {
         return REQUEST_TOO_LARGE~;
     }
-
+    
     if (available_body < content_len)
     {
         return BODY_INCOMPLETE~;
     }
-
+    
     if (content_len > 0)
     {
         req.set_body_copy(raw[body_start:content_len])!;
     }
-
+    
     return req;
 }
 
@@ -572,7 +616,7 @@ fn sz? request_expected_total_len(char[] raw)
     sz header_end = p[0];
     sz body_start = p[0] + p[1];
     sz gap = p[1];
-    
+
     if (header_end > MAX_HEADER_BYTES)
     {
         return REQUEST_TOO_LARGE~;
@@ -584,12 +628,17 @@ fn sz? request_expected_total_len(char[] raw)
     char[] header_block = raw[0:header_end + gap / 2];
     tmp.parse_headers_block(header_block)!;
 
-    char[] raw_body = raw[body_start:raw.len - body_start];
-
     if (tmp.is_chunked())
     {
-        sz chunked_len = chunked_expected_len(raw_body)!;
-        return body_start + chunked_len;
+        if (tmp.headers.has("Content-Length"))
+        {
+            return BAD_REQUEST~;
+        }
+
+        ChunkedDecodeResult decoded = chunked_decode(raw[body_start:raw.len - body_start])!;
+        defer localmem.free(decoded.body);
+
+        return body_start + decoded.consumed;
     }
 
     sz content_len = tmp.content_length()!;

@@ -1,6 +1,6 @@
 // test_live_server.c3
 
-// Live TCP server tests for ext::aiohttp
+// Live TCP server tests for ext::aio::http
 
 // Nomota <hiongun@gmail.com>; MIT License
 
@@ -8,66 +8,56 @@ module test::live_server;
 
 import std::io;
 import ext::aio;
-import ext::aiohttp;
+import ext::aio::http;
 import ext::debug;
 
 const String HOST = "127.0.0.1";
 const ushort PORT = 18080;
 
-fn bool contains(String haystack, String needle)
+fn aio::http::Response*? home_handler(aio::http::Context* c)
 {
-    if (needle.len == 0) return true;
-    if (haystack.len < needle.len) return false;
-
-    for (sz i = 0; i + needle.len <= haystack.len; i++)
-    {
-        if (haystack[i:needle.len] == needle) return true;
-    }
-
-    return false;
+    return c.text("home")!;
 }
 
-fn aiohttp::Response*? home_handler(aiohttp::Context* c)
+fn aio::http::Response*? echo_handler(aio::http::Context* c)
 {
-    return c.text("home")!!;
+    return c.text(c.req_text())!;
 }
 
-fn aiohttp::Response*? echo_handler(aiohttp::Context* c)
+fn aio::http::Response*? user_handler(aio::http::Context* c)
 {
-    return c.text(c.req_text())!!;
+    String id = c.param("id")!;
+
+    return c.text(id)!;
 }
 
-fn aiohttp::Response*? user_handler(aiohttp::Context* c)
+fn aio::http::Response*? query_handler(aio::http::Context* c)
 {
-    String id = c.param("id")!!;
+    String q = c.query("q")!;
 
-    return c.text(id)!!;
+    return c.text(q)!;
 }
 
-fn aiohttp::Response*? query_handler(aiohttp::Context* c)
+fn aio::http::Response*? cookie_handler(aio::http::Context* c)
 {
-    String q = c.query("q")!!;
+    c.cookie_set_default("sid", "abc")!;
 
-    return c.text(q)!!;
+    return c.text("cookie")!;
 }
 
-fn aiohttp::Response*? cookie_handler(aiohttp::Context* c)
+fn aio::http::Response*? middleware_header(
+    aio::http::Context* c,
+    aio::http::Next next
+)
 {
-    c.cookie_set_default("sid", "abc")!!;
+    aio::http::Response* res = next(c)!;
 
-    return c.text("cookie")!!;
-}
-
-fn aiohttp::Response*? middleware_header(aiohttp::Context* c, aiohttp::Next next)
-{
-    aiohttp::Response* res = next(c)!!;
-
-    c.header("X-Live-Test", "yes")!!;
+    c.header("X-Live-Test", "yes")!;
 
     return res;
 }
 
-fn void setup_app(aiohttp::Application* app)
+fn void setup_app(aio::http::Application* app)
 {
     app.init();
 
@@ -81,7 +71,7 @@ fn void setup_app(aiohttp::Application* app)
 
 fn void? server_task(void* arg)
 {
-    aiohttp::Application* app = (aiohttp::Application*)arg;
+    aio::http::Application* app = (aio::http::Application*)arg;
 
     app.serve(HOST, PORT)!;
 }
@@ -91,11 +81,72 @@ fn aio::Stream*? connect_client()
     return aio::stream_connect(HOST, PORT)!;
 }
 
+fn sz? response_content_length(String header_block)
+{
+    sz pos = 0;
+
+    while (pos < header_block.len)
+    {
+        sz line_end = header_block[pos..].index_of("\r\n") ?? -1;
+
+        String line;
+
+        if (line_end < 0)
+        {
+            line = header_block[pos:header_block.len - pos];
+            pos = header_block.len;
+        }
+        else
+        {
+            line = header_block[pos:line_end];
+            pos += line_end + 2;
+        }
+
+        if (line.len == 0) continue;
+
+        sz colon = line.index_of(":") ?? -1;
+        if (colon <= 0) continue;
+
+        String name = line[0:colon];
+        String value = line[colon + 1:line.len - colon - 1].trim();
+
+        if (aio::http::str_iequals(name, "Content-Length"))
+        {
+            return value.to_long()!;
+        }
+    }
+
+    return aio::http::NOT_FOUND~;
+}
+
+fn sz? response_expected_total_len(String response)
+{
+    sz header_end = response.index_of("\r\n\r\n") ?? -1;
+
+    if (header_end < 0)
+    {
+        return aio::http::BODY_INCOMPLETE~;
+    }
+
+    String header_block = response[0:header_end];
+
+    sz? content_length = response_content_length(header_block);
+
+    if (catch err = content_length)
+    {
+        return header_end + 4;
+    }
+
+    return header_end + 4 + content_length;
+}
+
 fn String? read_response(aio::Stream* stream)
 {
+    if (stream == null) return aio::http::BAD_REQUEST~;
+
     DString buf;
-    buf.init(aiohttp::localmem, 4096);
-    defer catch buf.free();
+    buf.init(aio::http::localmem, 4096);
+    defer buf.free();
 
     while (true)
     {
@@ -108,119 +159,23 @@ fn String? read_response(aio::Stream* stream)
 
         String text = buf.str_view();
 
-        if (contains(text, "\r\n\r\n"))
+        sz? total = response_expected_total_len(text);
+
+        if (try total)
         {
-            sz? total = response_expected_total_len(text);
-            if (try total)
+            if (buf.len() >= total)
             {
-                if (buf.len() >= total)
-                {
-                    return text.copy(aiohttp::localmem);
-                }
+                return text[0:total].copy(aio::http::localmem);
             }
         }
 
         if (buf.len() > 1024 * 1024)
         {
-            return aiohttp::REQUEST_TOO_LARGE~;
+            return aio::http::REQUEST_TOO_LARGE~;
         }
     }
 
-    return buf.str_view().copy(aiohttp::localmem);
-}
-
-fn sz find_string(String s, String needle)
-{
-    if (needle.len == 0) return 0;
-    if (s.len < needle.len) return -1;
-
-    for (sz i = 0; i + needle.len <= s.len; i++)
-    {
-        if (s[i:needle.len] == needle) return i;
-    }
-
-    return -1;
-}
-
-fn String trim(String s)
-{
-    sz start = 0;
-    sz end = s.len;
-
-    while (start < end && (s[start] == ' ' || s[start] == '\t'))
-    {
-        start++;
-    }
-
-    while (end > start && (s[end - 1] == ' ' || s[end - 1] == '\t'))
-    {
-        end--;
-    }
-
-    return s[start:end - start];
-}
-
-fn sz? parse_decimal(String s)
-{
-    if (s.len == 0) return aiohttp::BAD_REQUEST~;
-
-    sz n = 0;
-
-    for (sz i = 0; i < s.len; i++)
-    {
-        char c = s[i];
-
-        if (c < '0' || c > '9') return aiohttp::BAD_REQUEST~;
-
-        n = n * 10 + (sz)(c - '0');
-    }
-
-    return n;
-}
-
-fn sz? response_content_length(String header_block)
-{
-    sz pos = 0;
-
-    while (pos < header_block.len)
-    {
-        sz line_end = find_string(header_block[pos..], "\r\n");
-        if (line_end < 0) break;
-
-        String line = header_block[pos:line_end];
-
-        sz colon = find_string(line, ":");
-        if (colon > 0)
-        {
-            String name = line[0:colon];
-            String value = trim(line[colon + 1:line.len - colon - 1]);
-
-            if (aiohttp::str_iequals(name, "Content-Length"))
-            {
-                return parse_decimal(value)!;
-            }
-        }
-
-        pos += line_end + 2;
-    }
-
-    return aiohttp::NOT_FOUND~;
-}
-
-fn sz? response_expected_total_len(String response)
-{
-    sz header_end = find_string(response, "\r\n\r\n");
-    if (header_end < 0) return aiohttp::BODY_INCOMPLETE~;
-
-    String header_block = response[0:header_end];
-
-    sz? clen = response_content_length(header_block);
-    if (catch err = clen)
-    {
-        return header_end + 4;
-    }
-
-    return header_end + 4 + clen;
+    return buf.str_view().copy(aio::http::localmem);
 }
 
 fn String? request_once(String request)
@@ -245,12 +200,24 @@ fn void test_live_get_root()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aiohttp::localmem.free(response);
+    defer aio::http::localmem.free(response);
 
-    @assert(contains(response, "HTTP/1.1 200 OK\r\n"), "GET / status mismatch");
-    @assert(contains(response, "Content-Length: 4\r\n"), "GET / content length mismatch");
-    @assert(contains(response, "X-Live-Test: yes\r\n"), "middleware header missing");
-    @assert(contains(response, "\r\n\r\nhome"), "GET / body mismatch");
+    @assert(
+        response.contains("HTTP/1.1 200 OK\r\n"),
+        "GET / status mismatch"
+    );
+    @assert(
+        response.contains("Content-Length: 4\r\n"),
+        "GET / content length mismatch"
+    );
+    @assert(
+        response.contains("X-Live-Test: yes\r\n"),
+        "middleware header missing"
+    );
+    @assert(
+        response.contains("\r\n\r\nhome"),
+        "GET / body mismatch"
+    );
 }
 
 fn void test_live_param()
@@ -261,10 +228,16 @@ fn void test_live_param()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aiohttp::localmem.free(response);
+    defer aio::http::localmem.free(response);
 
-    @assert(contains(response, "HTTP/1.1 200 OK\r\n"), "param status mismatch");
-    @assert(contains(response, "\r\n\r\nkim lee"), "param body mismatch");
+    @assert(
+        response.contains("HTTP/1.1 200 OK\r\n"),
+        "param status mismatch"
+    );
+    @assert(
+        response.contains("\r\n\r\nkim lee"),
+        "param body mismatch"
+    );
 }
 
 fn void test_live_query()
@@ -275,10 +248,16 @@ fn void test_live_query()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aiohttp::localmem.free(response);
+    defer aio::http::localmem.free(response);
 
-    @assert(contains(response, "HTTP/1.1 200 OK\r\n"), "query status mismatch");
-    @assert(contains(response, "\r\n\r\nhello world"), "query body mismatch");
+    @assert(
+        response.contains("HTTP/1.1 200 OK\r\n"),
+        "query status mismatch"
+    );
+    @assert(
+        response.contains("\r\n\r\nhello world"),
+        "query body mismatch"
+    );
 }
 
 fn void test_live_post_echo()
@@ -292,10 +271,16 @@ fn void test_live_post_echo()
         "\r\n"
         "hello"
     )!!;
-    defer aiohttp::localmem.free(response);
+    defer aio::http::localmem.free(response);
 
-    @assert(contains(response, "HTTP/1.1 200 OK\r\n"), "POST echo status mismatch");
-    @assert(contains(response, "\r\n\r\nhello"), "POST echo body mismatch");
+    @assert(
+        response.contains("HTTP/1.1 200 OK\r\n"),
+        "POST echo status mismatch"
+    );
+    @assert(
+        response.contains("\r\n\r\nhello"),
+        "POST echo body mismatch"
+    );
 }
 
 fn void test_live_cookie()
@@ -306,11 +291,22 @@ fn void test_live_cookie()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aiohttp::localmem.free(response);
+    defer aio::http::localmem.free(response);
 
-    @assert(contains(response, "HTTP/1.1 200 OK\r\n"), "cookie status mismatch");
-    @assert(contains(response, "Set-Cookie: sid=abc; Path=/; SameSite=Lax\r\n"), "set-cookie missing");
-    @assert(contains(response, "\r\n\r\ncookie"), "cookie body mismatch");
+    @assert(
+        response.contains("HTTP/1.1 200 OK\r\n"),
+        "cookie status mismatch"
+    );
+    @assert(
+        response.contains(
+            "Set-Cookie: sid=abc; Path=/; SameSite=Lax\r\n"
+        ),
+        "set-cookie missing"
+    );
+    @assert(
+        response.contains("\r\n\r\ncookie"),
+        "cookie body mismatch"
+    );
 }
 
 fn void test_live_404()
@@ -321,10 +317,16 @@ fn void test_live_404()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aiohttp::localmem.free(response);
+    defer aio::http::localmem.free(response);
 
-    @assert(contains(response, "HTTP/1.1 404 Not Found\r\n"), "404 status mismatch");
-    @assert(contains(response, "\r\n\r\n404 Not Found"), "404 body mismatch");
+    @assert(
+        response.contains("HTTP/1.1 404 Not Found\r\n"),
+        "404 status mismatch"
+    );
+    @assert(
+        response.contains("\r\n\r\n404 Not Found"),
+        "404 body mismatch"
+    );
 }
 
 fn void test_live_405()
@@ -336,10 +338,16 @@ fn void test_live_405()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aiohttp::localmem.free(response);
+    defer aio::http::localmem.free(response);
 
-    @assert(contains(response, "HTTP/1.1 405 Method Not Allowed\r\n"), "405 status mismatch");
-    @assert(contains(response, "\r\n\r\n405 Method Not Allowed"), "405 body mismatch");
+    @assert(
+        response.contains("HTTP/1.1 405 Method Not Allowed\r\n"),
+        "405 status mismatch"
+    );
+    @assert(
+        response.contains("\r\n\r\n405 Method Not Allowed"),
+        "405 body mismatch"
+    );
 }
 
 fn void test_live_bad_request()
@@ -350,10 +358,16 @@ fn void test_live_bad_request()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aiohttp::localmem.free(response);
+    defer aio::http::localmem.free(response);
 
-    @assert(contains(response, "HTTP/1.1 400 Bad Request\r\n"), "bad request status mismatch");
-    @assert(contains(response, "\r\n\r\n400 Bad Request"), "bad request body mismatch");
+    @assert(
+        response.contains("HTTP/1.1 400 Bad Request\r\n"),
+        "bad request status mismatch"
+    );
+    @assert(
+        response.contains("\r\n\r\n400 Bad Request"),
+        "bad request body mismatch"
+    );
 }
 
 fn void test_live_sequential_clients()
@@ -366,22 +380,54 @@ fn void test_live_sequential_clients()
             "Connection: close\r\n"
             "\r\n"
         )!!;
-        defer aiohttp::localmem.free(response);
 
-        @assert(contains(response, "HTTP/1.1 200 OK\r\n"), "sequential client status mismatch");
-        @assert(contains(response, "\r\n\r\nhome"), "sequential client body mismatch");
+        @assert(
+            response.contains("HTTP/1.1 200 OK\r\n"),
+            "sequential client status mismatch"
+        );
+        @assert(
+            response.contains("\r\n\r\nhome"),
+            "sequential client body mismatch"
+        );
+
+        aio::http::localmem.free(response);
     }
 }
 
+fn void? wait_server_ready()
+{
+    for (sz i = 0; i < 200; i++)
+    {
+        aio::Stream*? maybe_stream =
+            aio::stream_connect(HOST, PORT);
+
+        if (catch err = maybe_stream)
+        {
+            aio::sleep(100_000)!;
+            continue;
+        }
+
+        aio::Stream* stream = maybe_stream;
+
+        stream.close();
+        stream.free();
+
+        return;
+    }
+
+    return aio::CONNECT_ERROR~;
+}
+
+
 fn void? main_task(void* arg)
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     setup_app(&app);
     defer app.deinit();
 
     aio::spawn(&server_task, &app)!;
 
-    aio::sleep(100)!;
+    wait_server_ready()!;
 
     test_live_get_root();
     test_live_param();
@@ -400,7 +446,7 @@ fn void? main_task(void* arg)
 
 fn void main()
 {
-    aio::run(&main_task);
+    aio::run(&main_task)!!;
 }
 
 // eof

@@ -2,7 +2,7 @@
 
 // Nomota <hiongun@gmail.com>; MIT License
 
-module ext::aiohttp;
+module ext::aio::http;
 
 import std::io;
 import std::collections::list;
@@ -99,6 +99,22 @@ fn bool is_valid_name(String name)
                 return false;
             default:
         }
+    }
+
+    return true;
+}
+
+faultdef INVALID_HEADER_VALUE;
+
+fn bool is_valid_value(String value)
+{
+    for (sz i = 0; i < value.len; i++)
+    {
+        char c = value[i];
+
+        if (c == '\r' || c == '\n') return false;
+        if (c == 127) return false;
+        if (c < 32 && c != '\t') return false;
     }
 
     return true;
@@ -226,6 +242,7 @@ faultdef INVALID_HEADER_NAME;
 fn void? KeyVals.add(&self, String name, String value) @maydiscard
 {
     if (!is_valid_name(name)) return INVALID_HEADER_NAME~;
+    if (!is_valid_value(value)) return INVALID_HEADER_VALUE~;
 
     self.items.push({
         .name = str_clone(name),
@@ -240,6 +257,7 @@ fn void? KeyVals.add(&self, String name, String value) @maydiscard
 fn void? KeyVals.set(&self, String name, String value) @maydiscard
 {
     if (!is_valid_name(name)) return INVALID_HEADER_NAME~;
+    if (!is_valid_value(value)) return INVALID_HEADER_VALUE~;
 
     self.delete(name);
     self.add(name, value)!;
@@ -266,6 +284,12 @@ fn bool KeyVals.delete(&self, String name)
 
     return removed;
 }
+
+fn void KeyVals.remove(&self, String name)
+{
+    (void)self.delete(name);
+}
+
 
 // Appends serialized headers into a caller-owned buffer.
 //
@@ -351,6 +375,8 @@ fn void? Headers.content_type(&self, String value) @maydiscard
 
 fn void? Headers.content_length(&self, sz value) @maydiscard
 {
+    if (value < 0) return INVALID_HEADER_VALUE~;
+
     String s = string::format(localmem, "%d", value);
     defer localmem.free(s);
     
@@ -371,6 +397,7 @@ fn void? Headers.set_cookie(&self, String value) @maydiscard
 {
     self.add("Set-Cookie", value)!;
 }
+
 
 // 
 // Debug

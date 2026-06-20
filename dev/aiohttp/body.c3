@@ -2,7 +2,7 @@
 
 // Nomota <hiongun@gmail.com>; MIT License
 
-module ext::aiohttp;
+module ext::aio::http;
 
 import std::io;
 import ext::mem;

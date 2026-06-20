@@ -1,10 +1,10 @@
 // chunked.c3
 
-// HTTP chunked transfer decoding for ext::aiohttp
+// HTTP chunked transfer decoding for ext::aio::http
 
 // Nomota <hiongun@gmail.com>; MIT License
 
-module ext::aiohttp;
+module ext::aio::http;
 
 import ext::mem;
 import c::errno;

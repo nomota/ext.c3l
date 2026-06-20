@@ -11,7 +11,7 @@ WEPOLL = $(EXT)/wepoll/*.c3
 MIO = $(EXT)/mio/*.c3
 AIO = $(EXT)/aio/*.c3
 SERIALIZER = $(EXT)/serializer/*.c3
-AIOHTTP = headers.c3 response.c3 request.c3 url.c3 params.c3 router.c3 context.c3 cookies.c3 form.c3 body.c3 middleware.c3 cors.c3 application.c3 server.c3 static.c3 chunked.c3
+AIOHTTP = headers.c3 response.c3 request.c3 url.c3 params.c3 router.c3 context.c3 cookies.c3 form.c3 body.c3 middleware.c3 cors.c3 application.c3 server.c3 static.c3 chunked.c3 multipart.c3 errhandler.c3 request_id.c3 body_limit.c3 recover.c3 timeout.c3 compress.c3 range.c3
 
 LIBS = $(AIO) $(MIO) $(WEPOLL) $(FIBER) $(IO) $(MEM) $(LIBC) $(SERIALIZER) $(AIOHTTP)
 
@@ -40,7 +40,73 @@ TESTS = \
 	test_live_concurrent \
 	test_http_extreme \
 	test_keepalive \
-	test_chunked
+	test_chunked \
+	test_multipart \
+	test_live_multipart \
+	test_shutdown \
+	test_timeout \
+	test_slow_client \
+	test_methods \
+	test_live_methods \
+	test_protocol_edge \
+	test_disconnect \
+	test_no_body \
+	test_router_priority \
+	test_static_security \
+	test_static_concurrent \
+	test_static_prefix \
+	test_executor_pressure \
+	test_protocol_weird \
+	test_memory_ownership \
+	test_executor_cancel \
+	test_error_recovery \
+	test_static_large \
+	test_response_edge \
+	test_stream_file \
+	test_stream_all \
+	test_req_body \
+	test_runtime_misc \
+	test_advanced_all \
+	test_keepalive_pipeline \
+	test_chunked_all \
+	test_static_all \
+	test_form_all \
+	test_cors_all \
+	test_errhandler \
+	test_timeout_m \
+	test_compress \
+	test_cache_range
+
+LIVE_TESTS = \
+	test_keepalive \
+	test_live_server \
+	test_live_edge \
+	test_live_multipart \
+	test_live_concurrent \
+	test_timeout \
+	test_slow_client \
+	test_live_methods \
+	test_disconnect \
+	test_no_body \
+	test_static_security \
+	test_static_concurrent \
+	test_executor_pressure \
+	test_executor_cancel \
+	test_error_recovery \
+	test_static_large \
+	test_stream_all \
+	test_req_body \
+	test_runtime_misc \
+	test_advanced_all \
+	test_keepalive_pipeline \
+	test_chunked_all \
+	test_static_all \
+	test_form_all \
+	test_cors_all \
+	test_errhandler \
+	test_timeout_m \
+	test_compress \
+	test_cache_range
 
 SAN =
 # SAN = --sanitize=address
@@ -65,6 +131,9 @@ test: build
 
 clean:
 	-@rm -f x y *.exe *.pdb $(TESTS)
+
+clean-live:
+	-@rm -f x y *.exe *.pdb $(LIVE_TESTS)
 
 %: %.c3
 	$(C3C) $< $(LIBS) -o $@ $(SAN)

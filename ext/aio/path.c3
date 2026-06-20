@@ -20,18 +20,12 @@ import ext::io::cfile;
 
 faultdef NONE;
 
-struct Stat
-{
-    long st_mtime;
-    long st_size;
-}
-
 struct Arg @local
 {
     String path;
     String path2;
 
-    Stat stat;
+    StatInfo stat;
     fault error;
 
     uint mode;
@@ -53,46 +47,30 @@ struct Arg @local
 
 faultdef STAT_FILE_NOT_FOUND;
 
-fn void* _stat(void* arg) @local
+fn void* _statinfo(void* arg) @local
 {
     Arg* a = (Arg*)arg;
 
-    if (!stat::exists(a.path))
-    {
-        a.error = STAT_FILE_NOT_FOUND;
-        return (void*)a;
-    }
-
-    long? size = stat::size(a.path);
-    if (catch err = size)
-    {
-        a.error = err;
-        return (void*)a;
-    }
-    
-    long? mtime = stat::last_modified(a.path);
-    if (catch err = mtime)
+    StatInfo? info = stat::statinfo(a.path);
+    if (catch err = info)
     {
         a.error = err;
         return (void*)a;
     }
 
-    a.stat = {
-        .st_size = size,
-        .st_mtime = mtime,
-    };
+    a.stat = info;
 
     return (void*)a;
 }
 
-fn Stat? stat(String path)
+fn StatInfo? statinfo(String path)
 {
     Arg arg = {
         .path = path,
         .error = NONE,
     };
 
-    Arg*? a = aio::run_in_executor(&_stat, &arg);
+    Arg*? a = aio::run_in_executor(&_statinfo, &arg);
     if (catch err = a) return err~;
     if (a.error != NONE) return a.error~;
 

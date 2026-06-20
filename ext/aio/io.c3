@@ -50,6 +50,7 @@ struct IoContext @local
 }
 
 tlocal IoContext* ctx @local = null;
+IoContext* shared_ctx @local = null;
 
 fn void init()
 {
@@ -72,6 +73,8 @@ fn void init()
 
     ctx.poller = mio::poll_new(MAX_EVENTS)!!;
     ctx.events = mio::events_new(MAX_EVENTS)!!;
+    
+    shared_ctx = ctx;
 }
 
 fn void deinit()
@@ -84,6 +87,11 @@ fn void deinit()
     {
         ctx.poller.free();
         ctx.poller = null;
+    }
+    
+    if (shared_ctx == ctx)
+    {
+        shared_ctx = null;
     }
 
     aio::localmem.free(ctx);
@@ -306,13 +314,42 @@ fn void? wait_writable(mio::Fd fd) @maydiscard
     }
 }
 
+fn void? wait_readable_timeout(mio::Fd fd, ulong timeout_us) @maydiscard
+{
+    Timer* timer = aio::start_timer(timeout_us)!;
+    defer timer.cancel();
+
+    if (catch err = wait_readable(fd))
+    {
+        return err~;
+    }
+}
+
+fn void? wait_writable_timeout(mio::Fd fd, ulong timeout_us) @maydiscard
+{
+    Timer* timer = aio::start_timer(timeout_us)!;
+    defer timer.cancel();
+
+    if (catch err = wait_writable(fd))
+    {
+        return err~;
+    }
+}
+
 fn void poll_wake()
 {
-    if (ctx == null) return;
-    if (ctx.poller == null) return;
-    if (ctx.poller.waker == null) return;
+    IoContext* wake_ctx = ctx;
 
-    (void)ctx.poller.waker.wake();
+    if (wake_ctx == null)
+    {
+        wake_ctx = shared_ctx;
+    }
+
+    if (wake_ctx == null) return;
+    if (wake_ctx.poller == null) return;
+    if (wake_ctx.poller.waker == null) return;
+
+    (void)wake_ctx.poller.waker.wake();
 }
 
 fn void poll_wakeup_handler()
@@ -404,12 +441,6 @@ fn void poll(ulong timeout_us)
         Watch* w = find(event.fd);
         if (w == null) continue;
 
-        if (event.error)
-        {
-            complete_error(w, aio::POLL_ERROR);
-            continue;
-        }
-
         if ((event.read || event.hup) && w.read_fut)
         {
             complete_read(w);
@@ -419,6 +450,12 @@ fn void poll(ulong timeout_us)
         if (event.write && w.write_fut)
         {
             complete_write(w);
+            continue;
+        }
+
+        if (event.error)
+        {
+            complete_error(w, aio::POLL_ERROR);
             continue;
         }
 
@@ -444,6 +481,14 @@ fn bool would_block_fault(fault err) @inline
         err == errno::E_ALREADY;
 }
 
+fn sz? async_read_any(mio::Fd fd, char[] buf)
+{
+    if (buf.len == 0) return 0;
+
+    return mio::tcp_read_fd(fd, buf)!;
+}
+
+
 fn sz? async_read(mio::Fd fd, char[] buf)
 {
     if (buf.len == 0) return 0;
@@ -467,6 +512,49 @@ fn sz? async_read(mio::Fd fd, char[] buf)
     }
 }
 
+fn sz? async_read_timeout(mio::Fd fd, char[] buf, ulong timeout_us)
+{
+    if (fd_invalid(fd)) return errno::E_BAD_FILE_DESC~;
+    if (buf.len == 0) return 0;
+    ulong t0_us = aio::time_us();
+    while (true)
+    {
+//warn("-");
+        sz? n = mio::tcp_read_fd(fd, buf);
+//warn("-");
+        if (catch err = n)
+        {
+//warn("%s", err);
+            if (!would_block_fault(err))
+            {
+                return err~;
+            }
+        
+            ulong elapsed = aio::time_us() - t0_us;
+
+            if (elapsed >= timeout_us)
+            {
+                return aio::TIMEOUT~;
+            }
+//warn("%d", elapsed);
+
+            wait_readable_timeout(fd, timeout_us - elapsed)!;
+                        
+            continue;
+        }
+//warn("%d", n);
+        return n;
+    }
+}
+
+
+fn sz? async_write_any(mio::Fd fd, char[] buf)
+{
+    if (buf.len == 0) return 0;
+
+    return mio::tcp_write_fd(fd, buf)!;
+}
+     
 fn sz? async_write(mio::Fd fd, char[] buf)
 {
     if (buf.len == 0) return 0;
@@ -497,14 +585,51 @@ fn sz? async_write(mio::Fd fd, char[] buf)
     return total;
 }
 
-fn sz? async_recvfrom(mio::Fd fd, char[] buf, char* ip_str, sz* ip_len, ushort* port)
+fn sz? async_write_timeout(mio::Fd fd, char[] buf, ulong timeout_us)
 {
-    if (ip_str == null) return errno::E_INVALID_ARG~;
+    if (fd_invalid(fd)) return errno::E_BAD_FILE_DESC~;
+    if (buf.len == 0) return 0;
+
+    sz total = 0;
+
+    ulong t0_us = aio::time_us();
+    while (total < buf.len)
+    {
+        sz? n = mio::tcp_write_fd(fd, buf[total .. buf.len - 1]);
+
+        if (catch err = n)
+        {
+            if (!would_block_fault(err))
+            {
+                if (total > 0) return total;
+                return err~;
+            }
+            
+            ulong elapsed = aio::time_us() - t0_us;
+
+            if (elapsed >= timeout_us)
+            {
+                return aio::TIMEOUT~;
+            }
+            
+            wait_writable_timeout(fd, timeout_us - elapsed)!;
+            continue;
+        }
+
+        if (n == 0) break;
+
+        total += n;
+    }
+
+    return total;
+}
+
+fn sz? async_recvfrom(mio::Fd fd, char[] buf, char[] ip_buf, sz* ip_len, ushort* port)
+{
+    if (ip_buf.len == 0) return errno::E_INVALID_ARG~;
     if (ip_len == null) return errno::E_INVALID_ARG~;
     if (port == null) return errno::E_INVALID_ARG~;
     if (buf.len == 0) return 0;
-
-    char[128] ip_buf;
 
     while (true)
     {
@@ -521,26 +646,56 @@ fn sz? async_recvfrom(mio::Fd fd, char[] buf, char* ip_str, sz* ip_len, ushort* 
             continue;
         }
 
-        sz len = (sz)string::strlen(&ip_buf[0]);
-
-        string::memcpy(ip_str, &ip_buf[0], len);
-        ip_str[len] = 0;
-        *ip_len = len;
-
         return n;
     }
 }
 
-fn sz? async_sendto(mio::Fd fd, char[] buf, char* ip_str, ushort port)
+
+fn sz? async_recvfrom_timeout(mio::Fd fd, char[] buf, char[] ip_buf, sz* ip_len, ushort* port, ulong timeout_us)
 {
-    if (ip_str == null) return errno::E_INVALID_ARG~;
+    if (fd_invalid(fd)) return errno::E_BAD_FILE_DESC~;
+    if (ip_buf.len == 0) return errno::E_INVALID_ARG~;
+    if (ip_len == null) return errno::E_INVALID_ARG~;
+    if (port == null) return errno::E_INVALID_ARG~;
     if (buf.len == 0) return 0;
 
-    String ip = (String)ip_str[0:string::strlen(ip_str)];
+    ulong t0_us = aio::time_us();
 
     while (true)
     {
-        sz? n = mio::udp_sendto_fd(fd, buf, ip, port);
+        sz? n = mio::udp_recvfrom_fd(fd, buf, ip_buf[..], port);
+
+        if (catch err = n)
+        {
+            if (!would_block_fault(err))
+            {
+                return err~;
+            }
+
+            ulong elapsed = aio::time_us() - t0_us;
+
+            if (elapsed >= timeout_us)
+            {
+                return aio::TIMEOUT~;
+            }
+
+            wait_readable_timeout(fd, timeout_us - elapsed)!;
+            continue;
+        }
+
+        *ip_len = string::strlen(ip_buf.ptr);
+        return n;
+    }
+}
+
+fn sz? async_sendto(mio::Fd fd, char[] buf, char[] ip_buf, ushort port)
+{
+    if (ip_buf.len == 0) return errno::E_INVALID_ARG~;
+    if (buf.len == 0) return 0;
+
+    while (true)
+    {
+        sz? n = mio::udp_sendto_fd(fd, buf, ip_buf, port);
 
         if (catch err = n)
         {

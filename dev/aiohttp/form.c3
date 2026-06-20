@@ -1,22 +1,21 @@
 // form.c3
 
+// application/x-www-form-urlencoded parsing for ext::aio::http
+//
 // Nomota <hiongun@gmail.com>; MIT License
 
-module ext::aiohttp;
+module ext::aio::http;
 
 import std::io;
 import ext::mem;
 import ext::debug;
 
-// 
 // Faults
-// 
 
 faultdef UNSUPPORTED_FORM_TYPE;
+faultdef INVALID_FORM_ENCODING;
 
-// 
 // Content-Type helpers
-// 
 
 fn bool content_type_matches(String value, String media_type)
 {
@@ -54,10 +53,156 @@ fn bool Context.is_form_urlencoded(&self)
     return self.req.is_form_urlencoded();
 }
 
+// Form decode helpers
 
-// 
+fn bool form_hex(char c) @inline @local
+{
+    if (c >= '0' && c <= '9') return true;
+    if (c >= 'a' && c <= 'f') return true;
+    if (c >= 'A' && c <= 'F') return true;
+    return false;
+}
+
+fn char form_hex_value(char c) @local
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return 0;
+}
+
+fn String? form_decode_component(String s)
+{
+    DString out;
+    out.init(localmem, s.len);
+    defer catch out.free();
+
+    char[1] one;
+
+    for (sz i = 0; i < s.len; i++)
+    {
+        char c = s[i];
+
+        if (c == '+')
+        {
+            one[0] = ' ';
+            out.append(one[..]);
+            continue;
+        }
+
+        if (c != '%')
+        {
+            one[0] = c;
+            out.append(one[..]);
+            continue;
+        }
+
+        if (i + 2 >= s.len)
+        {
+            return INVALID_FORM_ENCODING~;
+        }
+
+        char hi = s[i + 1];
+        char lo = s[i + 2];
+
+        if (!form_hex(hi) || !form_hex(lo))
+        {
+            return INVALID_FORM_ENCODING~;
+        }
+
+        one[0] = (form_hex_value(hi) << 4) | form_hex_value(lo);
+        out.append(one[..]);
+
+        i += 2;
+    }
+
+    return out.copy_str(localmem);
+}
+
+fn void? form_parse_pair(Query* form, String pair) @local
+{
+    if (form == null) return INVALID_FORM_ENCODING~;
+
+    sz eq = -1;
+
+    for (sz i = 0; i < pair.len; i++)
+    {
+        if (pair[i] == '=')
+        {
+            eq = i;
+            break;
+        }
+    }
+
+    String raw_name;
+    String raw_value;
+
+    if (eq < 0)
+    {
+        raw_name = pair;
+        raw_value = "";
+    }
+    else
+    {
+        raw_name = pair[0:eq];
+        raw_value = pair[eq + 1..];
+    }
+
+    String name = form_decode_component(raw_name)!;
+    defer localmem.free(name);
+
+    String value = form_decode_component(raw_value)!;
+    defer localmem.free(value);
+
+    form.add(name, value)!;
+}
+
+fn void? form_parse_urlencoded(Query* form, String body)
+{
+    if (form == null) return INVALID_FORM_ENCODING~;
+    if (body.len == 0) return;
+
+    sz start = 0;
+
+    while (start <= body.len)
+    {
+        sz amp = -1;
+
+        for (sz i = start; i < body.len; i++)
+        {
+            if (body[i] == '&')
+            {
+                amp = i;
+                break;
+            }
+        }
+
+        String pair;
+
+        if (amp < 0)
+        {
+            pair = body[start:body.len - start];
+
+            if (pair.len > 0)
+            {
+                form_parse_pair(form, pair)!;
+            }
+
+            return;
+        }
+
+        pair = body[start:amp - start];
+
+        if (pair.len > 0)
+        {
+            form_parse_pair(form, pair)!;
+        }
+
+        start = amp + 1;
+    }
+}
+
 // Request form parser
-// 
 
 // Parses application/x-www-form-urlencoded request body.
 //
@@ -76,7 +221,7 @@ fn Query? Request.form_params(&self)
 
     String body = (String)self.body;
 
-    if (catch err = query_parse(&form, body))
+    if (catch err = form_parse_urlencoded(&form, body))
     {
         form.free();
         return err~;
@@ -100,10 +245,7 @@ fn String? Request.form_copy(&self, String name)
     return value.copy(localmem);
 }
 
-
-// 
 // Context form cache
-// 
 
 fn void? Context.ensure_form_cache(&self)
 {
@@ -125,7 +267,12 @@ fn void? Context.ensure_form_cache(&self)
     }
 
     String body = (String)self.req.body;
-    query_parse(&self.form_cache, body)!;
+
+    if (catch err = form_parse_urlencoded(&self.form_cache, body))
+    {
+        self.form_cache.clear();
+        return err~;
+    }
 
     self.form_cache_ready = true;
 }
@@ -156,10 +303,7 @@ fn bool Context.has_form(&self, String name)
     return self.form_cache.has(name);
 }
 
-
-// 
 // Debug
-// 
 
 fn void form_dump(Query* form)
 {

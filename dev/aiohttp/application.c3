@@ -2,7 +2,7 @@
 
 // Nomota <hiongun@gmail.com>; MIT License
 
-module ext::aiohttp;
+module ext::aio::http;
 
 import std::io;
 import c::errno;
@@ -16,6 +16,8 @@ struct Application
 {
     Router router;
     MiddlewareStack middlewares;
+    NotFoundHandler not_found_handler;
+    ErrorHandler error_handler;
 }
 
 
@@ -25,24 +27,34 @@ fn void Application.init(&self)
 {
     self.router.init();
     self.middlewares.init();
+
+    self.not_found_handler = null;
+    self.error_handler = null;
 }
 
 fn void Application.deinit(&self)
 {
     self.router.free();
     self.middlewares.free();
+
+    self.not_found_handler = null;
+    self.error_handler = null;
 }
 
 fn void Application.clear(&self)
 {
     self.router.clear();
     self.middlewares.clear();
+
+    self.not_found_handler = null;
+    self.error_handler = null;
 }
 
 fn Application*? application_new()
 {
     Application* app = localmem.alloc(Application)!;
     app.init();
+
     return app;
 }
 
@@ -124,6 +136,7 @@ fn void? Application.route(&self, String prefix, Application* child) @maydiscard
 fn Response*? http_not_found_handler(Context* c)
 {
     if (c == null) return CONTEXT_NOT_READY~;
+
     return c.not_found("route")!;
 }
 
@@ -135,14 +148,38 @@ fn Response*? http_method_not_allowed_handler(Context* c)
     return c.text("405 Method Not Allowed")!;
 }
 
-fn Response*? http_internal_error_handler(Context* c)
+
+// Response ownership
+
+fn Response* application_detach_response(Context* c, Response* res) @private
 {
-    if (c == null) return CONTEXT_NOT_READY~;
-    return c.internal_error("application dispatch failed")!;
+    if (c != null && res == c.res)
+    {
+        c.res = null;
+    }
+
+    return res;
 }
 
 
-// Dispatch
+// Error dispatch
+
+fn Response*? Application.dispatch_context_error(&self, Context* c, fault dispatch_error)
+{
+    if (c == null) return response_internal_error()!;
+
+    Response*? maybe_res = self.handle_error(c, dispatch_error);
+
+    if (catch handler_error = maybe_res)
+    {
+        return response_internal_error()!;
+    }
+
+    return application_detach_response(c, maybe_res);
+}
+
+
+// Matched route dispatch
 
 fn Response*? Application.dispatch_match(&self, Request* req, RouteMatch* match)
 {
@@ -152,34 +189,63 @@ fn Response*? Application.dispatch_match(&self, Request* req, RouteMatch* match)
     Context* c = context_new_with_params(req, &match.params)!;
     defer context_free(c);
 
-    Response* res = middleware_run(&self.middlewares, c, match.handler)!;
+    Response*? maybe_res = middleware_run(&self.middlewares, c, match.handler);
 
-    // context_free(c) would free c.res.
-    // Therefore detach response ownership before Context is freed.
-    if (res == c.res)
+    if (catch err = maybe_res)
     {
-        c.res = null;
+        return self.dispatch_context_error(c, err)!;
     }
 
-    return res;
+    return application_detach_response(c, maybe_res);
 }
 
-fn Response*? Application.dispatch_error(&self, Request* req, Handler fallback)
+
+// Fallback dispatch
+
+fn Response*? Application.dispatch_fallback(&self, Request* req, Handler fallback)
 {
     if (req == null) return response_internal_error()!;
 
     Context* c = context_new(req)!;
     defer context_free(c);
 
-    Response* res = middleware_run(&self.middlewares, c, fallback)!;
+    Response*? maybe_res = middleware_run(&self.middlewares, c, fallback);
 
-    if (res == c.res)
+    if (catch err = maybe_res)
     {
-        c.res = null;
+        return self.dispatch_context_error(c, err)!;
     }
 
-    return res;
+    return application_detach_response(c, maybe_res);
 }
+
+fn Response*? Application.dispatch_not_found(&self, Request* req)
+{
+    Handler handler = &http_not_found_handler;
+
+    if (self.not_found_handler != null)
+    {
+        handler = self.not_found_handler;
+    }
+
+    return self.dispatch_fallback(req, handler)!;
+}
+
+fn Response*? Application.dispatch_method_not_allowed(&self, Request* req)
+{
+    return self.dispatch_fallback(req, &http_method_not_allowed_handler)!;
+}
+
+fn Response*? Application.dispatch_router_error(&self, Request* req, fault router_error)
+{
+    if (req == null) return response_internal_error()!;
+
+    Context* c = context_new(req)!;
+    defer context_free(c);
+
+    return self.dispatch_context_error(c, router_error)!;
+}
+
 
 // Main Hono-like entrypoint.
 //
@@ -195,17 +261,29 @@ fn Response*? Application.fetch(&self, Request* req)
 
     if (catch err = m)
     {
+        if (str_iequals(req.method, "HEAD"))
+        {
+            RouteMatch? get_match = self.router.match("GET", req.path);
+
+            if (try get_match)
+            {
+                defer get_match.free();
+
+                return self.dispatch_match(req, &get_match)!;
+            }
+        }
+
         if (err == METHOD_NOT_ALLOWED)
         {
-            return self.dispatch_error(req, &http_method_not_allowed_handler)!;
+            return self.dispatch_method_not_allowed(req)!;
         }
 
         if (err == ROUTE_NOT_FOUND)
         {
-            return self.dispatch_error(req, &http_not_found_handler)!;
+            return self.dispatch_not_found(req)!;
         }
 
-        return self.dispatch_error(req, &http_internal_error_handler)!;
+        return self.dispatch_router_error(req, err)!;
     }
 
     defer m.free();
@@ -228,17 +306,51 @@ fn Response*? Application.fetch_raw(&self, char[] raw)
         {
             Response* res = response_empty(413)!;
             res.set_text("413 Payload Too Large")!;
+
             return res;
         }
 
         Response* res = response_empty(400)!;
         res.set_text("400 Bad Request")!;
+
         return res;
     }
 
     defer request_free(req);
 
-    return self.fetch(req)!;
+    Response*? maybe_res = self.fetch(req);
+
+    if (catch err = maybe_res)
+    {
+        if (err == REQUEST_TOO_LARGE)
+        {
+            Response* res = response_empty(413)!;
+            res.set_text("413 Payload Too Large")!;
+
+            return res;
+        }
+
+        if (err == BAD_REQUEST ||
+            err == INVALID_METHOD ||
+            err == INVALID_VERSION ||
+            err == INVALID_HEADER ||
+            err == BODY_INCOMPLETE ||
+            err == INVALID_CHUNKED_BODY ||
+            err == CHUNKED_BODY_INCOMPLETE)
+        {
+            Response* res = response_empty(400)!;
+            res.set_text("400 Bad Request")!;
+
+            return res;
+        }
+
+        Response* res = response_empty(500)!;
+        res.set_text("500 Internal Server Error")!;
+
+        return res;
+    }
+
+    return maybe_res;
 }
 
 
@@ -251,6 +363,16 @@ fn void Application.dump(&self)
 
     io::printfn("middlewares:");
     self.middlewares.dump();
+
+    io::printfn(
+        "not_found_handler: %s",
+        self.not_found_handler != null ? "configured" : "default"
+    );
+
+    io::printfn(
+        "error_handler: %s",
+        self.error_handler != null ? "configured" : "default"
+    );
 }
 
 // eof

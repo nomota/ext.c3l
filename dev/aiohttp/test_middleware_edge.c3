@@ -1,13 +1,13 @@
 // test_middleware_edge.c3
 
-// Middleware edge tests for ext::aiohttp
+// Middleware edge tests for ext::aio::http
 
 // Nomota <hiongun@gmail.com>; MIT License
 
 module test::middleware_edge;
 
 import std::io;
-import ext::aiohttp;
+import ext::aio::http;
 import ext::debug;
 
 fn bool contains(String haystack, String needle)
@@ -23,113 +23,113 @@ fn bool contains(String haystack, String needle)
     return false;
 }
 
-fn aiohttp::Response*? home_handler(aiohttp::Context* c)
+fn aio::http::Response*? home_handler(aio::http::Context* c)
 {
     return c.text("home")!!;
 }
 
-fn aiohttp::Response*? api_handler(aiohttp::Context* c)
+fn aio::http::Response*? api_handler(aio::http::Context* c)
 {
     return c.text("api")!!;
 }
 
-fn aiohttp::Response*? replacement_handler(aiohttp::Context* c)
+fn aio::http::Response*? replacement_handler(aio::http::Context* c)
 {
-    aiohttp::Response* res = aiohttp::response_text("handler replacement")!!;
+    aio::http::Response* res = aio::http::response_text("handler replacement")!!;
     res.header("X-Handler-Replaced", "yes")!!;
 
     return res;
 }
 
-fn aiohttp::Response*? before_middleware(aiohttp::Context* c, aiohttp::Next next)
+fn aio::http::Response*? before_middleware(aio::http::Context* c, aio::http::Next next)
 {
     c.header("X-Before", "1")!!;
 
     return next(c)!!;
 }
 
-fn aiohttp::Response*? after_middleware(aiohttp::Context* c, aiohttp::Next next)
+fn aio::http::Response*? after_middleware(aio::http::Context* c, aio::http::Next next)
 {
-    aiohttp::Response* res = next(c)!!;
+    aio::http::Response* res = next(c)!!;
 
     c.header("X-After", "1")!!;
 
     return res;
 }
 
-fn aiohttp::Response*? block_middleware(aiohttp::Context* c, aiohttp::Next next)
+fn aio::http::Response*? block_middleware(aio::http::Context* c, aio::http::Next next)
 {
     c.status(401)!!;
     return c.text("blocked")!!;
 }
 
-fn aiohttp::Response*? replace_after_middleware(aiohttp::Context* c, aiohttp::Next next)
+fn aio::http::Response*? replace_after_middleware(aio::http::Context* c, aio::http::Next next)
 {
-    aiohttp::Response* old = next(c)!!;
+    aio::http::Response* old = next(c)!!;
     @assert(old != null, "old response should not be null");
 
-    aiohttp::Response* res = aiohttp::response_text("middleware replacement")!!;
+    aio::http::Response* res = aio::http::response_text("middleware replacement")!!;
     res.header("X-Middleware-Replaced", "yes")!!;
 
     return res;
 }
 
-fn aiohttp::Response*? order_one_middleware(aiohttp::Context* c, aiohttp::Next next)
+fn aio::http::Response*? order_one_middleware(aio::http::Context* c, aio::http::Next next)
 {
     c.header("X-Order", "1")!!;
 
-    aiohttp::Response* res = next(c)!!;
+    aio::http::Response* res = next(c)!!;
 
     c.add_header("X-Order", "4")!!;
 
     return res;
 }
 
-fn aiohttp::Response*? order_two_middleware(aiohttp::Context* c, aiohttp::Next next)
+fn aio::http::Response*? order_two_middleware(aio::http::Context* c, aio::http::Next next)
 {
     c.add_header("X-Order", "2")!!;
 
-    aiohttp::Response* res = next(c)!!;
+    aio::http::Response* res = next(c)!!;
 
     c.add_header("X-Order", "3")!!;
 
     return res;
 }
 
-fn aiohttp::Response*? path_marker_middleware(aiohttp::Context* c, aiohttp::Next next)
+fn aio::http::Response*? path_marker_middleware(aio::http::Context* c, aio::http::Next next)
 {
     c.header("X-Path-Middleware", "yes")!!;
 
     return next(c)!!;
 }
 
-fn aiohttp::Response*? null_next_probe_middleware(aiohttp::Context* c, aiohttp::Next next)
+fn aio::http::Response*? null_next_probe_middleware(aio::http::Context* c, aio::http::Next next)
 {
-    aiohttp::Response* res = next(c)!!;
+    aio::http::Response* res = next(c)!!;
 
     @assert(res != null, "next should return response");
 
     return res;
 }
 
-fn aiohttp::Request* parse_request(char[] raw)
+fn aio::http::Request* parse_request(char[] raw)
 {
-    return aiohttp::request_parse(raw)!!;
+    return aio::http::request_parse(raw)!!;
 }
 
-fn aiohttp::Response* fetch_raw(aiohttp::Application* app, char[] raw)
+fn aio::http::Response* fetch_raw(aio::http::Application* app, char[] raw)
 {
     return app.fetch_raw(raw)!!;
 }
 
-fn String serialize_response(aiohttp::Response* res)
+fn String serialize_response(aio::http::Response* res)
 {
     return res.serialize()!!;
 }
 
 fn void test_global_before_after()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
@@ -137,12 +137,12 @@ fn void test_global_before_after()
     app.use(&after_middleware);
     app.get("/", &home_handler)!!;
 
-    aiohttp::Response* res = fetch_raw(&app, (char[])
+    aio::http::Response* res = fetch_raw(&app, (char[])
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::response_free(res);
+    defer aio::http::response_free(res);
 
     @assert(res.status == 200, "global before/after status mismatch");
     @assert((String)res.body == "home", "global before/after body mismatch");
@@ -152,19 +152,19 @@ fn void test_global_before_after()
 
 fn void test_block_middleware_without_next()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
     app.use(&block_middleware);
     app.get("/", &home_handler)!!;
 
-    aiohttp::Response* res = fetch_raw(&app, (char[])
+    aio::http::Response* res = fetch_raw(&app, (char[])
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::response_free(res);
+    defer aio::http::response_free(res);
 
     @assert(res.status == 401, "block middleware status mismatch");
     @assert((String)res.body == "blocked", "block middleware body mismatch");
@@ -172,7 +172,7 @@ fn void test_block_middleware_without_next()
 
 fn void test_block_middleware_stops_later_middleware()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
@@ -180,12 +180,12 @@ fn void test_block_middleware_stops_later_middleware()
     app.use(&after_middleware);
     app.get("/", &home_handler)!!;
 
-    aiohttp::Response* res = fetch_raw(&app, (char[])
+    aio::http::Response* res = fetch_raw(&app, (char[])
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::response_free(res);
+    defer aio::http::response_free(res);
 
     @assert(res.status == 401, "block stops later status mismatch");
     @assert((String)res.body == "blocked", "block stops later body mismatch");
@@ -194,19 +194,19 @@ fn void test_block_middleware_stops_later_middleware()
 
 fn void test_middleware_replaces_response()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
     app.use(&replace_after_middleware);
     app.get("/", &home_handler)!!;
 
-    aiohttp::Response* res = fetch_raw(&app, (char[])
+    aio::http::Response* res = fetch_raw(&app, (char[])
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::response_free(res);
+    defer aio::http::response_free(res);
 
     @assert(res.status == 200, "middleware replacement status mismatch");
     @assert((String)res.body == "middleware replacement", "middleware replacement body mismatch");
@@ -215,19 +215,19 @@ fn void test_middleware_replaces_response()
 
 fn void test_handler_replaces_response_with_middleware()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
     app.use(&after_middleware);
     app.get("/", &replacement_handler)!!;
 
-    aiohttp::Response* res = fetch_raw(&app, (char[])
+    aio::http::Response* res = fetch_raw(&app, (char[])
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::response_free(res);
+    defer aio::http::response_free(res);
 
     @assert(res.status == 200, "handler replacement status mismatch");
     @assert((String)res.body == "handler replacement", "handler replacement body mismatch");
@@ -237,7 +237,7 @@ fn void test_handler_replaces_response_with_middleware()
 
 fn void test_middleware_order()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
@@ -245,18 +245,18 @@ fn void test_middleware_order()
     app.use(&order_two_middleware);
     app.get("/", &home_handler)!!;
 
-    aiohttp::Response* res = fetch_raw(&app, (char[])
+    aio::http::Response* res = fetch_raw(&app, (char[])
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::response_free(res);
+    defer aio::http::response_free(res);
 
     @assert(res.status == 200, "middleware order status mismatch");
     @assert(res.headers.len() >= 4, "middleware order headers len mismatch");
 
     String wire = serialize_response(res);
-    defer aiohttp::localmem.free(wire);
+    defer aio::http::localmem.free(wire);
 
     @assert(contains(wire, "X-Order: 1\r\n"), "order 1 missing");
     @assert(contains(wire, "X-Order: 2\r\n"), "order 2 missing");
@@ -289,7 +289,7 @@ fn sz find_string(String s, String needle)
 
 fn void test_path_middleware_matches_prefix()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
@@ -297,19 +297,19 @@ fn void test_path_middleware_matches_prefix()
     app.get("/api", &api_handler)!!;
     app.get("/api/users", &api_handler)!!;
 
-    aiohttp::Response* res1 = fetch_raw(&app, (char[])
+    aio::http::Response* res1 = fetch_raw(&app, (char[])
         "GET /api HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::response_free(res1);
+    defer aio::http::response_free(res1);
 
-    aiohttp::Response* res2 = fetch_raw(&app, (char[])
+    aio::http::Response* res2 = fetch_raw(&app, (char[])
         "GET /api/users HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::response_free(res2);
+    defer aio::http::response_free(res2);
 
     @assert(res1.headers.get("X-Path-Middleware")!! == "yes", "path middleware /api mismatch");
     @assert(res2.headers.get("X-Path-Middleware")!! == "yes", "path middleware /api/users mismatch");
@@ -317,19 +317,19 @@ fn void test_path_middleware_matches_prefix()
 
 fn void test_path_middleware_does_not_match_prefix_sibling()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
     app.use_path("/api", &path_marker_middleware)!!;
     app.get("/apix", &home_handler)!!;
 
-    aiohttp::Response* res = fetch_raw(&app, (char[])
+    aio::http::Response* res = fetch_raw(&app, (char[])
         "GET /apix HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::response_free(res);
+    defer aio::http::response_free(res);
 
     @assert(res.status == 200, "path sibling status mismatch");
     @assert(!res.headers.has("X-Path-Middleware"), "path middleware should not match /apix");
@@ -337,7 +337,7 @@ fn void test_path_middleware_does_not_match_prefix_sibling()
 
 fn void test_path_middleware_root_matches_all()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
@@ -345,19 +345,19 @@ fn void test_path_middleware_root_matches_all()
     app.get("/", &home_handler)!!;
     app.get("/x", &home_handler)!!;
 
-    aiohttp::Response* res1 = fetch_raw(&app, (char[])
+    aio::http::Response* res1 = fetch_raw(&app, (char[])
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::response_free(res1);
+    defer aio::http::response_free(res1);
 
-    aiohttp::Response* res2 = fetch_raw(&app, (char[])
+    aio::http::Response* res2 = fetch_raw(&app, (char[])
         "GET /x HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::response_free(res2);
+    defer aio::http::response_free(res2);
 
     @assert(res1.headers.get("X-Path-Middleware")!! == "yes", "root middleware / mismatch");
     @assert(res2.headers.get("X-Path-Middleware")!! == "yes", "root middleware /x mismatch");
@@ -365,13 +365,13 @@ fn void test_path_middleware_root_matches_all()
 
 fn void test_invalid_middleware_path()
 {
-    aiohttp::MiddlewareStack stack;
+    aio::http::MiddlewareStack stack;
     stack.init();
     defer stack.free();
 
     if (catch err = stack.use_path("api", &path_marker_middleware))
     {
-        @assert(err == aiohttp::INVALID_MIDDLEWARE_PATH, "invalid middleware path fault mismatch");
+        @assert(err == aio::http::INVALID_MIDDLEWARE_PATH, "invalid middleware path fault mismatch");
         return;
     }
 
@@ -380,24 +380,24 @@ fn void test_invalid_middleware_path()
 
 fn void test_middleware_stack_direct_run()
 {
-    aiohttp::Request* req = parse_request((char[])
+    aio::http::Request* req = parse_request((char[])
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::request_free(req);
+    defer aio::http::request_free(req);
 
-    aiohttp::Context* c = aiohttp::context_new(req)!!;
-    defer aiohttp::context_free(c);
+    aio::http::Context* c = aio::http::context_new(req)!!;
+    defer aio::http::context_free(c);
 
-    aiohttp::MiddlewareStack stack;
+    aio::http::MiddlewareStack stack;
     stack.init();
     defer stack.free();
 
     stack.use(&before_middleware);
     stack.use(&after_middleware);
 
-    aiohttp::Response* res = aiohttp::middleware_run(&stack, c, &home_handler)!!;
+    aio::http::Response* res = aio::http::middleware_run(&stack, c, &home_handler)!!;
 
     @assert(res == c.res, "direct middleware response mismatch");
     @assert(res.headers.get("X-Before")!! == "1", "direct before header mismatch");
@@ -407,17 +407,17 @@ fn void test_middleware_stack_direct_run()
 
 fn void test_middleware_run_null_stack()
 {
-    aiohttp::Request* req = parse_request((char[])
+    aio::http::Request* req = parse_request((char[])
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::request_free(req);
+    defer aio::http::request_free(req);
 
-    aiohttp::Context* c = aiohttp::context_new(req)!!;
-    defer aiohttp::context_free(c);
+    aio::http::Context* c = aio::http::context_new(req)!!;
+    defer aio::http::context_free(c);
 
-    aiohttp::Response* res = aiohttp::middleware_run(null, c, &home_handler)!!;
+    aio::http::Response* res = aio::http::middleware_run(null, c, &home_handler)!!;
 
     @assert(res == c.res, "null stack response mismatch");
     @assert((String)res.body == "home", "null stack body mismatch");
@@ -425,23 +425,23 @@ fn void test_middleware_run_null_stack()
 
 fn void test_middleware_null_handler_fault()
 {
-    aiohttp::Request* req = parse_request((char[])
+    aio::http::Request* req = parse_request((char[])
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::request_free(req);
+    defer aio::http::request_free(req);
 
-    aiohttp::Context* c = aiohttp::context_new(req)!!;
-    defer aiohttp::context_free(c);
+    aio::http::Context* c = aio::http::context_new(req)!!;
+    defer aio::http::context_free(c);
 
-    aiohttp::MiddlewareStack stack;
+    aio::http::MiddlewareStack stack;
     stack.init();
     defer stack.free();
 
-    if (catch err = aiohttp::middleware_run(&stack, c, null))
+    if (catch err = aio::http::middleware_run(&stack, c, null))
     {
-        @assert(err == aiohttp::CONTEXT_NOT_READY, "null handler fault mismatch");
+        @assert(err == aio::http::CONTEXT_NOT_READY, "null handler fault mismatch");
         return;
     }
 
@@ -450,30 +450,30 @@ fn void test_middleware_null_handler_fault()
 
 fn void test_current_chain_restored_after_run()
 {
-    aiohttp::Request* req = parse_request((char[])
+    aio::http::Request* req = parse_request((char[])
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::request_free(req);
+    defer aio::http::request_free(req);
 
-    aiohttp::Context* c = aiohttp::context_new(req)!!;
-    defer aiohttp::context_free(c);
+    aio::http::Context* c = aio::http::context_new(req)!!;
+    defer aio::http::context_free(c);
 
-    aiohttp::MiddlewareStack stack;
+    aio::http::MiddlewareStack stack;
     stack.init();
     defer stack.free();
  
     stack.use(&null_next_probe_middleware);
 
-    aiohttp::Response* res = aiohttp::middleware_run(&stack, c, &home_handler)!!;
+    aio::http::Response* res = aio::http::middleware_run(&stack, c, &home_handler)!!;
 
     @assert(res == c.res, "restored chain first run response mismatch");
     @assert((String)res.body == "home", "restored chain first run body mismatch");
 
-    if (catch err = aiohttp::middleware_next(c))
+    if (catch err = aio::http::middleware_next(c))
     {
-        @assert(err == aiohttp::CONTEXT_NOT_READY, "middleware_next outside chain fault mismatch");
+        @assert(err == aio::http::CONTEXT_NOT_READY, "middleware_next outside chain fault mismatch");
         return;
     }
 
@@ -482,18 +482,18 @@ fn void test_current_chain_restored_after_run()
 
 fn void test_application_middleware_after_404()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
     app.use(&after_middleware);
 
-    aiohttp::Response* res = fetch_raw(&app, (char[])
+    aio::http::Response* res = fetch_raw(&app, (char[])
         "GET /missing HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::response_free(res);
+    defer aio::http::response_free(res);
 
     @assert(res.status == 404, "middleware after 404 status mismatch");
 //warn("%s", (String)res.body);
@@ -503,18 +503,18 @@ fn void test_application_middleware_after_404()
 
 fn void test_application_path_middleware_after_404_path_match()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
     app.use_path("/api", &path_marker_middleware)!!;
 
-    aiohttp::Response* res = fetch_raw(&app, (char[])
+    aio::http::Response* res = fetch_raw(&app, (char[])
         "GET /api/missing HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::response_free(res);
+    defer aio::http::response_free(res);
 
     @assert(res.status == 404, "path middleware 404 status mismatch");
     @assert(res.headers.get("X-Path-Middleware")!! == "yes", "path middleware should run on matching 404");
@@ -522,18 +522,18 @@ fn void test_application_path_middleware_after_404_path_match()
 
 fn void test_application_path_middleware_after_404_path_miss()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
     app.use_path("/api", &path_marker_middleware)!!;
 
-    aiohttp::Response* res = fetch_raw(&app, (char[])
+    aio::http::Response* res = fetch_raw(&app, (char[])
         "GET /other/missing HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aiohttp::response_free(res);
+    defer aio::http::response_free(res);
 
     @assert(res.status == 404, "path middleware miss 404 status mismatch");
     @assert(!res.headers.has("X-Path-Middleware"), "path middleware should not run on nonmatching 404");

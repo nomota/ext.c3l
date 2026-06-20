@@ -4,164 +4,283 @@
 
 module ext::aio::io @if(env::WIN32) @link("ws2_32");
 
-import std::io;
-import c::stdio;
-import c::stdlib;
-import c::string;
 import c::winbase;
 import c::errno;
-import ext::debug;
 import ext::mem;
 import ext::aio;
 
+
 faultdef NONE;
+faultdef FILE_PATH_TOO_LONG;
+faultdef FILE_INVALID_SIZE;
+
+
+const sz FILE_PATH_BUFFER_SIZE = 512;
+const sz MAX_WIN32_IO_SIZE = 0x7fffffff;
+
 
 struct Arg @local
 {
     fault error;
+
     Fd fd;
+
     String name;
     String mode;
+
     long pos;
     int whence;
     long offset;
-    int rc;
+
     char[] buf;
     sz result;
 }
 
-fn Char16*? utf8to16(String path, Char16[] wpath) @private
+
+// UTF-8 path conversion
+
+fn Char16*? utf8to16(String path, Char16[] wpath) @local
 {
     if (path.len == 0) return errno::E_INVALID_ARG~;
+    if (wpath.len == 0) return FILE_PATH_TOO_LONG~;
 
-    Char16[] p2 = path.to_utf16(tmem)!;
+    Char16[] converted = path.to_utf16(tmem)!;
 
-    if (p2.len >= wpath.len - 1) return errno::E_INVALID_ARG~;
+    if (converted.len >= wpath.len) return FILE_PATH_TOO_LONG~;
 
-    wpath[0:p2.len] = p2[0:p2.len];
-    wpath[p2.len] = 0;
+    if (converted.len > 0) {
+        wpath[0:converted.len] = converted[0:converted.len];
+    }
 
-    for (sz i = 0; i < p2.len; i++)
-    {
-        if (p2[i] == (Char16)'/')
-        {
+    wpath[converted.len] = 0;
+
+    for (sz i = 0; i < converted.len; i++) {
+        if (wpath[i] == (Char16)'/') {
             wpath[i] = (Char16)'\\';
         }
     }
 
-    return wpath.ptr;
+    return &wpath[0];
 }
 
-fn void* file_open_blocking(void* v_arg) @local
+
+// File loading
+
+fn void* file_load_blocking(void* v_arg) @local
 {
     Arg* arg = (Arg*)v_arg;
 
-    winbase::DWord access = 0;
-    winbase::DWord disposition = 0;
-    winbase::DWord attributes = winbase::FILE_ATTRIBUTE_NORMAL;
+    Char16[FILE_PATH_BUFFER_SIZE] path_buf;
+    Char16*? path = utf8to16(arg.name, path_buf[..]);
 
-    if (arg.mode == "r")
-    {
-        access = winbase::GENERIC_READ;
-        disposition = winbase::OPEN_EXISTING;
-    }
-    else if (arg.mode == "r+")
-    {
-        access = winbase::GENERIC_READ | winbase::GENERIC_WRITE;
-        disposition = winbase::OPEN_EXISTING;
-    }
-    else if (arg.mode == "w")
-    {
-        access = winbase::GENERIC_WRITE;
-        disposition = winbase::CREATE_ALWAYS;
-    }
-    else if (arg.mode == "w+")
-    {
-        access = winbase::GENERIC_READ | winbase::GENERIC_WRITE;
-        disposition = winbase::CREATE_ALWAYS;
-    }
-    else if (arg.mode == "a")
-    {
-        access = winbase::FILE_APPEND_DATA;
-        disposition = winbase::OPEN_ALWAYS;
-    }
-    else if (arg.mode == "a+")
-    {
-        access = winbase::GENERIC_READ | winbase::FILE_APPEND_DATA;
-        disposition = winbase::OPEN_ALWAYS;
-    }
-    else
-    {
-        arg.error = errno::E_INVALID_ARG;
+    if (catch err = path) {
+        arg.error = err;
         return v_arg;
     }
 
     winbase::DWord share = winbase::FILE_SHARE_READ | winbase::FILE_SHARE_WRITE | winbase::FILE_SHARE_DELETE;
 
-    Char16[260] wbuf;
-    Char16*? wpath = utf8to16(arg.name, &wbuf);
-    if (catch err = wpath)
-    {
-        arg.error = err;
-        return v_arg;
-    }
-
-    winbase::Handle h = winbase::createFileW(
-        wpath,
-        access,
+    winbase::Handle handle = winbase::createFileW(
+        path,
+        winbase::GENERIC_READ,
         share,
         null,
-        disposition,
-        attributes,
+        winbase::OPEN_EXISTING,
+        winbase::FILE_ATTRIBUTE_NORMAL,
         null
     );
 
-    if (h == winbase::INVALID_HANDLE_VALUE)
-    {
+    if (handle == winbase::INVALID_HANDLE_VALUE) {
         arg.error = errno::get_fault();
         return v_arg;
     }
 
-    if (arg.mode[0] == 'a')
-    {
-        winbase::setFilePointerEx(h, 0, null, winbase::FILE_END);
+    defer winbase::closeHandle(handle);
+
+    long file_size = 0;
+
+    if (winbase::getFileSizeEx(handle, &file_size) == 0) {
+        arg.error = errno::get_fault();
+        return v_arg;
     }
 
-    arg.fd = h;
+    if (file_size < 0) {
+        arg.error = FILE_INVALID_SIZE;
+        return v_arg;
+    }
+
+    sz size = (sz)file_size;
+
+    if (size == 0) {
+        arg.buf = {};
+        arg.result = 0;
+        return v_arg;
+    }
+
+    arg.buf = localmem.alloc_array(char, size)!;
+
+    sz total = 0;
+
+    while (total < size) {
+        sz remaining = size - total;
+        winbase::DWord request_size = (winbase::DWord)(remaining > MAX_WIN32_IO_SIZE ? MAX_WIN32_IO_SIZE : remaining);
+        winbase::DWord n = 0;
+
+        int rc = winbase::readFile(handle, arg.buf[total..].ptr, request_size, &n, null);
+
+        if (rc == 0) {
+            arg.error = errno::get_fault();
+            localmem.free(arg.buf);
+
+            arg.buf = {};
+            arg.result = 0;
+
+            return v_arg;
+        }
+
+        if (n == 0) break;
+
+        total += (sz)n;
+    }
+
+    if (total == 0) {
+        localmem.free(arg.buf);
+        arg.buf = {};
+    } else if (total < size) {
+        arg.buf = arg.buf[0:total];
+    }
+
+    arg.result = total;
 
     return v_arg;
 }
 
-fn Fd? file_open(String name, String mode, int permission = 0o644)
+fn char[]? file_load(String name)
+{
+    Arg arg = {
+        .error = NONE,
+        .name = name,
+    };
+
+    Arg*? result = aio::run_in_executor(&file_load_blocking, &arg);
+
+    if (catch err = result) return err~;
+    if (result.error != NONE) return result.error~;
+
+    return result.buf;
+}
+
+
+// File open
+
+fn void* file_open_blocking(void* v_arg) @local
+{
+    Arg* arg = (Arg*)v_arg;
+
+    winbase::DWord access;
+    winbase::DWord disposition;
+
+    switch (arg.mode) {
+        case "r":
+        case "rb":
+            access = winbase::GENERIC_READ;
+            disposition = winbase::OPEN_EXISTING;
+        case "r+":
+        case "rb+":
+        case "r+b":
+            access = winbase::GENERIC_READ | winbase::GENERIC_WRITE;
+            disposition = winbase::OPEN_EXISTING;
+        case "w":
+        case "wb":
+            access = winbase::GENERIC_WRITE;
+            disposition = winbase::CREATE_ALWAYS;
+        case "w+":
+        case "wb+":
+        case "w+b":
+            access = winbase::GENERIC_READ | winbase::GENERIC_WRITE;
+            disposition = winbase::CREATE_ALWAYS;
+        case "a":
+        case "ab":
+            access = winbase::FILE_APPEND_DATA;
+            disposition = winbase::OPEN_ALWAYS;
+        case "a+":
+        case "ab+":
+        case "a+b":
+            access = winbase::GENERIC_READ | winbase::FILE_APPEND_DATA;
+            disposition = winbase::OPEN_ALWAYS;
+        default:
+            arg.error = errno::E_INVALID_ARG;
+            return v_arg;
+    }
+
+    Char16[FILE_PATH_BUFFER_SIZE] path_buf;
+    Char16*? path = utf8to16(arg.name, path_buf[..]);
+
+    if (catch err = path) {
+        arg.error = err;
+        return v_arg;
+    }
+
+    winbase::DWord share = winbase::FILE_SHARE_READ | winbase::FILE_SHARE_WRITE | winbase::FILE_SHARE_DELETE;
+
+    winbase::Handle handle = winbase::createFileW(
+        path,
+        access,
+        share,
+        null,
+        disposition,
+        winbase::FILE_ATTRIBUTE_NORMAL,
+        null
+    );
+
+    if (handle == winbase::INVALID_HANDLE_VALUE) {
+        arg.error = errno::get_fault();
+        return v_arg;
+    }
+
+    if (arg.mode.starts_with("a")) {
+        if (winbase::setFilePointerEx(handle, 0, null, winbase::FILE_END) == 0) {
+            arg.error = errno::get_fault();
+            winbase::closeHandle(handle);
+
+            return v_arg;
+        }
+    }
+
+    arg.fd = handle;
+
+    return v_arg;
+}
+
+fn Fd? file_open(String name, String mode, int permission = 0o0644)
 {
     Arg arg = {
         .error = NONE,
         .name = name,
         .mode = mode,
+        .permission = permission,
     };
-    
-    Arg*? a = aio::run_in_executor(&file_open_blocking, &arg);
-    
-    if (catch err = a) return err~;
-    if (a.error != NONE) return a.error~;
 
-    fd_set_socket(a.fd, false);
-    
-    return a.fd;
+    Arg*? result = aio::run_in_executor(&file_open_blocking, &arg);
+
+    if (catch err = result) return err~;
+    if (result.error != NONE) return result.error~;
+
+    fd_set_socket(result.fd, false);
+
+    return result.fd;
 }
+
+
+// File close
 
 fn void* file_close_blocking(void* v_arg) @local
 {
     Arg* arg = (Arg*)v_arg;
 
-    int rc = winbase::closeHandle(arg.fd);
-    if (rc == 0)
-    {
+    if (winbase::closeHandle(arg.fd) == 0) {
         arg.error = errno::get_fault();
-        return v_arg;
     }
-
-    arg.rc = rc;
 
     return v_arg;
 }
@@ -175,11 +294,14 @@ fn void? file_close(Fd fd) @maydiscard
         .fd = fd,
     };
 
-    Arg*? a = aio::run_in_executor(&file_close_blocking, &arg);
+    Arg*? result = aio::run_in_executor(&file_close_blocking, &arg);
 
-    if (catch err = a) return err~;
-    if (a.error != NONE) return a.error~;
+    if (catch err = result) return err~;
+    if (result.error != NONE) return result.error~;
 }
+
+
+// File seek
 
 fn void* file_seek_blocking(void* v_arg) @local
 {
@@ -187,25 +309,26 @@ fn void* file_seek_blocking(void* v_arg) @local
 
     winbase::DWord method;
 
-    switch (arg.whence)
-    {
-      case 0: method = winbase::FILE_BEGIN;
-      case 1: method = winbase::FILE_CURRENT;
-      case 2: method = winbase::FILE_END;
-      default:
-        arg.error = errno::E_INVALID_ARG;
-        return v_arg;
+    switch (arg.whence) {
+        case 0:
+            method = winbase::FILE_BEGIN;
+        case 1:
+            method = winbase::FILE_CURRENT;
+        case 2:
+            method = winbase::FILE_END;
+        default:
+            arg.error = errno::E_INVALID_ARG;
+            return v_arg;
     }
 
-    long new_pos = 0;
-    int rc = winbase::setFilePointerEx(arg.fd, arg.pos, &new_pos, method);
-    if (rc == 0)
-    {
+    long new_position = 0;
+
+    if (winbase::setFilePointerEx(arg.fd, arg.pos, &new_position, method) == 0) {
         arg.error = errno::get_fault();
         return v_arg;
     }
 
-    arg.offset = new_pos;
+    arg.offset = new_position;
 
     return v_arg;
 }
@@ -218,28 +341,30 @@ fn long? file_seek(Fd fd, long pos, int whence) @maydiscard
         .pos = pos,
         .whence = whence,
     };
-    
-    Arg*? a = aio::run_in_executor(&file_seek_blocking, &arg);
-    
-    if (catch err = a) return err~;
-    if (a.error != NONE) return a.error~;
-    
-    return a.offset;
+
+    Arg*? result = aio::run_in_executor(&file_seek_blocking, &arg);
+
+    if (catch err = result) return err~;
+    if (result.error != NONE) return result.error~;
+
+    return result.offset;
 }
+
+
+// File position
 
 fn void* file_tell_blocking(void* v_arg) @local
 {
     Arg* arg = (Arg*)v_arg;
 
-    long pos = 0;
-    int rc = winbase::setFilePointerEx(arg.fd, 0, &pos, winbase::FILE_CURRENT);
-    if (rc == 0)
-    {
+    long position = 0;
+
+    if (winbase::setFilePointerEx(arg.fd, 0, &position, winbase::FILE_CURRENT) == 0) {
         arg.error = errno::get_fault();
         return v_arg;
     }
 
-    arg.offset = pos;
+    arg.offset = position;
 
     return v_arg;
 }
@@ -250,70 +375,73 @@ fn long? file_tell(Fd fd)
         .error = NONE,
         .fd = fd,
     };
-    
-    Arg*? a = aio::run_in_executor(&file_tell_blocking, &arg);
-    
-    if (catch err = a) return err~;
-    if (a.error != NONE) return a.error~;
-    
-    return a.offset;
+
+    Arg*? result = aio::run_in_executor(&file_tell_blocking, &arg);
+
+    if (catch err = result) return err~;
+    if (result.error != NONE) return result.error~;
+
+    return result.offset;
 }
+
+
+// File truncate
 
 fn void* file_truncate_blocking(void* v_arg) @local
 {
     Arg* arg = (Arg*)v_arg;
 
-    long old_pos = 0;
+    long old_position = 0;
 
-    int rc = winbase::setFilePointerEx(arg.fd, 0, &old_pos, winbase::FILE_CURRENT);
-    if (rc == 0)
-    {
+    if (winbase::setFilePointerEx(arg.fd, 0, &old_position, winbase::FILE_CURRENT) == 0) {
         arg.error = errno::get_fault();
         return v_arg;
     }
 
-    rc = winbase::setFilePointerEx(arg.fd, arg.pos, null, winbase::FILE_BEGIN);
-    if (rc == 0)
-    {
+    if (winbase::setFilePointerEx(arg.fd, arg.pos, null, winbase::FILE_BEGIN) == 0) {
         arg.error = errno::get_fault();
         return v_arg;
     }
 
-    rc = winbase::setEndOfFile(arg.fd);
-    if (rc == 0)
-    {
+    if (winbase::setEndOfFile(arg.fd) == 0) {
         arg.error = errno::get_fault();
+        (void)winbase::setFilePointerEx(arg.fd, old_position, null, winbase::FILE_BEGIN);
+
         return v_arg;
     }
 
-    (void)winbase::setFilePointerEx(arg.fd, old_pos, null, winbase::FILE_BEGIN);
+    if (winbase::setFilePointerEx(arg.fd, old_position, null, winbase::FILE_BEGIN) == 0) {
+        arg.error = errno::get_fault();
+    }
 
     return v_arg;
 }
 
 fn void? file_truncate(Fd fd, long pos) @maydiscard
 {
+    if (pos < 0) return errno::E_INVALID_ARG~;
+
     Arg arg = {
         .error = NONE,
         .fd = fd,
         .pos = pos,
     };
-    
-    Arg*? a = aio::run_in_executor(&file_truncate_blocking, &arg);
-    
-    if (catch err = a) return err~;
-    if (a.error != NONE) return a.error~;
+
+    Arg*? result = aio::run_in_executor(&file_truncate_blocking, &arg);
+
+    if (catch err = result) return err~;
+    if (result.error != NONE) return result.error~;
 }
+
+
+// File flush
 
 fn void* file_flush_blocking(void* v_arg) @local
 {
     Arg* arg = (Arg*)v_arg;
 
-    int rc = winbase::flushFileBuffers(arg.fd);
-    if (rc == 0)
-    {
+    if (winbase::flushFileBuffers(arg.fd) == 0) {
         arg.error = errno::get_fault();
-        return v_arg;
     }
 
     return v_arg;
@@ -326,21 +454,28 @@ fn void? file_flush(Fd fd) @maydiscard
         .fd = fd,
     };
 
-    Arg*? a = aio::run_in_executor(&file_flush_blocking, &arg);
+    Arg*? result = aio::run_in_executor(&file_flush_blocking, &arg);
 
-    if (catch err = a) return err~;
-    if (a.error != NONE) return a.error~;
+    if (catch err = result) return err~;
+    if (result.error != NONE) return result.error~;
 }
+
+
+// File size
 
 fn void* file_size_blocking(void* v_arg) @local
 {
     Arg* arg = (Arg*)v_arg;
 
     long size = 0;
-    int rc = winbase::getFileSizeEx(arg.fd, &size);
-    if (rc == 0)
-    {
+
+    if (winbase::getFileSizeEx(arg.fd, &size) == 0) {
         arg.error = errno::get_fault();
+        return v_arg;
+    }
+
+    if (size < 0) {
+        arg.error = FILE_INVALID_SIZE;
         return v_arg;
     }
 
@@ -356,30 +491,27 @@ fn long? file_size(Fd fd)
         .fd = fd,
     };
 
-    Arg*? a = aio::run_in_executor(&file_size_blocking, &arg);
+    Arg*? result = aio::run_in_executor(&file_size_blocking, &arg);
 
-    if (catch err = a) return err~;
-    if (a.error != NONE) return a.error~;
+    if (catch err = result) return err~;
+    if (result.error != NONE) return result.error~;
 
-    return a.offset;
+    return result.offset;
 }
+
+
+// File read
 
 fn void* file_read_blocking(void* v_arg) @local
 {
     Arg* arg = (Arg*)v_arg;
 
+    sz request_length = arg.buf.len > MAX_WIN32_IO_SIZE ? MAX_WIN32_IO_SIZE : arg.buf.len;
     winbase::DWord n = 0;
 
-    int rc = winbase::readFile(
-        arg.fd,
-        arg.buf.ptr,
-        (winbase::DWord)arg.buf.len,
-        &n,
-        null
-    );
+    int rc = winbase::readFile(arg.fd, arg.buf.ptr, (winbase::DWord)request_length, &n, null);
 
-    if (rc == 0)
-    {
+    if (rc == 0) {
         arg.error = errno::get_fault();
         return v_arg;
     }
@@ -399,13 +531,16 @@ fn sz? file_read(Fd fd, char[] buf)
         .buf = buf,
     };
 
-    Arg*? a = aio::run_in_executor(&file_read_blocking, &arg);
+    Arg*? result = aio::run_in_executor(&file_read_blocking, &arg);
 
-    if (catch err = a) return err~;
-    if (a.error != NONE) return a.error~;
+    if (catch err = result) return err~;
+    if (result.error != NONE) return result.error~;
 
-    return a.result;
+    return result.result;
 }
+
+
+// File write
 
 fn void* file_write_blocking(void* v_arg) @local
 {
@@ -413,22 +548,17 @@ fn void* file_write_blocking(void* v_arg) @local
 
     sz total = 0;
 
-    while (total < arg.buf.len)
-    {
+    while (total < arg.buf.len) {
+        char[] remaining = arg.buf[total..];
+        sz request_length = remaining.len > MAX_WIN32_IO_SIZE ? MAX_WIN32_IO_SIZE : remaining.len;
         winbase::DWord n = 0;
 
-        int rc = winbase::writeFile(
-            arg.fd,
-            arg.buf.ptr + total,
-            (winbase::DWord)(arg.buf.len - total),
-            &n,
-            null
-        );
+        int rc = winbase::writeFile(arg.fd, remaining.ptr, (winbase::DWord)request_length, &n, null);
 
-        if (rc == 0)
-        {
+        if (rc == 0) {
             arg.error = errno::get_fault();
             arg.result = total;
+
             return v_arg;
         }
 
@@ -452,66 +582,77 @@ fn sz? file_write(Fd fd, char[] buf)
         .buf = buf,
     };
 
-    Arg*? a = aio::run_in_executor(&file_write_blocking, &arg);
+    Arg*? result = aio::run_in_executor(&file_write_blocking, &arg);
 
-    if (catch err = a) return err~;
+    if (catch err = result) return err~;
 
-    if (a.error != NONE)
-    {
-        if (a.result > 0) return a.result;
-        return a.error~;
+    if (result.error != NONE) {
+        if (result.result > 0) return result.result;
+
+        return result.error~;
     }
 
-    return a.result;
+    return result.result;
 }
+
+
+// Standard descriptors
 
 fn Fd fd_stdin()
 {
-    winbase::Handle h = winbase::createFileA(
+    winbase::Handle handle = winbase::createFileA(
         "CONIN$",
         winbase::GENERIC_READ,
-        winbase::FILE_SHARE_READ,
+        winbase::FILE_SHARE_READ | winbase::FILE_SHARE_WRITE,
         null,
         winbase::OPEN_EXISTING,
-        winbase::FILE_FLAG_OVERLAPPED,
+        winbase::FILE_ATTRIBUTE_NORMAL,
         null
     );
 
-    fd_set_socket(h, false);
+    if (handle != winbase::INVALID_HANDLE_VALUE) {
+        fd_set_socket(handle, false);
+    }
 
-    return h;
+    return handle;
 }
 
 fn Fd fd_stdout()
 {
-    winbase::Handle h = winbase::createFileA(
+    winbase::Handle handle = winbase::createFileA(
         "CONOUT$",
         winbase::GENERIC_WRITE,
-        winbase::FILE_SHARE_WRITE,
+        winbase::FILE_SHARE_READ | winbase::FILE_SHARE_WRITE,
         null,
         winbase::OPEN_EXISTING,
-        winbase::FILE_FLAG_OVERLAPPED,
+        winbase::FILE_ATTRIBUTE_NORMAL,
         null
     );
 
-    fd_set_socket(h, false);
+    if (handle != winbase::INVALID_HANDLE_VALUE) {
+        fd_set_socket(handle, false);
+    }
 
-    return h;
+    return handle;
 }
 
 fn Fd fd_stderr()
 {
-    winbase::Handle h = winbase::createFileA(
+    winbase::Handle handle = winbase::createFileA(
         "CONOUT$",
         winbase::GENERIC_WRITE,
-        winbase::FILE_SHARE_WRITE,
+        winbase::FILE_SHARE_READ | winbase::FILE_SHARE_WRITE,
         null,
         winbase::OPEN_EXISTING,
-        winbase::FILE_FLAG_OVERLAPPED,
+        winbase::FILE_ATTRIBUTE_NORMAL,
         null
     );
-    
-    fd_set_socket(h, false);
 
-    return h;
+    if (handle != winbase::INVALID_HANDLE_VALUE) {
+        fd_set_socket(handle, false);
+    }
+
+    return handle;
 }
+
+// eof

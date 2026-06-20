@@ -4,6 +4,7 @@ import ext::aio;
 import ext::aio::io;
 import ext::aio::path;
 import ext::debug;
+import ext::io::stat;
 import std::collections::list;
 
 
@@ -50,9 +51,9 @@ fn void? test_stat_and_getsize()
 
     write_file("tmp_aio_path_test/stat.txt", "abcdef")!;
 
-    path::Stat st = path::stat("tmp_aio_path_test/stat.txt")!;
-    @assert(st.st_size == 6);
-    @assert(st.st_mtime > 0);
+    StatInfo st = path::statinfo("tmp_aio_path_test/stat.txt")!;
+    @assert(st.size == 6);
+    @assert(st.mtime > 0);
 
     sz size = path::getsize("tmp_aio_path_test/stat.txt")!;
     @assert(size == 6);

@@ -131,34 +131,64 @@ fn void Future.cancel(&self, fault err = NONE)
     }
 }
 
+fn void*? Future.await_internal(&self, ulong timeout_us, bool use_timeout) // private
+{
+    if (self.is_done)
+    {
+        return self.get_result()!;
+    }
+
+    Task* task = self.loop.current;
+    if (task == null) return INVALID_STATE~;
+
+    Waiter waiter;
+    waiter.init(task);
+
+    self.waiters.push(&waiter);
+
+    Timer* timer = null;
+
+    if (use_timeout)
+    {
+        if (timeout_us == 0)
+        {
+            self.waiters.remove_first_match(&waiter);
+            return TIMEOUT~;
+        }
+
+        Timer*? timer_opt = task.start_timer(timeout_us);
+
+        if (catch err = timer_opt)
+        {
+            self.waiters.remove_first_match(&waiter);
+            return err~;
+        }
+
+        timer = timer_opt;
+    }
+
+    task.suspend(&waiter);
+
+    if (timer != null)
+    {
+        timer.cancel();
+    }
+
+    self.waiters.remove_first_match(&waiter);
+
+    waiter.check()!;
+
+    return self.get_result()!;
+}
+
 fn void*? Future.await(&self)
 {
-    if (!self.is_done)
-    {
-        Task* task = self.loop.current;
-        if (task == null) return INVALID_STATE~;
+    return self.await_internal(0, false)!;
+}
 
-        Waiter waiter;
-        waiter.init(task);
-
-        self.waiters.push(&waiter);
-
-        task.suspend(&waiter);
-
-        self.waiters.remove_first_match(&waiter);
-
-        waiter.check()!;
-    }
-
-    if (self.is_cancelled)
-    {
-        if (self.error != NONE) return self.error~;
-        return CANCELLED~;
-    }
-
-    if (self.error != NONE) return self.error~;
-
-    return self.result;
+fn void*? Future.await_timeout(&self, ulong timeout_us)
+{
+    return self.await_internal(timeout_us, true)!;
 }
 
 // eof

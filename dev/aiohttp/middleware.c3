@@ -2,7 +2,7 @@
 
 // Nomota <hiongun@gmail.com>; MIT License
 
-module ext::aiohttp;
+module ext::aio::http;
 
 import std::io;
 import std::collections::list;
@@ -329,7 +329,7 @@ fn Response*? middleware_powered_by(Context* c, Next next)
 {
     if (c == null) return CONTEXT_NOT_READY~;
 
-    c.header("X-Powered-By", "ext::aiohttp")!;
+    c.header("X-Powered-By", "ext::aio::http")!;
     return next(c)!;
 }
 

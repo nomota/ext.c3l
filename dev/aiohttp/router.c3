@@ -2,7 +2,7 @@
 
 // Nomota <hiongun@gmail.com>; MIT License
 
-module ext::aiohttp;
+module ext::aio::http;
 
 import std::io;
 import std::collections::list;
@@ -18,6 +18,9 @@ faultdef ROUTE_NOT_FOUND;
 faultdef METHOD_NOT_ALLOWED;
 faultdef INVALID_ROUTE_PATH;
 
+const int ROUTE_SCORE_STATIC = 3;
+const int ROUTE_SCORE_PARAM = 2;
+const int ROUTE_SCORE_WILDCARD = 1;
 
 // 
 // Handler
@@ -54,6 +57,46 @@ struct RouteMatch
 // 
 // Internal helpers
 // 
+
+fn int route_score(String pattern)
+{
+    int score = 0;
+    sz pos = 0;
+
+    while (pos < pattern.len)
+    {
+        while (pos < pattern.len && pattern[pos] == '/')
+        {
+            pos++;
+        }
+
+        if (pos >= pattern.len) break;
+
+        sz start = pos;
+
+        while (pos < pattern.len && pattern[pos] != '/')
+        {
+            pos++;
+        }
+
+        String part = pattern[start:pos - start];
+
+        if (part == "*")
+        {
+            score = score * 10 + ROUTE_SCORE_WILDCARD;
+        }
+        else if (part.len > 0 && part[0] == ':')
+        {
+            score = score * 10 + ROUTE_SCORE_PARAM;
+        }
+        else
+        {
+            score = score * 10 + ROUTE_SCORE_STATIC;
+        }
+    }
+
+    return score;
+}
 
 fn bool route_path_valid(String path)
 {
@@ -393,7 +436,10 @@ fn bool route_match_path(String pattern, String path, Params* params)
 
 fn RouteMatch? Router.match(&self, String method, String path)
 {
-    bool path_matched = false;
+    RouteMatch best = {};
+    bool found = false;
+    int best_score = -1;
+    bool method_mismatch = false;
 
     for (sz i = 0; i < self.routes.len(); i++)
     {
@@ -401,30 +447,45 @@ fn RouteMatch? Router.match(&self, String method, String path)
 
         Params params;
         params.init();
+        defer params.free();
 
-        bool matched = route_match_path(route.path, path, &params);
-
-        if (!matched)
+        if (!route_match_path(route.path, path, &params))
         {
-            params.free();
             continue;
         }
 
-        path_matched = true;
-
-        if (!method_eq(route.method, method))
+        if (!str_iequals(route.method, method))
         {
-            params.free();
+            method_mismatch = true;
             continue;
         }
 
-        return (RouteMatch){
-            .handler = route.handler,
-            .params = params,
-        };
+        int score = route_score(route.path);
+
+        if (!found || score > best_score)
+        {
+            if (found)
+            {
+                best.free();
+            }
+
+            best = {
+                .handler = route.handler,
+            };
+            best.params.init();
+            best.params.copy_from(&params)!;
+
+            found = true;
+            best_score = score;
+        }
     }
 
-    if (path_matched)
+    if (found)
+    {
+        return best;
+    }
+
+    if (method_mismatch)
     {
         return METHOD_NOT_ALLOWED~;
     }

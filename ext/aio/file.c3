@@ -38,6 +38,11 @@ fn File*? file_open(String path, String mode, int permission = 0o644)
     return file_from_fd(fd, true)!;
 }
 
+fn char[]? file_load(String path) @inline
+{
+    return io::file_load(path)!;
+}
+
 fn bool File.is_closed(&self) @inline
 {
     return self.closed || io::fd_invalid(self.fd);

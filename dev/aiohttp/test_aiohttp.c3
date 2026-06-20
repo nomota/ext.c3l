@@ -1,16 +1,16 @@
-// test_aiohttp.c3
+// test_aio::http.c3
 
-// Basic test suite for ext::aiohttp
+// Basic test suite for ext::aio::http
 
 // Nomota <hiongun@gmail.com>; MIT License
 
 import std::io;
 import c::string;
-import ext::aiohttp;
+import ext::aio::http;
 import ext::debug;
 import ext::aio;
 
-fn aiohttp::Response*? hello_handler(aiohttp::Context* c)
+fn aio::http::Response*? hello_handler(aio::http::Context* c)
 {
     String name = c.query("name")!!;
 
@@ -22,7 +22,7 @@ fn aiohttp::Response*? hello_handler(aiohttp::Context* c)
     return c.text("hello")!!;
 }
 
-fn aiohttp::Response*? user_handler(aiohttp::Context* c)
+fn aio::http::Response*? user_handler(aio::http::Context* c)
 {
     String id = c.param("id")!!;
 
@@ -31,7 +31,7 @@ fn aiohttp::Response*? user_handler(aiohttp::Context* c)
     return c.json("{\"id\":42}")!!;
 }
 
-fn aiohttp::Response*? splat_handler(aiohttp::Context* c)
+fn aio::http::Response*? splat_handler(aio::http::Context* c)
 {
     String rest = c.splat()!!;
 
@@ -40,7 +40,7 @@ fn aiohttp::Response*? splat_handler(aiohttp::Context* c)
     return c.text(rest)!!;
 }
 
-fn aiohttp::Response*? form_handler(aiohttp::Context* c)
+fn aio::http::Response*? form_handler(aio::http::Context* c)
 {
     @assert(c.is_form_urlencoded(), "form content type mismatch");
 
@@ -53,7 +53,7 @@ fn aiohttp::Response*? form_handler(aiohttp::Context* c)
     return c.text("form ok")!!;
 }
 
-fn aiohttp::Response*? cookie_handler(aiohttp::Context* c)
+fn aio::http::Response*? cookie_handler(aio::http::Context* c)
 {
     String sid = c.cookie("sid")!!;
 
@@ -64,7 +64,7 @@ fn aiohttp::Response*? cookie_handler(aiohttp::Context* c)
     return c.text("cookie ok")!!;
 }
 
-fn aiohttp::Response*? post_body_handler(aiohttp::Context* c)
+fn aio::http::Response*? post_body_handler(aio::http::Context* c)
 {
     @assert(c.req_is_json(), "json content type mismatch");
 
@@ -75,11 +75,11 @@ fn aiohttp::Response*? post_body_handler(aiohttp::Context* c)
     return c.json("{\"received\":true}")!!;
 }
 
-fn aiohttp::Response*? custom_middleware(aiohttp::Context* c, aiohttp::Next next)
+fn aio::http::Response*? custom_middleware(aio::http::Context* c, aio::http::Next next)
 {
     c.header("X-Middleware-Before", "1")!!;
 
-    aiohttp::Response* res = next(c)!!;
+    aio::http::Response* res = next(c)!!;
 
     c.header("X-Middleware-After", "1")!!;
 
@@ -98,9 +98,22 @@ fn void assert_contains(String haystack, String needle)
     @assert(false, "expected substring not found");
 }
 
+fn bool contains(char[]haystack, char[] needle)
+{
+    if (needle.len == 0) return true;
+
+    for (sz i = 0; i + needle.len <= haystack.len; i++)
+    {
+        if (haystack[i:needle.len] == needle) return true;
+    }
+
+    return false;
+}
+
+
 fn void test_headers()
 {
-    aiohttp::Headers headers;
+    aio::http::Headers headers;
     headers.init();
     defer headers.free();
 
@@ -115,7 +128,7 @@ fn void test_headers()
     @assert(ct == "text/plain", "case-insensitive get failed");
 
     String wire = headers.serialize()!!;
-    defer aiohttp::localmem.free(wire);
+    defer aio::http::localmem.free(wire);
 
     assert_contains(wire, "Content-Type: text/plain\r\n");
     assert_contains(wire, "Set-Cookie: a=1\r\n");
@@ -132,8 +145,8 @@ fn void test_request_parse()
         "\r\n"
         "{\"ok\":true}";
 
-    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = aio::http::request_parse(raw)!!;
+    defer aio::http::request_free(req);
 
     @assert(req.method == "POST", "request method mismatch");
     @assert(req.target == "/submit?x=1&y=hello+world", "request target mismatch");
@@ -147,7 +160,7 @@ fn void test_request_parse()
     @assert(req.body.len == 11, "body length mismatch");
     @assert((String)req.body == "{\"ok\":true}", "body mismatch");
 
-    aiohttp::Query q = req.query_params()!!;
+    aio::http::Query q = req.query_params()!!;
     defer q.free();
 
     @assert(q.get("x")!! == "1", "query x mismatch");
@@ -156,13 +169,13 @@ fn void test_request_parse()
 
 fn void test_response_serialize()
 {
-    aiohttp::Response* res = aiohttp::response_text("hello")!!;
-    defer aiohttp::response_free(res);
+    aio::http::Response* res = aio::http::response_text("hello")!!;
+    defer aio::http::response_free(res);
 
     res.header("X-Test", "ok")!!;
 
     String wire = res.serialize()!!;
-    defer aiohttp::localmem.free(wire);
+    defer aio::http::localmem.free(wire);
 
     assert_contains(wire, "HTTP/1.1 200 OK\r\n");
     assert_contains(wire, "Content-Type: text/plain; charset=utf-8\r\n");
@@ -174,19 +187,19 @@ fn void test_response_serialize()
 
 fn void test_router()
 {
-    aiohttp::Router router;
+    aio::http::Router router;
     router.init();
     defer router.free();
 
     router.get("/users/:id", &user_handler)!!;
     router.get("/static/*", &splat_handler)!!;
 
-    aiohttp::RouteMatch m = router.match("GET", "/users/42")!!;
+    aio::http::RouteMatch m = router.match("GET", "/users/42")!!;
     defer m.free();
 
     @assert(m.params.get("id")!! == "42", "router param mismatch");
 
-    aiohttp::RouteMatch s = router.match("GET", "/static/css/app.css")!!;
+    aio::http::RouteMatch s = router.match("GET", "/static/css/app.css")!!;
     defer s.free();
 
     @assert(s.params.splat()!! == "css/app.css", "router splat mismatch");
@@ -194,7 +207,7 @@ fn void test_router()
 
 fn void test_application_get()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
@@ -206,8 +219,8 @@ fn void test_application_get()
         "Host: localhost\r\n"
         "\r\n";
 
-    aiohttp::Response* res = app.fetch_raw(raw)!!;
-    defer aiohttp::response_free(res);
+    aio::http::Response* res = app.fetch_raw(raw)!!;
+    defer aio::http::response_free(res);
 
     @assert(res.status == 200, "GET response status mismatch");
     @assert(res.headers.get("X-Test")!! == "ok", "handler header mismatch");
@@ -218,7 +231,7 @@ fn void test_application_get()
 
 fn void test_application_params()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 //warn("-");
@@ -231,8 +244,8 @@ fn void test_application_params()
         "Host: localhost\r\n"
         "\r\n";
 
-    aiohttp::Response* res1 = app.fetch_raw(raw1)!!;
-    defer aiohttp::response_free(res1);
+    aio::http::Response* res1 = app.fetch_raw(raw1)!!;
+    defer aio::http::response_free(res1);
 //warn("-");
     @assert(res1.status == 200, "param route status mismatch");
     @assert((String)res1.body == "{\"id\":42}", "param route body mismatch");
@@ -242,8 +255,8 @@ fn void test_application_params()
         "Host: localhost\r\n"
         "\r\n";
 //warn("-");
-    aiohttp::Response* res2 = app.fetch_raw(raw2)!!;
-    defer aiohttp::response_free(res2);
+    aio::http::Response* res2 = app.fetch_raw(raw2)!!;
+    defer aio::http::response_free(res2);
 //warn("-");
     @assert(res2.status == 200, "splat route status mismatch");
     @assert((String)res2.body == "css/app.css", "splat route body mismatch");
@@ -251,7 +264,7 @@ fn void test_application_params()
 
 fn void test_application_form()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
@@ -265,8 +278,8 @@ fn void test_application_form()
         "\r\n"
         "user=nomota&lang=c3";
 
-    aiohttp::Response* res = app.fetch_raw(raw)!!;
-    defer aiohttp::response_free(res);
+    aio::http::Response* res = app.fetch_raw(raw)!!;
+    defer aio::http::response_free(res);
 
     @assert(res.status == 200, "form response status mismatch");
     @assert((String)res.body == "form ok", "form response body mismatch");
@@ -274,7 +287,7 @@ fn void test_application_form()
 
 fn void test_application_cookie()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
@@ -286,8 +299,8 @@ fn void test_application_cookie()
         "Cookie: sid=abc123; mode=test\r\n"
         "\r\n";
 
-    aiohttp::Response* res = app.fetch_raw(raw)!!;
-    defer aiohttp::response_free(res);
+    aio::http::Response* res = app.fetch_raw(raw)!!;
+    defer aio::http::response_free(res);
 
     @assert(res.status == 200, "cookie response status mismatch");
     @assert((String)res.body == "cookie ok", "cookie response body mismatch");
@@ -300,7 +313,7 @@ fn void test_application_cookie()
 
 fn void test_application_json_body()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
@@ -314,8 +327,8 @@ fn void test_application_json_body()
         "\r\n"
         "{\"ok\":true}";
 
-    aiohttp::Response* res = app.fetch_raw(raw)!!;
-    defer aiohttp::response_free(res);
+    aio::http::Response* res = app.fetch_raw(raw)!!;
+    defer aio::http::response_free(res);
 
     @assert(res.status == 200, "json response status mismatch");
     @assert((String)res.body == "{\"received\":true}", "json response body mismatch");
@@ -323,7 +336,7 @@ fn void test_application_json_body()
 
 fn void test_not_found()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
@@ -334,16 +347,16 @@ fn void test_not_found()
         "Host: localhost\r\n"
         "\r\n";
 
-    aiohttp::Response* res = app.fetch_raw(raw)!!;
-    defer aiohttp::response_free(res);
+    aio::http::Response* res = app.fetch_raw(raw)!!;
+    defer aio::http::response_free(res);
 
     @assert(res.status == 404, "not found status mismatch");
-    @assert((String)res.body == "404 Not Found", "not found body mismatch");
+    @assert(contains(res.body, "404 Not Found"), "not found body mismatch");
 }
 
 fn void test_method_not_allowed()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
@@ -355,8 +368,8 @@ fn void test_method_not_allowed()
         "Content-Length: 0\r\n"
         "\r\n";
 
-    aiohttp::Response* res = app.fetch_raw(raw)!!;
-    defer aiohttp::response_free(res);
+    aio::http::Response* res = app.fetch_raw(raw)!!;
+    defer aio::http::response_free(res);
 
     @assert(res.status == 405, "method not allowed status mismatch");
     @assert((String)res.body == "405 Method Not Allowed", "method not allowed body mismatch");
@@ -364,7 +377,7 @@ fn void test_method_not_allowed()
 
 fn void test_bad_request()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
@@ -373,8 +386,8 @@ fn void test_bad_request()
         "Host: localhost\r\n"
         "\r\n";
 
-    aiohttp::Response* res = app.fetch_raw(raw)!!;
-    defer aiohttp::response_free(res);
+    aio::http::Response* res = app.fetch_raw(raw)!!;
+    defer aio::http::response_free(res);
 
     @assert(res.status == 400, "bad request status mismatch");
     @assert((String)res.body == "400 Bad Request", "bad request body mismatch");
@@ -382,11 +395,11 @@ fn void test_bad_request()
 
 fn void test_cors_preflight()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
-    app.use(&aiohttp::cors_default);
+    app.use(&aio::http::cors_default);
     app.get("/hello", &hello_handler)!!;
 
     char[] raw =
@@ -396,8 +409,8 @@ fn void test_cors_preflight()
         "Access-Control-Request-Method: GET\r\n"
         "\r\n";
 
-    aiohttp::Response* res = app.fetch_raw(raw)!!;
-    defer aiohttp::response_free(res);
+    aio::http::Response* res = app.fetch_raw(raw)!!;
+    defer aio::http::response_free(res);
 
     @assert(res.status == 204, "cors preflight status mismatch");
     @assert(res.headers.get("Access-Control-Allow-Origin")!! == "*", "cors allow origin mismatch");

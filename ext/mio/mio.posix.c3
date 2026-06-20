@@ -74,6 +74,23 @@ fn void? set_reuseaddr_fd(Fd fd)
     }
 }
 
+fn void? set_nosigpipe_fd(Fd fd)
+{
+    $if(env::DARWIN):
+        int yes = 1;
+
+        if (socket::setsockopt(
+            fd_to_socket(fd),
+            socket::SOL_SOCKET,
+            socket::SO_NOSIGPIPE,
+            &yes,
+            (socket::SockLen)@sizeof(yes)) < 0)
+        {
+            return errno::get_fault()~;
+        }
+    $endif
+}
+
 fn void? peer_addr_fd(Fd fd, char[] ip_buf, ushort* port)
 {
     if (fd_invalid(fd)) return errno::E_INVALID_ARG~;
@@ -110,6 +127,12 @@ fn Fd? socket_new_fd(int family, int type) @private
         return err~;
     }
 
+    if (catch err = set_nosigpipe_fd(fd))
+    {
+        socket_close_fd(fd);
+        return err~;
+    }
+
     return fd;
 }
 
@@ -123,7 +146,7 @@ fn Fd? udp_socket_fd(int family = socket::AF_INET)
     return socket_new_fd(family, socket::SOCK_DGRAM);
 }
 
-fn char*? str2cptr(String str, char[] buf) @inline @private
+fn char*? str2cptr(char[] str, char[] buf) @inline @private
 {
     if (buf.len == 0) return NET_ADDR_ERROR~;
     if (str.len + 1 > buf.len) return NET_ADDR_ERROR~;
@@ -134,7 +157,7 @@ fn char*? str2cptr(String str, char[] buf) @inline @private
     return &buf[0];
 }
 
-fn bool ip_is_v6(String ip) @private
+fn bool ip_is_v6(char[] ip) @private
 {
     for (sz i = 0; i < ip.len; i++)
     {
@@ -144,13 +167,13 @@ fn bool ip_is_v6(String ip) @private
     return false;
 }
 
-fn int socket_family_from_ip(String ip)
+fn int socket_family_from_ip(char[] ip)
 {
     if (ip_is_v6(ip)) return socket::AF_INET6;
     return socket::AF_INET;
 }
 
-fn void? make_sockaddr(String ip, ushort port, socket::SockAddrStorage* addr, socket::SockLen* len) @maydiscard
+fn void? make_sockaddr(char[] ip, ushort port, socket::SockAddrStorage* addr, socket::SockLen* len) @maydiscard
 {
     if (addr == null) return MIO_INVALID~;
     if (len == null) return MIO_INVALID~;
@@ -248,7 +271,7 @@ fn int? socket_family_fd(Fd fd)
     return ((socket::SockAddr*)&addr).sa_family;
 }
 
-fn void? socket_bind_fd(Fd fd, String ip, ushort port)
+fn void? socket_bind_fd(Fd fd, char[] ip, ushort port)
 {
     socket::SockAddrStorage addr = {};
     socket::SockLen len = (socket::SockLen)@sizeof(addr);
@@ -294,7 +317,7 @@ fn void? tcp_listen_fd(Fd fd, int backlog = DEFAULT_BACKLOG)
     if (rc < 0) return errno::get_fault()~;
 }
 
-fn TcpListener? tcp_listen(String ip, ushort port, int backlog = DEFAULT_BACKLOG)
+fn TcpListener? tcp_listen(char[] ip, ushort port, int backlog = DEFAULT_BACKLOG)
 {
     int family = socket_family_from_ip(ip);
 
@@ -324,7 +347,7 @@ fn bool connect_ok_or_pending(fault err)
         err == errno::E_IS_CONNECTED;
 }
 
-fn void? tcp_connect_fd(Fd fd, String ip, ushort port)
+fn void? tcp_connect_fd(Fd fd, char[] ip, ushort port)
 {
     socket::SockAddrStorage addr = {};
     socket::SockLen len = (socket::SockLen)@sizeof(addr);
@@ -343,7 +366,7 @@ fn void? tcp_connect_fd(Fd fd, String ip, ushort port)
     }
 }
 
-fn TcpStream? tcp_connect(String ip, ushort port)
+fn TcpStream? tcp_connect(char[] ip, ushort port)
 {
     int family = socket_family_from_ip(ip);
 
@@ -398,7 +421,8 @@ fn Fd? tcp_accept_fd(Fd server_fd, void* peer = null)
     defer catch unistd::close(fd);
 
     set_nonblock_fd((Fd)fd)!;
-
+    set_nosigpipe_fd((Fd)fd)!;
+    
     return (Fd)fd;
 }
 
@@ -439,7 +463,21 @@ fn sz? TcpStream.read(&self, char[] buf)
 
 fn sz? tcp_write_fd(Fd fd, char[] buf)
 {
-    sz n = unistd::write((int)fd, buf.ptr, buf.len);
+    if (buf.len == 0) return 0;
+
+    int flags = 0;
+
+    $if(env::LINUX || env::FREEBSD || env::NETBSD):
+        flags = socket::MSG_NOSIGNAL;
+    $endif
+
+    sz n = socket::send(
+        fd_to_socket(fd),
+        buf.ptr,
+        buf.len,
+        flags
+    );
+
     if (n < 0) return errno::get_fault()~;
 
     return (sz)n;
@@ -479,7 +517,7 @@ fn void TcpStream.close(&self)
     self.closed = true;
 }
 
-fn UdpSocket? udp_bind(String ip, ushort port)
+fn UdpSocket? udp_bind(char[] ip, ushort port)
 {
     int family = socket_family_from_ip(ip);
 
@@ -540,7 +578,7 @@ fn sz? UdpSocket.recv_from(&self, char[] buf, char[] ip_buf, ushort* port)
     return udp_recvfrom_fd(self.fd, buf, ip_buf,port)!;
 }
 
-fn sz? udp_sendto_fd(Fd fd, char[] buf, String ip, ushort port)
+fn sz? udp_sendto_fd(Fd fd, char[] buf, char[] ip, ushort port)
 {
     socket::SockAddrStorage addr = {};
     socket::SockLen len = (socket::SockLen)@sizeof(addr);
@@ -561,7 +599,7 @@ fn sz? udp_sendto_fd(Fd fd, char[] buf, String ip, ushort port)
     return (sz)n;
 }
 
-fn sz? UdpSocket.send_to(&self, char[] buf, String ip, ushort port)
+fn sz? UdpSocket.send_to(&self, char[] buf, char[] ip, ushort port)
 {
     if (self.closed) return MIO_CLOSED~;
     if (fd_invalid(self.fd)) return MIO_INVALID~;

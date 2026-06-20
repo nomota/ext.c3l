@@ -2,34 +2,51 @@
 
 // Nomota <hiongun@gmail.com>; MIT License
 
-module ext::aiohttp;
+module ext::aio::http;
 
 import std::io;
-import std::collections::list;
 import ext::mem;
 import ext::debug;
+import ext::aio;
+
+alias StreamWriter = fn void?(aio::Stream*, void*);
+
+enum BodyKind
+{
+    BODY_EMPTY,
+    BODY_BYTES,
+    BODY_STREAM,
+    BODY_FILE,
+}
 
 
-// 
 // Response
-// 
 
 struct Response
 {
     ushort status;
     Headers headers;
+
+    BodyKind body_kind;
     char[] body;
+
+    StreamWriter stream_writer;
+    void* stream_arg;
+
+    String file_path;
+    sz file_offset;
+    sz file_size;
+
     bool owns_body;
+    bool owns_file_path;
 }
 
-// 
+
 // Status helpers
-// 
 
 fn String status_text(ushort status)
 {
-    switch (status)
-    {
+    switch (status) {
         case 100: return "Continue";
         case 101: return "Switching Protocols";
 
@@ -60,6 +77,7 @@ fn String status_text(ushort status)
         case 413: return "Payload Too Large";
         case 414: return "URI Too Long";
         case 415: return "Unsupported Media Type";
+        case 416: return "Range Not Satisfiable";
         case 418: return "I'm a teapot";
         case 422: return "Unprocessable Entity";
         case 429: return "Too Many Requests";
@@ -76,17 +94,14 @@ fn String status_text(ushort status)
 
 fn bool status_allows_body(ushort status)
 {
-    // RFC behavior:
-    // 1xx, 204, 304 must not include a body.
     if (status >= 100 && status < 200) return false;
     if (status == 204) return false;
     if (status == 304) return false;
     return true;
 }
 
-// 
+
 // Internal helpers
-// 
 
 fn char[]? bytes_clone(char[] data)
 {
@@ -100,22 +115,30 @@ fn char[]? bytes_clone(char[] data)
 
 fn void body_free(char[] body)
 {
-    if (body.ptr != null && body.len > 0)
-    {
+    if (body.ptr != null && body.len > 0) {
         localmem.free(body);
     }
 }
 
-// 
+
 // Lifecycle
-// 
 
 fn void Response.init(&self)
 {
     self.status = 200;
     self.headers.init();
+
+    self.body_kind = BODY_EMPTY;
     self.body = {};
     self.owns_body = false;
+
+    self.stream_writer = null;
+    self.stream_arg = null;
+
+    self.file_path = "";
+    self.file_offset = 0;
+    self.file_size = 0;
+    self.owns_file_path = false;
 }
 
 fn void Response.free(&self)
@@ -124,9 +147,23 @@ fn void Response.free(&self)
 
     if (self.owns_body) body_free(self.body);
 
+    if (self.owns_file_path && self.file_path.len > 0) {
+        localmem.free(self.file_path);
+    }
+
     self.status = 0;
+
+    self.body_kind = BODY_EMPTY;
     self.body = {};
     self.owns_body = false;
+
+    self.stream_writer = null;
+    self.stream_arg = null;
+
+    self.file_path = "";
+    self.file_offset = 0;
+    self.file_size = 0;
+    self.owns_file_path = false;
 }
 
 fn Response*? response_new()
@@ -144,17 +181,22 @@ fn void response_free(Response* res)
     localmem.free(res);
 }
 
-// 
+
 // Basic mutators
-// 
 
 faultdef INVALID_STATUS;
+faultdef INVALID_FILE_RANGE;
 
 fn void? Response.set_status(&self, ushort status) @maydiscard
 {
     if (status < 100 || status > 599) return INVALID_STATUS~;
 
     self.status = status;
+
+    if (!status_allows_body(status)) {
+        self.headers.remove("Transfer-Encoding");
+        self.headers.remove("Content-Length");
+    }
 }
 
 fn void? Response.header(&self, String name, String value) @maydiscard
@@ -182,18 +224,56 @@ fn void? Response.set_cookie(&self, String value) @maydiscard
     self.headers.set_cookie(value)!;
 }
 
-fn void? Response.set_body_copy(&self, char[] body) @maydiscard
+fn void Response.clear_file_state(&self)
+{
+    if (self.owns_file_path && self.file_path.len > 0) {
+        localmem.free(self.file_path);
+    }
+
+    self.file_path = "";
+    self.file_offset = 0;
+    self.file_size = 0;
+    self.owns_file_path = false;
+}
+
+fn void Response.clear_stream_state(&self)
+{
+    self.stream_writer = null;
+    self.stream_arg = null;
+}
+
+fn void Response.clear_body_state(&self)
 {
     if (self.owns_body) body_free(self.body);
 
+    self.body = {};
+    self.owns_body = false;
+}
+
+fn void? Response.set_body_copy(&self, char[] body) @maydiscard
+{
+    self.clear_stream_state();
+    self.clear_file_state();
+    self.clear_body_state();
+
+    self.headers.remove("Transfer-Encoding");
+    self.headers.remove("Content-Length");
+
+    self.body_kind = body.len == 0 ? BODY_EMPTY : BODY_BYTES;
     self.body = bytes_clone(body)!;
-    self.owns_body = true;
+    self.owns_body = body.len > 0;
 }
 
 fn void Response.set_body_borrowed(&self, char[] body)
 {
-    if (self.owns_body) body_free(self.body);
+    self.clear_stream_state();
+    self.clear_file_state();
+    self.clear_body_state();
 
+    self.headers.remove("Transfer-Encoding");
+    self.headers.remove("Content-Length");
+
+    self.body_kind = body.len == 0 ? BODY_EMPTY : BODY_BYTES;
     self.body = body;
     self.owns_body = false;
 }
@@ -216,15 +296,57 @@ fn void? Response.set_json(&self, String json) @maydiscard
     self.set_body_copy((char[])json)!;
 }
 
-// 
+
 // Constructors
-// 
+
+fn Response*? response_stream(StreamWriter writer, void* arg)
+{
+    if (writer == null) return BAD_REQUEST~;
+
+    Response* res = response_empty(200)!;
+    defer catch response_free(res);
+
+    res.body_kind = BODY_STREAM;
+    res.stream_writer = writer;
+    res.stream_arg = arg;
+
+    res.headers.remove("Content-Length");
+    res.headers.set("Transfer-Encoding", "chunked")!;
+
+    return res;
+}
+
+fn Response*? response_file_range(String path, sz offset, sz length)
+{
+    if (path.len == 0) return BAD_REQUEST~;
+    if (offset < 0 || length < 0) return INVALID_FILE_RANGE~;
+
+    Response* res = response_empty(200)!;
+    defer catch response_free(res);
+
+    res.body_kind = BODY_FILE;
+    res.file_path = path.copy(localmem);
+    res.file_offset = offset;
+    res.file_size = length;
+    res.owns_file_path = true;
+
+    res.headers.remove("Transfer-Encoding");
+    res.headers.content_length(length)!;
+    res.headers.set("Content-Type", content_type_from_path(path))!;
+
+    return res;
+}
+
+fn Response*? response_file(String path, sz file_size = 0)
+{
+    return response_file_range(path, 0, file_size)!;
+}
 
 fn Response*? response_empty(ushort status)
 {
     Response* res = response_new()!;
     defer catch response_free(res);
-    
+
     res.set_status(status)!;
     return res;
 }
@@ -233,7 +355,7 @@ fn Response*? response_body(char[] body)
 {
     Response* res = response_new()!;
     defer catch response_free(res);
-    
+
     res.set_body_copy(body)!;
     return res;
 }
@@ -242,7 +364,7 @@ fn Response*? response_text(String text)
 {
     Response* res = response_new()!;
     defer catch response_free(res);
-    
+
     res.set_text(text)!;
     return res;
 }
@@ -251,7 +373,7 @@ fn Response*? response_html(String html)
 {
     Response* res = response_new()!;
     defer catch response_free(res);
-    
+
     res.set_html(html)!;
     return res;
 }
@@ -260,7 +382,7 @@ fn Response*? response_json(String json)
 {
     Response* res = response_new()!;
     defer catch response_free(res);
-    
+
     res.set_json(json)!;
     return res;
 }
@@ -269,8 +391,8 @@ fn Response*? response_redirect(String location, ushort status = 302)
 {
     Response* res = response_new()!;
     defer catch response_free(res);
-    
-    res.status = status;
+
+    res.set_status(status)!;
     res.headers.set("Location", location)!;
 
     return res;
@@ -280,8 +402,8 @@ fn Response*? response_not_found()
 {
     Response* res = response_new()!;
     defer catch response_free(res);
-    
-    res.status = 404;
+
+    res.set_status(404)!;
     res.set_text("404 Not Found")!;
 
     return res;
@@ -291,44 +413,77 @@ fn Response*? response_internal_error()
 {
     Response* res = response_new()!;
     defer catch response_free(res);
-    
-    res.status = 500;
+
+    res.set_status(500)!;
     res.set_text("500 Internal Server Error")!;
 
     return res;
 }
 
-// 
+
 // Serialization length
-// 
 
 fn sz Response.status_line_len(&self)
 {
     String reason = status_text(self.status);
-
-    // HTTP/1.1 + space + 3 digits + space + reason + CRLF
     return 8 + 1 + 3 + 1 + reason.len + 2;
+}
+
+fn bool Response.is_streaming(&self) @inline
+{
+    return self.body_kind == BODY_STREAM || self.body_kind == BODY_FILE;
+}
+
+fn bool Response.is_file(&self) @inline
+{
+    return self.body_kind == BODY_FILE;
+}
+
+fn bool Response.is_chunked(&self) @inline
+{
+    return self.body_kind == BODY_STREAM;
 }
 
 fn sz Response.body_len_for_wire(&self)
 {
     if (!status_allows_body(self.status)) return 0;
+    if (self.body_kind != BODY_BYTES) return 0;
+
     return self.body.len;
 }
 
-// Header block length, including auto Content-Length if needed.
+fn sz Response.content_length_for_wire(&self)
+{
+    if (!status_allows_body(self.status)) return 0;
+
+    switch (self.body_kind) {
+        case BODY_BYTES:
+            return self.body.len;
+
+        case BODY_FILE:
+            return self.file_size > 0 ? self.file_size : 0;
+
+        case BODY_EMPTY:
+        case BODY_STREAM:
+            return 0;
+    }
+}
+
 fn sz Response.headers_len_for_wire(&self)
 {
     sz n = self.headers.serialized_len();
+    bool no_body = !status_allows_body(self.status);
 
-    if (!self.headers.has("Content-Length"))
-    {
-        String len_str = string::tformat("%d", self.body_len_for_wire());
+    if ((no_body || self.body_kind != BODY_STREAM) && !self.headers.has("Content-Length")) {
+        String len_str = string::tformat("%d", self.content_length_for_wire());
         n += "Content-Length".len + 2 + len_str.len + 2;
     }
 
-    if (!self.headers.has("Connection"))
-    {
+    if (!no_body && self.body_kind == BODY_STREAM && !self.headers.has("Transfer-Encoding")) {
+        n += "Transfer-Encoding".len + 2 + "chunked".len + 2;
+    }
+
+    if (!self.headers.has("Connection")) {
         n += "Connection".len + 2 + "close".len + 2;
     }
 
@@ -337,15 +492,11 @@ fn sz Response.headers_len_for_wire(&self)
 
 fn sz Response.serialized_len(&self)
 {
-    return self.status_line_len()
-        + self.headers_len_for_wire()
-        + 2
-        + self.body_len_for_wire();
+    return self.status_line_len() + self.headers_len_for_wire() + 2 + self.body_len_for_wire();
 }
 
-// 
-// Serialization
-// 
+
+// Serialization helpers
 
 fn sz write_string(char[] out, sz pos, String s)
 {
@@ -375,10 +526,62 @@ fn sz write_status_code(char[] out, sz pos, ushort status)
     return pos;
 }
 
-// Appends full HTTP response into caller-owned buffer.
+fn void? write_hex(aio::Stream* stream, usz value) @local
+{
+    char[32] buf;
+    sz pos = 0;
+
+    if (value == 0) {
+        buf[pos++] = '0';
+    } else {
+        char[16] hex = {
+            '0', '1', '2', '3', '4', '5', '6', '7',
+            '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+        };
+
+        char[32] rev;
+        sz n = 0;
+
+        while (value > 0) {
+            rev[n++] = hex[value & 15];
+            value >>= 4;
+        }
+
+        while (n > 0) {
+            buf[pos++] = rev[--n];
+        }
+    }
+
+    stream.write_all(buf[0:pos])!;
+}
+
+fn void? write_chunk(aio::Stream* stream, char[] data)
+{
+    if (stream == null) return BAD_REQUEST~;
+    if (data.len == 0) return;
+
+    write_hex(stream, data.len)!;
+    stream.write_all((char[])"\r\n")!;
+    stream.write_all(data)!;
+    stream.write_all((char[])"\r\n")!;
+}
+
+fn void? write_last_chunk(aio::Stream* stream)
+{
+    if (stream == null) return BAD_REQUEST~;
+
+    stream.write_all((char[])"0\r\n\r\n")!;
+}
+
+fn void? write_chunk_string(aio::Stream* stream, String data)
+{
+    return write_chunk(stream, (char[])data);
+}
+
+
+// Appends the HTTP response header and in-memory body into caller-owned buffer.
 //
-// Returns bytes written.
-// Returns 0 if buffer is too small.
+// BODY_FILE and BODY_STREAM content is written separately by the server.
 fn sz Response.write_to(&self, char[] out)
 {
     sz need = self.serialized_len();
@@ -387,8 +590,6 @@ fn sz Response.write_to(&self, char[] out)
     sz pos = 0;
     String reason = status_text(self.status);
 
-    // Status line:
-    // HTTP/1.1 200 OK\r\n
     pos = write_string(out, pos, "HTTP/1.1");
     pos = write_char(out, pos, ' ');
     pos = write_status_code(out, pos, self.status);
@@ -396,15 +597,15 @@ fn sz Response.write_to(&self, char[] out)
     pos = write_string(out, pos, reason);
     pos = write_crlf(out, pos);
 
-    // Existing headers.
-    sz hlen = self.headers.write_to(out[pos:out.len - pos]);
-    if (hlen == 0 && self.headers.len() > 0) return 0;
-    pos += hlen;
+    sz header_len = self.headers.write_to(out[pos:out.len - pos]);
+    if (header_len == 0 && self.headers.len() > 0) return 0;
 
-    // Auto Content-Length.
-    if (!self.headers.has("Content-Length"))
-    {
-        String len_str = string::tformat("%d", self.body_len_for_wire());
+    pos += header_len;
+
+    bool no_body = !status_allows_body(self.status);
+
+    if ((no_body || self.body_kind != BODY_STREAM) && !self.headers.has("Content-Length")) {
+        String len_str = string::tformat("%d", self.content_length_for_wire());
 
         pos = write_string(out, pos, "Content-Length");
         pos = write_string(out, pos, ": ");
@@ -412,23 +613,25 @@ fn sz Response.write_to(&self, char[] out)
         pos = write_crlf(out, pos);
     }
 
-    // Default Connection: close.
-    // Later keep-alive support can override this at server layer.
-    if (!self.headers.has("Connection"))
-    {
+    if (!no_body && self.body_kind == BODY_STREAM && !self.headers.has("Transfer-Encoding")) {
+        pos = write_string(out, pos, "Transfer-Encoding");
+        pos = write_string(out, pos, ": ");
+        pos = write_string(out, pos, "chunked");
+        pos = write_crlf(out, pos);
+    }
+
+    if (!self.headers.has("Connection")) {
         pos = write_string(out, pos, "Connection");
         pos = write_string(out, pos, ": ");
         pos = write_string(out, pos, "close");
         pos = write_crlf(out, pos);
     }
 
-    // Empty line.
     pos = write_crlf(out, pos);
 
-    // Body.
     sz body_len = self.body_len_for_wire();
-    if (body_len > 0)
-    {
+
+    if (self.body_kind == BODY_BYTES && body_len > 0) {
         out[pos:body_len] = self.body[0:body_len];
         pos += body_len;
     }
@@ -448,8 +651,8 @@ fn String? Response.serialize(&self)
     char[] out = p[0:n];
 
     sz written = self.write_to(out);
-    if (written == 0 && n > 0)
-    {
+
+    if (written != n) {
         localmem.free(p);
         return RESPONSE_SERIALIZE_ERROR~;
     }
@@ -459,17 +662,26 @@ fn String? Response.serialize(&self)
     return (String)p[0:written];
 }
 
-// 
+
 // Debug
-// 
 
 fn void Response.dump(&self)
 {
     io::printfn("HTTP/1.1 %d %s", self.status, status_text(self.status));
     self.headers.dump();
-    io::printfn("Content-Length: %d", self.body_len_for_wire());
+    io::printfn("Content-Length: %d", self.content_length_for_wire());
+
+    if (self.body_kind == BODY_FILE) {
+        io::printfn("File-Path: %s", self.file_path);
+        io::printfn("File-Offset: %d", self.file_offset);
+        io::printfn("File-Size: %d", self.file_size);
+    }
+
     io::printfn("");
-    io::printfn("%s", (String)self.body);
+
+    if (self.body_kind == BODY_BYTES) {
+        io::printfn("%s", (String)self.body);
+    }
 }
 
 // eof

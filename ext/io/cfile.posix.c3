@@ -56,7 +56,7 @@ fn sz? File.readline(&self, char[] buf)
 {
     sz idx = 0;
     while (idx < buf.len - 1) {
-        char c = stdio::fgetc(self.fp);
+        int c = stdio::fgetc(self.fp);
         if (c == stdio::EOF) {
             if (stdio::ferror(self.fp)) return errno::get_fault()~;
             if (idx == 0) return errno::EOF~;

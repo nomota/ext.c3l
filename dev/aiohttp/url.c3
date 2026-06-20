@@ -2,7 +2,7 @@
 
 // Nomota <hiongun@gmail.com>; MIT License
 
-module ext::aiohttp;
+module ext::aio::http;
 
 import std::io;
 import ext::mem;
@@ -20,7 +20,7 @@ faultdef INVALID_URL_ENCODING;
 // Internal helpers
 // 
 
-fn bool is_hex(char c) @inline
+fn bool is_hex(char c) @local
 {
     if (c >= '0' && c <= '9') return true;
     if (c >= 'a' && c <= 'f') return true;
@@ -28,7 +28,7 @@ fn bool is_hex(char c) @inline
     return false;
 }
 
-fn char hex_value(char c)
+fn char hex_value(char c) @local
 {
     if (c >= '0' && c <= '9') return c - '0';
     if (c >= 'a' && c <= 'f') return c - 'a' + 10;

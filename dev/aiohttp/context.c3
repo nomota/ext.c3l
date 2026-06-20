@@ -2,23 +2,20 @@
 
 // Nomota <hiongun@gmail.com>; MIT License
 
-module ext::aiohttp;
+module ext::aio::http;
 
 import std::io;
 import ext::mem;
 import ext::debug;
 import c::errno;
 
-// 
+
 // Faults
-// 
 
 faultdef CONTEXT_NOT_READY;
 
 
-// 
 // Context
-// 
 
 struct Context
 {
@@ -29,19 +26,21 @@ struct Context
 
     Query query_cache;
     bool query_cache_ready;
-    
+
     Cookies cookie_cache;
     bool cookie_cache_ready;
-    
+
     Query form_cache;
     bool form_cache_ready;
+
+    MultipartForm multipart_cache;
+    bool multipart_cache_ready;
 }
 
 alias Ctx = Context;
 
-// 
+
 // Lifecycle
-// 
 
 fn void? Context.init(&self, Request* req) @maydiscard
 {
@@ -55,14 +54,18 @@ fn void? Context.init(&self, Request* req) @maydiscard
 
     self.cookie_cache.init();
     self.cookie_cache_ready = false;
-    
+
     self.form_cache.init();
     self.form_cache_ready = false;
+
+    self.multipart_cache.init();
+    self.multipart_cache_ready = false;
 }
 
 fn void? Context.init_with_params(&self, Request* req, Params* params) @maydiscard
 {
     if (params == null) return errno::E_INVALID_ARG~;
+
     self.req = req;
     self.res = response_new()!;
 
@@ -71,12 +74,15 @@ fn void? Context.init_with_params(&self, Request* req, Params* params) @maydisca
 
     self.query_cache.init();
     self.query_cache_ready = false;
-    
+
     self.cookie_cache.init();
     self.cookie_cache_ready = false;
-    
+
     self.form_cache.init();
     self.form_cache_ready = false;
+
+    self.multipart_cache.init();
+    self.multipart_cache_ready = false;
 }
 
 fn void Context.free(&self)
@@ -87,20 +93,22 @@ fn void Context.free(&self)
     self.query_cache.free();
     self.cookie_cache.free();
     self.form_cache.free();
-    
+    self.multipart_cache.free();
+
     self.req = null;
     self.res = null;
-    
+
     self.query_cache_ready = false;
     self.cookie_cache_ready = false;
     self.form_cache_ready = false;
+    self.multipart_cache_ready = false;
 }
 
 fn Context*? context_new(Request* req)
 {
     Context* c = localmem.alloc(Context)!;
     defer catch localmem.free(c);
-    
+
     c.init(req)!;
     return c;
 }
@@ -123,9 +131,7 @@ fn void context_free(Context* c)
 }
 
 
-// 
 // Request accessors
-// 
 
 fn String Context.method(&self)
 {
@@ -164,9 +170,7 @@ fn char[] Context.body(&self)
 }
 
 
-// 
 // Params
-// 
 
 fn String? Context.param(&self, String name)
 {
@@ -184,17 +188,13 @@ fn String? Context.splat(&self)
 }
 
 
-// 
 // Query
-// 
 
 fn void? Context.ensure_query_cache(&self)
 {
     if (self.query_cache_ready) return;
-
     if (self.req == null) return CONTEXT_NOT_READY~;
 
-    // query_cache was initialized in Context.init().
     query_parse(&self.query_cache, self.req.query_string)!;
     self.query_cache_ready = true;
 }
@@ -207,8 +207,7 @@ fn String? Context.query(&self, String name)
 
 fn bool Context.has_query(&self, String name)
 {
-    if (catch self.ensure_query_cache())
-    {
+    if (catch self.ensure_query_cache()) {
         return false;
     }
 
@@ -217,8 +216,7 @@ fn bool Context.has_query(&self, String name)
 
 fn Query* Context.queries(&self)
 {
-    if (catch self.ensure_query_cache())
-    {
+    if (catch self.ensure_query_cache()) {
         return null;
     }
 
@@ -226,9 +224,7 @@ fn Query* Context.queries(&self)
 }
 
 
-// 
 // Response status/header
-// 
 
 fn void? Context.status(&self, ushort status) @maydiscard
 {
@@ -245,35 +241,29 @@ fn ushort Context.get_status(&self)
 fn void? Context.header(&self, String name, String value) @maydiscard
 {
     if (self.res == null) return CONTEXT_NOT_READY~;
-
     self.res.header(name, value)!;
 }
 
 fn void? Context.add_header(&self, String name, String value) @maydiscard
 {
     if (self.res == null) return CONTEXT_NOT_READY~;
-
     self.res.add_header(name, value)!;
 }
 
 fn void? Context.content_type(&self, String value) @maydiscard
 {
     if (self.res == null) return CONTEXT_NOT_READY~;
-
     self.res.content_type(value)!;
 }
 
 fn void? Context.set_cookie(&self, String value) @maydiscard
 {
     if (self.res == null) return CONTEXT_NOT_READY~;
-
     self.res.set_cookie(value)!;
 }
 
 
-// 
 // Response builders
-// 
 
 fn Response*? Context.body_response(&self, char[] body)
 {
@@ -310,7 +300,6 @@ fn Response*? Context.json(&self, String json)
 fn Response*? Context.empty(&self)
 {
     if (self.res == null) return CONTEXT_NOT_READY~;
-
     return self.res;
 }
 
@@ -320,6 +309,7 @@ fn Response*? Context.redirect(&self, String location, ushort status = 302)
 
     self.res.set_status(status)!;
     self.res.header("Location", location)!;
+
     return self.res;
 }
 
@@ -328,9 +318,11 @@ fn Response*? Context.not_found(&self, String what = "")
     if (self.res == null) return CONTEXT_NOT_READY~;
 
     self.res.set_status(404)!;
-    String txt = string::format(localmem, "404 Not Found: %s", what);
-    defer localmem.free(txt);
-    self.res.set_text(txt)!;
+
+    String text = string::format(localmem, "404 Not Found: %s", what);
+    defer localmem.free(text);
+
+    self.res.set_text(text)!;
     return self.res;
 }
 
@@ -339,16 +331,16 @@ fn Response*? Context.internal_error(&self, String err = "")
     if (self.res == null) return CONTEXT_NOT_READY~;
 
     self.res.set_status(500)!;
-    String txt = string::format(localmem, "500 Internal Server Error: %s", err);
-    defer localmem.free(txt);
-    self.res.set_text(txt)!;
+
+    String text = string::format(localmem, "500 Internal Server Error: %s", err);
+    defer localmem.free(text);
+
+    self.res.set_text(text)!;
     return self.res;
 }
 
 
-// 
 // Response replacement
-// 
 
 // Replaces the context response with another response.
 //
@@ -366,10 +358,29 @@ fn Response* Context.with_response(&self, Response* res)
     return self.res;
 }
 
+fn Response*? Context.stream(&self, StreamWriter writer, void* arg)
+{
+    Response* res = response_stream(writer, arg)!;
+    self.with_response(res);
 
-// 
+    return self.res;
+}
+
+fn Response*? Context.file_range(&self, String path, sz offset, sz length)
+{
+    Response* res = response_file_range(path, offset, length)!;
+    self.with_response(res);
+
+    return self.res;
+}
+
+fn Response*? Context.file(&self, String path, sz file_size = 0)
+{
+    return self.file_range(path, 0, file_size)!;
+}
+
+
 // Handler dispatch helper
-// 
 
 fn Response*? context_call(Context* c, Handler handler)
 {
@@ -379,35 +390,29 @@ fn Response*? context_call(Context* c, Handler handler)
     Response* res = handler(c)!;
 
     if (res == null) return c.res;
-
     if (res != c.res) c.with_response(res);
 
     return c.res;
 }
 
 
-// 
 // Debug
-// 
 
 fn void Context.dump(&self)
 {
-    if (self.req != null)
-    {
+    if (self.req != null) {
         io::printfn("%s %s", self.req.method, self.req.path);
     }
 
     io::printfn("params:");
     self.params.dump_params();
 
-    if (self.query_cache_ready)
-    {
+    if (self.query_cache_ready) {
         io::printfn("query:");
         self.query_cache.dump();
     }
 
-    if (self.res != null)
-    {
+    if (self.res != null) {
         io::printfn("response:");
         self.res.dump();
     }

@@ -15,19 +15,33 @@ module ext::aio::path;
 
 ## File status
 
-### `stat`
+### `statinfo`
 
 ```c3
-fn Stat? path::stat(String path)
+struct StatInfo
+{
+    sz size;
+    long mtime;
+
+    bool is_file;
+    bool is_dir;
+    bool is_link;
+}
+
+fn StatInfo? path::statinfo(String path)
 ```
 
 Returns basic file status information.
 
 ```c3
-path::Stat st = path::stat("data.txt")!;
+import ext::io::stat;
+import ext::aio::path;
 
-long size = st.st_size;
-long mtime = st.st_mtime;
+StatInfo st = path::statinfo("data.txt")!;
+
+long size = st.size;
+long mtime = st.mtime;
+
 ```
 
 If the path does not exist, `STAT_FILE_NOT_FOUND` is returned.

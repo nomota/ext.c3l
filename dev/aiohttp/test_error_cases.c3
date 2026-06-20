@@ -1,29 +1,29 @@
 // test_error_cases.c3
 
-// Error-path tests for ext::aiohttp
+// Error-path tests for ext::aio::http
 
 // Nomota <hiongun@gmail.com>; MIT License
 
 module test::error_cases;
 
 import std::io;
-import ext::aiohttp;
+import ext::aio::http;
 import ext::debug;
 
-fn aiohttp::Response*? dummy_handler(aiohttp::Context* c)
+fn aio::http::Response*? dummy_handler(aio::http::Context* c)
 {
     return c.text("ok")!!;
 }
 
 fn void test_invalid_header_name_add()
 {
-    aiohttp::Headers headers;
+    aio::http::Headers headers;
     headers.init();
     defer headers.free();
 
     if (catch err = headers.add("Bad Header", "x"))
     {
-        @assert(err == aiohttp::INVALID_HEADER_NAME, "invalid header name fault mismatch");
+        @assert(err == aio::http::INVALID_HEADER_NAME, "invalid header name fault mismatch");
         return;
     }
 
@@ -32,13 +32,13 @@ fn void test_invalid_header_name_add()
 
 fn void test_invalid_header_name_set()
 {
-    aiohttp::Headers headers;
+    aio::http::Headers headers;
     headers.init();
     defer headers.free();
 
     if (catch err = headers.set("Bad:Header", "x"))
     {
-        @assert(err == aiohttp::INVALID_HEADER_NAME, "invalid header set fault mismatch");
+        @assert(err == aio::http::INVALID_HEADER_NAME, "invalid header set fault mismatch");
         return;
     }
 
@@ -52,15 +52,15 @@ fn void test_invalid_request_header_line()
         "BadHeader\r\n"
         "\r\n";
 
-    aiohttp::Request*? req = aiohttp::request_parse(raw);
+    aio::http::Request*? req = aio::http::request_parse(raw);
 
     if (catch err = req)
     {
-        @assert(err == aiohttp::INVALID_HEADER, "invalid header fault mismatch");
+        @assert(err == aio::http::INVALID_HEADER, "invalid header fault mismatch");
         return;
     }
 
-    aiohttp::request_free(req);
+    aio::http::request_free(req);
     @assert(false, "malformed header should fail");
 }
 
@@ -71,15 +71,15 @@ fn void test_invalid_request_method()
         "Host: localhost\r\n"
         "\r\n";
 
-    aiohttp::Request*? req = aiohttp::request_parse(raw);
+    aio::http::Request*? req = aio::http::request_parse(raw);
 
     if (catch err = req)
     {
-        @assert(err == aiohttp::INVALID_METHOD, "invalid method fault mismatch");
+        @assert(err == aio::http::INVALID_METHOD, "invalid method fault mismatch");
         return;
     }
 
-    aiohttp::request_free(req);
+    aio::http::request_free(req);
     @assert(false, "invalid method should fail");
 }
 
@@ -90,15 +90,15 @@ fn void test_invalid_request_version()
         "Host: localhost\r\n"
         "\r\n";
 
-    aiohttp::Request*? req = aiohttp::request_parse(raw);
+    aio::http::Request*? req = aio::http::request_parse(raw);
 
     if (catch err = req)
     {
-        @assert(err == aiohttp::INVALID_VERSION, "invalid version fault mismatch");
+        @assert(err == aio::http::INVALID_VERSION, "invalid version fault mismatch");
         return;
     }
 
-    aiohttp::request_free(req);
+    aio::http::request_free(req);
     @assert(false, "invalid version should fail");
 }
 
@@ -109,15 +109,15 @@ fn void test_bad_request_line()
         "Host: localhost\r\n"
         "\r\n";
 
-    aiohttp::Request*? req = aiohttp::request_parse(raw);
+    aio::http::Request*? req = aio::http::request_parse(raw);
 
     if (catch err = req)
     {
-        @assert(err == aiohttp::BAD_REQUEST, "bad request line fault mismatch");
+        @assert(err == aio::http::BAD_REQUEST, "bad request line fault mismatch");
         return;
     }
 
-    aiohttp::request_free(req);
+    aio::http::request_free(req);
     @assert(false, "bad request line should fail");
 }
 
@@ -130,15 +130,15 @@ fn void test_body_incomplete()
         "\r\n"
         "hello";
 
-    aiohttp::Request*? req = aiohttp::request_parse(raw);
+    aio::http::Request*? req = aio::http::request_parse(raw);
 
     if (catch err = req)
     {
-        @assert(err == aiohttp::BODY_INCOMPLETE, "incomplete body fault mismatch");
+        @assert(err == aio::http::BODY_INCOMPLETE, "incomplete body fault mismatch");
         return;
     }
 
-    aiohttp::request_free(req);
+    aio::http::request_free(req);
     @assert(false, "incomplete body should fail");
 }
 
@@ -150,15 +150,15 @@ fn void test_content_length_invalid()
         "Content-Length: abc\r\n"
         "\r\n";
 
-    aiohttp::Request*? req = aiohttp::request_parse(raw);
+    aio::http::Request*? req = aio::http::request_parse(raw);
 
     if (catch err = req)
     {
-        @assert(err == aiohttp::BAD_REQUEST, "invalid content length fault mismatch");
+        @assert(err == aio::http::BAD_REQUEST, "invalid content length fault mismatch");
         return;
     }
 
-    aiohttp::request_free(req);
+    aio::http::request_free(req);
     @assert(false, "invalid content length should fail");
 }
 
@@ -170,55 +170,55 @@ fn void test_content_length_too_large_number()
         "Content-Length: 999999999999999999999999999999999999999\r\n"
         "\r\n";
 
-    aiohttp::Request*? req = aiohttp::request_parse(raw);
+    aio::http::Request*? req = aio::http::request_parse(raw);
 
     if (catch err = req)
     {
-        @assert(err == aiohttp::REQUEST_TOO_LARGE, "too large content length fault mismatch");
+        @assert(err == aio::http::REQUEST_TOO_LARGE, "too large content length fault mismatch");
         return;
     }
 
-    aiohttp::request_free(req);
+    aio::http::request_free(req);
     @assert(false, "too large content length should fail");
 }
 
 fn void test_invalid_url_decode_short_percent()
 {
-    String? s = aiohttp::url_decode("abc%");
+    String? s = aio::http::url_decode("abc%");
 
     if (catch err = s)
     {
-        @assert(err == aiohttp::INVALID_URL_ENCODING, "short percent fault mismatch");
+        @assert(err == aio::http::INVALID_URL_ENCODING, "short percent fault mismatch");
         return;
     }
 
-    aiohttp::localmem.free(s);
+    aio::http::localmem.free(s);
     @assert(false, "short percent should fail");
 }
 
 fn void test_invalid_url_decode_bad_hex()
 {
-    String? s = aiohttp::url_decode("abc%ZZ");
+    String? s = aio::http::url_decode("abc%ZZ");
 
     if (catch err = s)
     {
-        @assert(err == aiohttp::INVALID_URL_ENCODING, "bad hex fault mismatch");
+        @assert(err == aio::http::INVALID_URL_ENCODING, "bad hex fault mismatch");
         return;
     }
 
-    aiohttp::localmem.free(s);
+    aio::http::localmem.free(s);
     @assert(false, "bad hex should fail");
 }
 
 fn void test_query_parse_invalid_encoding()
 {
-    aiohttp::Query q;
+    aio::http::Query q;
     q.init();
     defer q.free();
 
-    if (catch err = aiohttp::query_parse(&q, "name=abc%ZZ"))
+    if (catch err = aio::http::query_parse(&q, "name=abc%ZZ"))
     {
-        @assert(err == aiohttp::INVALID_URL_ENCODING, "query invalid encoding fault mismatch");
+        @assert(err == aio::http::INVALID_URL_ENCODING, "query invalid encoding fault mismatch");
         return;
     }
 
@@ -227,13 +227,13 @@ fn void test_query_parse_invalid_encoding()
 
 fn void test_invalid_param_name()
 {
-    aiohttp::Params params;
+    aio::http::Params params;
     params.init();
     defer params.free();
 
     if (catch err = params.put("1id", "42"))
     {
-        @assert(err == aiohttp::INVALID_PARAM_NAME, "invalid param name fault mismatch");
+        @assert(err == aio::http::INVALID_PARAM_NAME, "invalid param name fault mismatch");
         return;
     }
 
@@ -242,13 +242,13 @@ fn void test_invalid_param_name()
 
 fn void test_invalid_route_empty_path()
 {
-    aiohttp::Router r;
+    aio::http::Router r;
     r.init();
     defer r.free();
 
     if (catch err = r.get("", &dummy_handler))
     {
-        @assert(err == aiohttp::INVALID_ROUTE_PATH, "empty route path fault mismatch");
+        @assert(err == aio::http::INVALID_ROUTE_PATH, "empty route path fault mismatch");
         return;
     }
 
@@ -257,13 +257,13 @@ fn void test_invalid_route_empty_path()
 
 fn void test_invalid_route_no_leading_slash()
 {
-    aiohttp::Router r;
+    aio::http::Router r;
     r.init();
     defer r.free();
 
     if (catch err = r.get("users", &dummy_handler))
     {
-        @assert(err == aiohttp::INVALID_ROUTE_PATH, "route without slash fault mismatch");
+        @assert(err == aio::http::INVALID_ROUTE_PATH, "route without slash fault mismatch");
         return;
     }
 
@@ -272,13 +272,13 @@ fn void test_invalid_route_no_leading_slash()
 
 fn void test_invalid_route_trailing_slash()
 {
-    aiohttp::Router r;
+    aio::http::Router r;
     r.init();
     defer r.free();
 
     if (catch err = r.get("/users/", &dummy_handler))
     {
-        @assert(err == aiohttp::INVALID_ROUTE_PATH, "trailing slash route fault mismatch");
+        @assert(err == aio::http::INVALID_ROUTE_PATH, "trailing slash route fault mismatch");
         return;
     }
 
@@ -287,13 +287,13 @@ fn void test_invalid_route_trailing_slash()
 
 fn void test_invalid_route_param_name()
 {
-    aiohttp::Router r;
+    aio::http::Router r;
     r.init();
     defer r.free();
 
     if (catch err = r.get("/users/:1id", &dummy_handler))
     {
-        @assert(err == aiohttp::INVALID_ROUTE_PATH, "invalid route param fault mismatch");
+        @assert(err == aio::http::INVALID_ROUTE_PATH, "invalid route param fault mismatch");
         return;
     }
 
@@ -302,13 +302,13 @@ fn void test_invalid_route_param_name()
 
 fn void test_invalid_route_splat_not_last()
 {
-    aiohttp::Router r;
+    aio::http::Router r;
     r.init();
     defer r.free();
 
     if (catch err = r.get("/files/*/edit", &dummy_handler))
     {
-        @assert(err == aiohttp::INVALID_ROUTE_PATH, "invalid splat route fault mismatch");
+        @assert(err == aio::http::INVALID_ROUTE_PATH, "invalid splat route fault mismatch");
         return;
     }
 
@@ -317,17 +317,17 @@ fn void test_invalid_route_splat_not_last()
 
 fn void test_route_not_found()
 {
-    aiohttp::Router r;
+    aio::http::Router r;
     r.init();
     defer r.free();
 
     r.get("/hello", &dummy_handler)!!;
 
-    aiohttp::RouteMatch? m = r.match("GET", "/missing");
+    aio::http::RouteMatch? m = r.match("GET", "/missing");
 
     if (catch err = m)
     {
-        @assert(err == aiohttp::ROUTE_NOT_FOUND, "route not found fault mismatch");
+        @assert(err == aio::http::ROUTE_NOT_FOUND, "route not found fault mismatch");
         return;
     }
 
@@ -337,17 +337,17 @@ fn void test_route_not_found()
 
 fn void test_method_not_allowed()
 {
-    aiohttp::Router r;
+    aio::http::Router r;
     r.init();
     defer r.free();
 
     r.get("/hello", &dummy_handler)!!;
 
-    aiohttp::RouteMatch? m = r.match("POST", "/hello");
+    aio::http::RouteMatch? m = r.match("POST", "/hello");
 
     if (catch err = m)
     {
-        @assert(err == aiohttp::METHOD_NOT_ALLOWED, "method not allowed fault mismatch");
+        @assert(err == aio::http::METHOD_NOT_ALLOWED, "method not allowed fault mismatch");
         return;
     }
 
@@ -357,12 +357,12 @@ fn void test_method_not_allowed()
 
 fn void test_response_invalid_status()
 {
-    aiohttp::Response* res = aiohttp::response_new()!!;
-    defer aiohttp::response_free(res);
+    aio::http::Response* res = aio::http::response_new()!!;
+    defer aio::http::response_free(res);
 
     if (catch err = res.set_status(99))
     {
-        @assert(err == aiohttp::INVALID_STATUS, "invalid status fault mismatch");
+        @assert(err == aio::http::INVALID_STATUS, "invalid status fault mismatch");
         return;
     }
 
@@ -371,90 +371,90 @@ fn void test_response_invalid_status()
 
 fn void test_cookie_build_invalid_name()
 {
-    String? cookie = aiohttp::cookie_build("bad name", "abc");
+    String? cookie = aio::http::cookie_build("bad name", "abc");
 
     if (catch err = cookie)
     {
-        @assert(err == aiohttp::INVALID_COOKIE_NAME, "invalid cookie name fault mismatch");
+        @assert(err == aio::http::INVALID_COOKIE_NAME, "invalid cookie name fault mismatch");
         return;
     }
 
-    aiohttp::localmem.free(cookie);
+    aio::http::localmem.free(cookie);
     @assert(false, "invalid cookie name should fail");
 }
 
 fn void test_cookie_build_invalid_value_semicolon()
 {
-    String? cookie = aiohttp::cookie_build("sid", "abc;def");
+    String? cookie = aio::http::cookie_build("sid", "abc;def");
 
     if (catch err = cookie)
     {
-        @assert(err == aiohttp::INVALID_COOKIE_VALUE, "invalid cookie value fault mismatch");
+        @assert(err == aio::http::INVALID_COOKIE_VALUE, "invalid cookie value fault mismatch");
         return;
     }
 
-    aiohttp::localmem.free(cookie);
+    aio::http::localmem.free(cookie);
     @assert(false, "invalid cookie value should fail");
 }
 
 fn void test_cookie_build_invalid_value_newline()
 {
-    String? cookie = aiohttp::cookie_build("sid", "abc\n");
+    String? cookie = aio::http::cookie_build("sid", "abc\n");
 
     if (catch err = cookie)
     {
-        @assert(err == aiohttp::INVALID_COOKIE_VALUE, "invalid cookie newline fault mismatch");
+        @assert(err == aio::http::INVALID_COOKIE_VALUE, "invalid cookie newline fault mismatch");
         return;
     }
 
-    aiohttp::localmem.free(cookie);
+    aio::http::localmem.free(cookie);
     @assert(false, "invalid cookie newline should fail");
 }
 
 fn void test_cookie_same_site_none_without_secure()
 {
-    aiohttp::CookieOptions opt = aiohttp::cookie_options_default();
+    aio::http::CookieOptions opt = aio::http::cookie_options_default();
     opt.same_site = "None";
     opt.secure = false;
 
-    String? cookie = aiohttp::cookie_build("sid", "abc", &opt);
+    String? cookie = aio::http::cookie_build("sid", "abc", &opt);
 
     if (catch err = cookie)
     {
-        @assert(err == aiohttp::INVALID_COOKIE_OPTION, "SameSite=None without Secure fault mismatch");
+        @assert(err == aio::http::INVALID_COOKIE_OPTION, "SameSite=None without Secure fault mismatch");
         return;
     }
 
-    aiohttp::localmem.free(cookie);
+    aio::http::localmem.free(cookie);
     @assert(false, "SameSite=None without Secure should fail");
 }
 
 fn void test_cookie_same_site_none_with_secure()
 {
-    aiohttp::CookieOptions opt = aiohttp::cookie_options_default();
+    aio::http::CookieOptions opt = aio::http::cookie_options_default();
     opt.same_site = "None";
     opt.secure = true;
 
-    String cookie = aiohttp::cookie_build("sid", "abc", &opt)!!;
-    defer aiohttp::localmem.free(cookie);
+    String cookie = aio::http::cookie_build("sid", "abc", &opt)!!;
+    defer aio::http::localmem.free(cookie);
 
     @assert(cookie == "sid=abc; Path=/; SameSite=None; Secure", "SameSite=None Secure cookie mismatch");
 }
 
 fn void test_cookie_invalid_max_age()
 {
-    aiohttp::CookieOptions opt = aiohttp::cookie_options_default();
+    aio::http::CookieOptions opt = aio::http::cookie_options_default();
     opt.max_age = "abc";
 
-    String? cookie = aiohttp::cookie_build("sid", "abc", &opt);
+    String? cookie = aio::http::cookie_build("sid", "abc", &opt);
 
     if (catch err = cookie)
     {
-        @assert(err == aiohttp::INVALID_COOKIE_OPTION, "invalid max age fault mismatch");
+        @assert(err == aio::http::INVALID_COOKIE_OPTION, "invalid max age fault mismatch");
         return;
     }
 
-    aiohttp::localmem.free(cookie);
+    aio::http::localmem.free(cookie);
     @assert(false, "invalid max age should fail");
 }
 
@@ -468,14 +468,14 @@ fn void test_form_unsupported_type()
         "\r\n"
         "{\"ok\":true}";
 
-    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = aio::http::request_parse(raw)!!;
+    defer aio::http::request_free(req);
 
-    aiohttp::Query? form = req.form_params();
+    aio::http::Query? form = req.form_params();
 
     if (catch err = form)
     {
-        @assert(err == aiohttp::UNSUPPORTED_FORM_TYPE, "unsupported form type fault mismatch");
+        @assert(err == aio::http::UNSUPPORTED_FORM_TYPE, "unsupported form type fault mismatch");
         return;
     }
 
@@ -485,16 +485,16 @@ fn void test_form_unsupported_type()
 
 fn void test_application_bad_request_response()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
-    aiohttp::Response* res = app.fetch_raw((char[])
+    aio::http::Response* res = app.fetch_raw((char[])
         "BAD_REQUEST_LINE\r\n"
         "Host: localhost\r\n"
         "\r\n"
     )!!;
-    defer aiohttp::response_free(res);
+    defer aio::http::response_free(res);
 
     @assert(res.status == 400, "application bad request status mismatch");
     @assert((String)res.body == "400 Bad Request", "application bad request body mismatch");
@@ -502,17 +502,17 @@ fn void test_application_bad_request_response()
 
 fn void test_application_payload_too_large_response()
 {
-    aiohttp::Application app;
+    aio::http::Application app;
     app.init();
     defer app.deinit();
 
-    aiohttp::Response* res = app.fetch_raw((char[])
+    aio::http::Response* res = app.fetch_raw((char[])
         "POST / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Content-Length: 999999999999999999999999999999999999999\r\n"
         "\r\n"
     )!!;
-    defer aiohttp::response_free(res);
+    defer aio::http::response_free(res);
 
     @assert(res.status == 413, "application payload too large status mismatch");
     @assert((String)res.body == "413 Payload Too Large", "application payload too large body mismatch");

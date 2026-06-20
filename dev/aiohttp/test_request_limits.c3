@@ -1,24 +1,24 @@
 // test_request_limits.c3
 
-// Request size/limit tests for ext::aiohttp
+// Request size/limit tests for ext::aio::http
 
 // Nomota <hiongun@gmail.com>; MIT License
 
 module test::request_limits;
 
 import std::io;
-import ext::aiohttp;
+import ext::aio::http;
 import ext::debug;
 
 fn void test_request_line_too_large()
 {
     DString raw;
-    raw.init(aiohttp::localmem, aiohttp::MAX_REQUEST_LINE_LEN + 128);
+    raw.init(aio::http::localmem, aio::http::MAX_REQUEST_LINE_LEN + 128);
     defer raw.free();
 
     raw.append((char[])"GET /");
 
-    for (sz i = 0; i < aiohttp::MAX_REQUEST_LINE_LEN; i++)
+    for (sz i = 0; i < aio::http::MAX_REQUEST_LINE_LEN; i++)
     {
         raw.append((char[])"a");
     }
@@ -27,9 +27,9 @@ fn void test_request_line_too_large()
     raw.append((char[])"Host: localhost\r\n");
     raw.append((char[])"\r\n");
 
-    if (catch err = aiohttp::request_parse(raw.str_view()))
+    if (catch err = aio::http::request_parse(raw.str_view()))
     {
-        @assert(err == aiohttp::BAD_REQUEST, "too large request line fault mismatch");
+        @assert(err == aio::http::BAD_REQUEST, "too large request line fault mismatch");
         return;
     }
 
@@ -39,14 +39,14 @@ fn void test_request_line_too_large()
 fn void test_header_bytes_too_large()
 {
     DString raw;
-    raw.init(aiohttp::localmem, aiohttp::MAX_HEADER_BYTES + 1024);
+    raw.init(aio::http::localmem, aio::http::MAX_HEADER_BYTES + 1024);
     defer raw.free();
 
     raw.append((char[])"GET / HTTP/1.1\r\n");
     raw.append((char[])"Host: localhost\r\n");
     raw.append((char[])"X-Big: ");
 
-    for (sz i = 0; i < aiohttp::MAX_HEADER_BYTES; i++)
+    for (sz i = 0; i < aio::http::MAX_HEADER_BYTES; i++)
     {
         raw.append((char[])"a");
     }
@@ -54,9 +54,9 @@ fn void test_header_bytes_too_large()
     raw.append((char[])"\r\n");
     raw.append((char[])"\r\n");
 
-    if (catch err = aiohttp::request_parse(raw.str_view()))
+    if (catch err = aio::http::request_parse(raw.str_view()))
     {
-        @assert(err == aiohttp::REQUEST_TOO_LARGE, "too large headers fault mismatch");
+        @assert(err == aio::http::REQUEST_TOO_LARGE, "too large headers fault mismatch");
         return;
     }
 
@@ -66,22 +66,22 @@ fn void test_header_bytes_too_large()
 fn void test_body_bytes_too_large_by_content_length()
 {
     DString raw;
-    raw.init(aiohttp::localmem, 256);
+    raw.init(aio::http::localmem, 256);
     defer raw.free();
 
     raw.append((char[])"POST / HTTP/1.1\r\n");
     raw.append((char[])"Host: localhost\r\n");
     raw.append((char[])"Content-Length: ");
 
-    String len = string::tformat("%d", aiohttp::MAX_BODY_BYTES + 1);
+    String len = string::tformat("%d", aio::http::MAX_BODY_BYTES + 1);
     raw.append((char[])len);
 
     raw.append((char[])"\r\n");
     raw.append((char[])"\r\n");
 
-    if (catch err = aiohttp::request_parse(raw.str_view()))
+    if (catch err = aio::http::request_parse(raw.str_view()))
     {
-        @assert(err == aiohttp::REQUEST_TOO_LARGE, "too large body content length fault mismatch");
+        @assert(err == aio::http::REQUEST_TOO_LARGE, "too large body content length fault mismatch");
         return;
     }
 
@@ -96,9 +96,9 @@ fn void test_content_length_overflow()
         "Content-Length: 99999999999999999999999999999999999999999999999999999999\r\n"
         "\r\n";
 
-    if (catch err = aiohttp::request_parse(raw))
+    if (catch err = aio::http::request_parse(raw))
     {
-        @assert(err == aiohttp::REQUEST_TOO_LARGE, "content length overflow fault mismatch");
+        @assert(err == aio::http::REQUEST_TOO_LARGE, "content length overflow fault mismatch");
         return;
     }
 
@@ -113,9 +113,9 @@ fn void test_content_length_not_number()
         "Content-Length: abc\r\n"
         "\r\n";
 
-    if (catch err = aiohttp::request_parse(raw))
+    if (catch err = aio::http::request_parse(raw))
     {
-        @assert(err == aiohttp::BAD_REQUEST, "non-numeric content length fault mismatch");
+        @assert(err == aio::http::BAD_REQUEST, "non-numeric content length fault mismatch");
         return;
     }
 
@@ -131,8 +131,8 @@ fn void test_content_length_with_spaces()
         "\r\n"
         "hello";
 
-    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = aio::http::request_parse(raw)!!;
+    defer aio::http::request_free(req);
 
     @assert(req.content_length()!! == 5, "spaced content length mismatch");
     @assert(req.body.len == 5, "spaced content length body len mismatch");
@@ -148,9 +148,9 @@ fn void test_body_shorter_than_content_length()
         "\r\n"
         "hello";
 
-    if (catch err = aiohttp::request_parse(raw))
+    if (catch err = aio::http::request_parse(raw))
     {
-        @assert(err == aiohttp::BODY_INCOMPLETE, "short body fault mismatch");
+        @assert(err == aio::http::BODY_INCOMPLETE, "short body fault mismatch");
         return;
     }
 
@@ -166,8 +166,8 @@ fn void test_body_longer_than_content_length_allowed()
         "\r\n"
         "hello trailing";
 
-    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = aio::http::request_parse(raw)!!;
+    defer aio::http::request_free(req);
 
     @assert(req.body.len == 5, "body should be clipped to Content-Length");
     @assert((String)req.body == "hello", "body clipped value mismatch");
@@ -179,9 +179,9 @@ fn void test_missing_header_end()
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n";
 
-    if (catch err = aiohttp::request_parse(raw))
+    if (catch err = aio::http::request_parse(raw))
     {
-        @assert(err == aiohttp::BAD_REQUEST, "missing header end fault mismatch");
+        @assert(err == aio::http::BAD_REQUEST, "missing header end fault mismatch");
         return;
     }
 
@@ -194,7 +194,7 @@ fn void test_headers_complete_false_without_end()
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n";
 
-    @assert(!aiohttp::request_headers_complete(raw), "headers should not be complete");
+    @assert(!aio::http::request_headers_complete(raw), "headers should not be complete");
 }
 
 fn void test_headers_complete_crlf()
@@ -204,7 +204,7 @@ fn void test_headers_complete_crlf()
         "Host: localhost\r\n"
         "\r\n";
 
-    @assert(aiohttp::request_headers_complete(raw), "CRLF headers should be complete");
+    @assert(aio::http::request_headers_complete(raw), "CRLF headers should be complete");
 }
 
 fn void test_headers_complete_lf()
@@ -214,7 +214,7 @@ fn void test_headers_complete_lf()
         "Host: localhost\n"
         "\n";
 
-    @assert(aiohttp::request_headers_complete(raw), "LF headers should be complete");
+    @assert(aio::http::request_headers_complete(raw), "LF headers should be complete");
 }
 
 fn void test_expected_total_len_without_header_end()
@@ -223,9 +223,9 @@ fn void test_expected_total_len_without_header_end()
         "POST / HTTP/1.1\r\n"
         "Content-Length: 5\r\n";
 
-    if (catch err = aiohttp::request_expected_total_len(raw))
+    if (catch err = aio::http::request_expected_total_len(raw))
     {
-        @assert(err == aiohttp::BODY_INCOMPLETE, "expected_total_len missing header end fault mismatch");
+        @assert(err == aio::http::BODY_INCOMPLETE, "expected_total_len missing header end fault mismatch");
         return;
     }
 
@@ -239,7 +239,7 @@ fn void test_expected_total_len_get_no_body()
         "Host: localhost\r\n"
         "\r\n";
 
-    sz n = aiohttp::request_expected_total_len(raw)!!;
+    sz n = aio::http::request_expected_total_len(raw)!!;
 
     @assert(n == raw.len, "GET expected total length mismatch");
 }
@@ -259,7 +259,7 @@ fn void test_expected_total_len_post_body()
         "Content-Length: 5\r\n"
         "\r\n".len;
 
-    sz n = aiohttp::request_expected_total_len(raw)!!;
+    sz n = aio::http::request_expected_total_len(raw)!!;
 
     @assert(n == header_len + 5, "POST expected total length mismatch");
 }
@@ -271,7 +271,7 @@ fn void test_message_complete_get()
         "Host: localhost\r\n"
         "\r\n";
 
-    @assert(aiohttp::request_message_complete(raw), "GET message should be complete");
+    @assert(aio::http::request_message_complete(raw), "GET message should be complete");
 }
 
 fn void test_message_complete_post()
@@ -283,7 +283,7 @@ fn void test_message_complete_post()
         "\r\n"
         "hello";
 
-    @assert(aiohttp::request_message_complete(raw), "POST message should be complete");
+    @assert(aio::http::request_message_complete(raw), "POST message should be complete");
 }
 
 fn void test_message_incomplete_post()
@@ -295,7 +295,7 @@ fn void test_message_incomplete_post()
         "\r\n"
         "he";
 
-    @assert(!aiohttp::request_message_complete(raw), "POST message should be incomplete");
+    @assert(!aio::http::request_message_complete(raw), "POST message should be incomplete");
 }
 
 fn void test_header_boundary_exact_small()
@@ -305,8 +305,8 @@ fn void test_header_boundary_exact_small()
         "Host: localhost\r\n"
         "\r\n";
 
-    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = aio::http::request_parse(raw)!!;
+    defer aio::http::request_free(req);
 
     @assert(req.method == "GET", "small header method mismatch");
     @assert(req.path == "/", "small header path mismatch");
@@ -320,8 +320,8 @@ fn void test_empty_content_length_zero()
         "Content-Length: 0\r\n"
         "\r\n";
 
-    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
-    defer aiohttp::request_free(req);
+    aio::http::Request* req = aio::http::request_parse(raw)!!;
+    defer aio::http::request_free(req);
 
     @assert(req.body.len == 0, "zero content length body mismatch");
     @assert(!req.has_body(), "zero content length should not have body");
@@ -335,16 +335,43 @@ fn void test_negative_content_length_rejected()
         "Content-Length: -1\r\n"
         "\r\n";
 
-    if (catch err = aiohttp::request_parse(raw))
+    if (catch err = aio::http::request_parse(raw))
     {
-        @assert(err == aiohttp::BAD_REQUEST, "negative content length fault mismatch");
+        @assert(err == aio::http::BAD_REQUEST, "negative content length fault mismatch");
         return;
     }
 
     @assert(false, "negative content length should fail");
 }
 
-fn void test_multiple_content_length_first_used()
+fn void test_multiple_content_length_same_value_allowed()
+{
+    char[] raw =
+        "POST / HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "Content-Length: 5\r\n"
+        "Content-Length: 5\r\n"
+        "\r\n"
+        "hello trailing";
+
+    aio::http::Request* req = aio::http::request_parse(raw)!!;
+    defer aio::http::request_free(req);
+
+    @assert(
+        req.content_length()!! == 5,
+        "matching Content-Length value mismatch"
+    );
+    @assert(
+        req.body.len == 5,
+        "matching Content-Length body len mismatch"
+    );
+    @assert(
+        (String)req.body == "hello",
+        "matching Content-Length body mismatch"
+    );
+}
+
+fn void test_multiple_content_length_different_values_rejected()
 {
     char[] raw =
         "POST / HTTP/1.1\r\n"
@@ -354,12 +381,19 @@ fn void test_multiple_content_length_first_used()
         "\r\n"
         "hello trailing";
 
-    aiohttp::Request* req = aiohttp::request_parse(raw)!!;
-    defer aiohttp::request_free(req);
+    if (catch err = aio::http::request_parse(raw))
+    {
+        @assert(
+            err == aio::http::BAD_REQUEST,
+            "conflicting Content-Length fault mismatch"
+        );
+        return;
+    }
 
-    @assert(req.content_length()!! == 5, "first Content-Length should be used");
-    @assert(req.body.len == 5, "multiple content length body len mismatch");
-    @assert((String)req.body == "hello", "multiple content length body mismatch");
+    @assert(
+        false,
+        "conflicting Content-Length values should fail"
+    );
 }
 
 fn void main()
@@ -391,7 +425,9 @@ fn void main()
 
     test_header_boundary_exact_small();
     test_empty_content_length_zero();
-    test_multiple_content_length_first_used();
+
+    test_multiple_content_length_same_value_allowed();
+    test_multiple_content_length_different_values_rejected();
 
     io::printfn("test_request_limits: OK");
 }
