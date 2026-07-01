@@ -38,7 +38,7 @@ Back to [ext.c3l](../../README.md).
 
 ## HTTP application
 
-### Create a http application
+### Create an http application
 
 You need to create an application. Depending on where to allocate the application, you use different functions.
 
@@ -56,7 +56,7 @@ fn void? app_task(void* arg) // aio async task
 
     // Register middleware and routes here.
     
-    app.serve("127.0.0.1", 8080)!; // serve forver
+    app.serve("127.0.0.1", 8080)!; // serve forever
 }
 
 fn void main()
@@ -185,7 +185,7 @@ app.options("/api/*", &api_options)!; // register OPTIONS handler, with wildcard
 app.head("/health", &health_head)!; // register HEAD handler, with exact path "/helth"
 ```
 
-Use `app.add("METHOD", "/path"  &handler)!` for another method:
+Use `app.add("METHOD", "/path",  &handler)!` for another method:
 
 ```c3
 app.add("TRACE", "/debug", &trace_handler)!; // register TRACE handler, with exact path "/debug"
@@ -233,7 +233,8 @@ app.get("/users/:id/:name/profile", &show_user)!; // register GET handler, with 
 // ex.
 // GET /users/43/nomota/profile HTTP/1.0
 // 
-// c.get("id") == 43, c.get("name") == nomota
+// c.param("id")! == 43
+// c.param("name")! == nomota
 ```
 
 Read a wildcard path with `c.splat()`:
@@ -270,6 +271,7 @@ fn void main()
 * Note: wildcard must come at the end of the routing path.
 
 ```c3
+// Route registration fails because a wildcard must be the final segment.
 app.get("/assets/*/tail", &handler)!; // Runtime error: returns INVALID_ROUTE_PATH
 ```
 
@@ -293,14 +295,14 @@ fn void? app_task(void* arg)
     app.init();
     defer app.deinit();
 
-    http::Application api; // api sub-part
+    http::Application api; // api child application
     api.init();
     defer api.deinit();
     
     api.get("/users", &list_users)!; // register GET handler to api subpart i.e. "/api-v2/users"
     api.get("/users/:id", &show_user)!; // register GET handler to api subpart i.e. "/api-v2/users/:id"
     
-    app.mount("/api-v2", &api)!; // mount a route api subpart to the main app, under exact path
+    app.mount("/api-v2", &api)!; // mount a route api subpart to the main app, under prefix
     
     app.serve("127.0.0.1", 8080)!;
 }
@@ -361,13 +363,12 @@ fn http::Response*? header_handler(http::Ctx* c) // handler
 {
     String resp_text = ""; 
     
-    String page = "";
-    if (c.has_header("page")) {
-        page = c.req_header("page")!; // read header value from request
+    String? page = c.req_header("page"); // read header value from request
+    if (try page) {
         resp_text = string::tformat("page:%s", page);
     }
     
-    http::Headers* headers = c.req.headers; // member variable
+    http::Headers headers = c.req.headers; // member variable
     for (sz i = 0; i < headers.len(); i++) {
         String name = headers.name_at(i)!;
         String value = headers.value_at(i)!;
@@ -455,6 +456,14 @@ String owned_text = c.req_text_copy()!;
 
 The caller owns copied values and must release them with the allocator used by the application.
 
+```c3 
+char[] owned_bytes = c.req_bytes_copy()!;
+defer http::localmem.free(owned_bytes);
+
+String owned_text = c.req_text_copy()!;
+defer http::localmem.free(owned_text);
+``` 
+
 Content-type helpers include:
 
 ```c3
@@ -480,7 +489,7 @@ fn http::Response*? accept_json(http::Ctx* c)
 
 ### Parse JSON request
 
-JSON parsing uses [`ext::serializer::simdjson`](../serializer/simdjson/README.md). `ext::serializer::simdjson` is 5-times fater than `std::encoding::json`.
+JSON parsing uses [`ext::encoding::simdjson`](../encoding/simdjson/README.md). `ext::encoding::simdjson` is 5-times faster than `std::encoding::json`.
 
 ```c3
 fn http::Response*? parse_document(http::Ctx* c)
@@ -488,7 +497,7 @@ fn http::Response*? parse_document(http::Ctx* c)
     simdjson::ParseResult document = c.req_json()!; // read and parse json from request
 
     // Read fields with the simdjson API.
-    JsonValue root = document.root();
+    simdjson::JsonValue root = document.root();
 
     return c.json("{\"accepted\":true}")!; // json text response
 }
@@ -632,7 +641,7 @@ A middleware receives the current context and a `Next` callback:
 fn http::Response*? add_server_header(http::Ctx* c, http::Next next) // middleware
 {
     http::Response* response = next(c)!;
-    c.header("X-Powered-By", "ext::aio::http")!; // add header to every respone
+    c.header("X-Powered-By", "ext::aio::http")!; // add header to every response
     return response;
 }
 ```
@@ -765,7 +774,7 @@ Handler and middleware faults are routed through the configured error handler. P
 
 ## File and streaming responses
 
-### Send a file
+### Send a file content as a response
 
 ```c3
 fn http::Response*? download(http::Ctx* c)
@@ -774,17 +783,107 @@ fn http::Response*? download(http::Ctx* c)
 }
 ```
 
-Supply a known size when available:
+You may want to supply appropriate header for the file:
 
 ```c3
-return c.file("data/report.pdf", file_size)!;
+fn http::Response*? download_handler(http::Ctx* c)
+{
+    c.header("Content-Disposition", "attachment; filename=\"manual.pdf\"")!; // set response header
+    
+    return c.file("/home/user/private/manual.pdf")!;
+}
 ```
 
-Send a range from a file:
+Send a part range of content from a file:
 
 ```c3
 return c.file_range("data/archive.bin", offset, length)!;
 ```
+
+* Note: here the file path is the underlying server's path, not url path.
+
+`c.file()` receives a server filesystem path and does not represent a URL path.
+
+Do not directly append untrusted request input:
+```c3 
+// Unsafe
+String path = string::tformat("/srv/files/%s", c.query("name")!); // name could be  ../../etc/passwd  
+return c.file(path)!;
+```
+
+Use a fixed allowlist or perform strict path normalization and containment checks.
+
+### Static files 
+
+You can designate a server directory as a static file folder relative to a certain url path.
+
+```c3 
+app.static_files("/", "/home/user/public_html")!;
+```
+
+> **Current limitation:** The static-file root is shared by static routes in the
+> current thread. Registering `static_files()` again with another root replaces
+> the previous root. Place related public directories below one common root.
+
+A typical usage is like this:
+
+```c3
+import std::io;
+import ext::aio;
+import ext::aio::http;
+
+const String PUBLIC_ROOT = "/home/user/myapp/public_html";
+const String PRIVATE_ROOT = "/home/user/myapp/private";
+
+fn http::Response*? download_handler(http::Ctx* c)
+{
+    c.header("Content-Disposition", "attachment; filename=\"manual.pdf\"")!;
+    return c.file(string::tformat("%s/%s", PRIVATE_ROOT, "manual.pdf"))!;
+}
+
+fn void? app_task(void* arg)
+{
+    http::Application app;
+    app.init();
+    defer app.deinit();
+
+    // dynamic file handling
+    app.get("/download/manual", &download_handler);
+
+    // static file handling
+    app.static_files("/", PUBLIC_ROOT)!;
+
+    app.serve("127.0.0.1", 8080)!;
+}
+
+fn void main()
+{
+    aio::run(&app_task)!!;
+}
+```
+
+In this case path mapping is as follows.
+
+```
+GET /index.html
+→ public_html/index.html
+
+GET /css/style.css
+→ public_html/css/style.css
+
+GET /download/manual
+→ private/manual.pdf
+```
+
+The implementation also:
+* Maps an empty relative path to index.html
+* Registers both GET and HEAD routes
+* Rejects path traversal
+* Rejects symbolic-link targets
+* Does not provide directory listing
+* Does not automatically map every nested directory to its index.html
+
+Exact and parameterized routes take precedence over wildcard routes, so a route such as `/download/manual` can coexist with the static `/*`` route.
 
 ### Stream a response
 
@@ -805,6 +904,8 @@ fn http::Response*? stream_log(http::Ctx* c)
 The callback writes directly to the client connection. Any object passed through `arg` must remain valid until streaming finishes.
 
 ## WebSocket upgrade
+
+A WebSocket connection begins as an HTTP/1.1 request. The route handler validates the upgrade request and returns a 101 Switching Protocols response. After the handshake succeeds, the registered WebSocket session callback owns the connection until the callback returns.
 
 Upgrade a valid WebSocket request from a route handler:
 
@@ -828,7 +929,548 @@ An optional read timeout is specified in microseconds:
 return c.upgrade_websocket(&websocket_session, 30_000_000)!;
 ```
 
-## Direct application dispatch
+###  Complete echo server for WebSocket
+
+The following server accepts text and binary messages and sends each message back to the client.
+
+```c3
+import std::io;
+import ext::aio;
+import ext::aio::http;
+
+const String HOST = "127.0.0.1";
+const ushort PORT = 8080;
+const ulong WS_READ_TIMEOUT_US = 30_000_000;
+
+fn void? websocket_session(http::WebSocketConnection* connection)
+{
+    io::printfn("WebSocket connected");
+
+    while (connection.is_open()) {
+        http::WebSocketMessage message = connection.receive()!;
+        defer message.free();
+
+        switch (message.opcode) {
+            case http::WS_TEXT:
+                String text = (String)message.data;
+
+                io::printfn("Text message: %s", text);
+                connection.send_text(text)!;
+
+            case http::WS_BINARY:
+                io::printfn("Binary message: %d bytes", message.data.len);
+                connection.send_binary(message.data)!;
+
+            case http::WS_PING:
+                connection.send_pong(message.data)!;
+
+            case http::WS_PONG:
+                io::printfn("Pong received: %d bytes", message.data.len);
+
+            case http::WS_CLOSE:
+                io::printfn("Close message received");
+                connection.close()!;
+                return;
+
+            default:
+                connection.send_close(1002, "Unsupported WebSocket opcode")!;
+                return;
+        }
+    }
+
+    io::printfn("WebSocket disconnected");
+}
+
+fn http::Response*? websocket_route(http::Ctx* c)
+{
+    return c.upgrade_websocket(&websocket_session, WS_READ_TIMEOUT_US)!;
+}
+
+fn void? app_task(void* arg)
+{
+    http::Application app;
+    app.init();
+    defer app.deinit();
+
+    app.get("/ws", &websocket_route)!;
+
+    io::printfn("Listening on http://%s:%d", HOST, PORT);
+
+    app.serve(HOST, PORT)!;
+}
+
+fn void main()
+{
+    aio::run(&app_task)!!;
+}
+```
+
+### Connection lifecycle
+
+The request initially enters the ordinary HTTP router:
+
+```
+GET /ws
+    -> websocket_route()
+    -> c.upgrade_websocket()
+    -> HTTP 101 Switching Protocols
+    -> websocket_session()
+    -> receive/send loop
+    -> close
+```
+
+The route must match before the WebSocket handshake is attempted.
+
+```c3 
+app.get("/ws", &websocket_route)!;
+```
+
+Therefore:
+
+```
+ws://127.0.0.1:8080/ws
+```
+
+matches the route, while:
+
+```
+ws://127.0.0.1:8080/ws/chat
+```
+does not match unless another route is registered.
+
+For example:
+
+```c3
+app.get("/ws/:room", &websocket_route)!;
+```
+
+or:
+
+```c3 
+app.get("/ws/*", &websocket_route)!;
+```
+
+### Upgrade request requirements
+
+A valid WebSocket client sends an HTTP/1.1 request containing headers similar to:
+
+```
+GET /ws HTTP/1.1
+Host: 127.0.0.1:8080
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Version: 13
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+```
+
+A normal HTTP request is not automatically converted into a WebSocket connection.
+
+For example, this is not a complete WebSocket handshake:
+
+```
+GET /ws HTTP/1.1
+Host: 127.0.0.1:8080
+```
+
+The recommended way to connect is through a WebSocket client library or the browser WebSocket API.
+
+### Receiving messages
+
+Use `connection.receive()` to wait for the next complete WebSocket message:
+
+```c3 
+http::WebSocketMessage message = connection.receive()!;
+defer message.free();
+```
+
+A WebSocketMessage contains:
+
+```c3
+message.opcode
+message.data
+```
+
+`message.opcode` identifies the message type:
+
+```c3 
+http::WS_TEXT
+http::WS_BINARY
+http::WS_PING
+http::WS_PONG
+http::WS_CLOSE
+```
+
+`message.data` contains the message payload.
+
+The `connection` layer performs `WebSocket` frame parsing and message reassembly. `Application` code receives a complete message rather than manually joining continuation frames.
+
+### Message ownership
+
+A message returned by `connection.receive()` owns its payload. Always release it:
+
+```c3 
+http::WebSocketMessage message = connection.receive()!;
+defer message.free();
+```
+
+The following value is valid only until `message.free()`:
+
+```c3 
+String text = (String)message.data;
+```
+
+Do not retain message.data after freeing the message. Copy the payload when it must outlive the current loop iteration.
+
+### Text messages
+
+Text messages contain UTF-8 data.
+
+```c3
+case http::WS_TEXT:
+    String text = (String)message.data;
+
+    io::printfn("Received: %s", text);
+    connection.send_text("Message received")!;
+```
+
+Echo the original text:
+
+```c3 
+connection.send_text((String)message.data)!;
+```
+
+Send JSON as a text message:
+
+```c3
+connection.send_text("{\"type\":\"welcome\",\"message\":\"connected\"}")!;
+```
+
+WebSocket JSON does not require an HTTP Content-Type header. After the upgrade, data is transferred through WebSocket messages rather than HTTP request and response bodies.
+
+### Binary messages
+
+Binary messages may contain arbitrary bytes:
+
+```c3 
+case http::WS_BINARY:
+    io::printfn("Received %d binary bytes", message.data.len);
+    connection.send_binary(message.data)!;
+```
+
+For example:
+
+```c3
+char[4] response = { 0x01, 0x02, 0x03, 0x04 };
+connection.send_binary(response[..])!;
+```
+
+Use text messages for UTF-8 text and JSON. Use binary messages for encoded files, serialized structures, compressed data, or application-specific binary protocols.
+
+### Ping and pong
+
+Ping and pong frames are control messages used to verify that the connection is still responsive.
+
+Reply to a received ping with the same payload:
+
+```c3 
+case http::WS_PING:
+    connection.send_pong(message.data)!;
+``` 
+
+Send a ping from the server:
+
+```c3 
+connection.send_ping((char[])"health-check")!;
+```
+
+A pong may contain the payload from the corresponding ping:
+
+```c3 
+case http::WS_PONG:
+    io::printfn("Pong payload: %s", (String)message.data);
+```
+
+Ping payloads should remain small. They are control-frame payloads, not general application messages.
+
+### Closing a connection
+
+For a normal close:
+
+```c3 
+connection.close()!;
+```
+
+A close message with an explicit status code and reason can be sent with:
+
+```c3 
+connection.send_close(1000, "Normal closure")!;
+```
+
+Common close codes include:
+
+| Code | Meaning |
+|---:|---|
+| `1000` | Normal closure |
+| `1001` | Endpoint is going away |
+| `1002` | Protocol error |
+| `1003` | Unsupported data type |
+| `1007` | Invalid message data |
+| `1008` | Policy violation |
+| `1009` | Message too large |
+| `1011` | Unexpected server error |
+
+When the peer sends a close message, stop the application message loop:
+
+```c3 
+case http::WS_CLOSE:
+    connection.close()!;
+    return;
+```
+
+Use `connection.abort()` only when the connection must be terminated immediately without completing the normal close handshake:
+
+```c3 
+connection.abort();
+```
+
+A normal application shutdown should prefer close().
+
+### Connection state
+
+Check whether the connection may continue processing messages:
+
+```c3 
+if (connection.is_open()) {
+    connection.send_text("still connected")!;
+}
+```
+
+Check whether the close handshake has started:
+
+```c3 
+if (connection.is_closing()) {
+    return;
+}
+```
+
+A common session loop is:
+
+```c3
+while (connection.is_open()) {
+    http::WebSocketMessage message = connection.receive()!;
+    defer message.free();
+
+    // Process the message.
+}
+```
+
+### Read timeout
+
+The timeout passed to `c.upgrade_websocket()` is expressed in microseconds:
+
+```c3 
+return c.upgrade_websocket(&websocket_session, 30_000_000)!;
+```
+
+This example configures a 30-second read timeout.
+
+The timeout applies while waiting for incoming WebSocket data. It is not the total allowed lifetime of the connection. A connection may remain active indefinitely as long as incoming activity satisfies the configured timeout policy.
+
+The timeout can also be inspected or changed through the connection:
+
+```c3 
+ulong current_timeout = connection.get_read_timeout_us();
+
+connection.set_read_timeout_us(60_000_000);
+```
+
+A timeout failure from `connection.receive()` normally ends the session unless the application explicitly handles that fault.
+
+### Handling session errors
+
+The simplest session propagates connection faults:
+
+```c3
+fn void? websocket_session(http::WebSocketConnection* connection)
+{
+    while (connection.is_open()) {
+        http::WebSocketMessage message = connection.receive()!;
+        defer message.free();
+
+        if (message.opcode == http::WS_TEXT) {
+            connection.send_text((String)message.data)!;
+        }
+
+        if (message.opcode == http::WS_CLOSE) {
+            connection.close()!;
+            return;
+        }
+    }
+}
+```
+
+Returning a fault ends that connection's session. It does not normally terminate the entire HTTP server.
+
+For local logging, place the message-processing loop in a separate function:
+
+```c3
+fn void? websocket_message_loop(http::WebSocketConnection* connection)
+{
+    while (connection.is_open()) {
+        http::WebSocketMessage message = connection.receive()!;
+        defer message.free();
+
+        switch (message.opcode) {
+            case http::WS_TEXT:
+                connection.send_text((String)message.data)!;
+
+            case http::WS_BINARY:
+                connection.send_binary(message.data)!;
+
+            case http::WS_PING:
+                connection.send_pong(message.data)!;
+
+            case http::WS_CLOSE:
+                connection.close()!;
+                return;
+
+            default:
+        }
+    }
+}
+
+fn void? websocket_session(http::WebSocketConnection* connection)
+{
+    if (catch err = websocket_message_loop(connection)) {
+        io::printfn("WebSocket session failed: %s", err);
+        connection.abort();
+    }
+}
+```
+
+### Authentication before upgrade
+
+Authentication must be performed while the request is still an HTTP request.
+
+```c3 
+fn http::Response*? websocket_route(http::Ctx* c)
+{
+    String? authorization = c.req_header("Authorization");
+
+    if (catch err = authorization) {
+        c.status(401)!;
+        return c.text("Authorization required")!;
+    }
+
+    if (authorization != "Bearer example-token") {
+        c.status(403)!;
+        return c.text("Forbidden")!;
+    }
+
+    return c.upgrade_websocket(&websocket_session)!;
+}
+```
+
+After `c.upgrade_websocket()` succeeds, the connection is no longer an ordinary HTTP request-response exchange.
+
+Authentication may also be implemented as path middleware:
+
+```
+app.use_path("/ws", &authenticate_websocket)!; // register middleware
+app.get("/ws", &websocket_route)!; // register GET handler
+```
+
+### Browser client example
+
+The server can be tested from a browser:
+
+```html 
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>WebSocket test</title>
+</head>
+<body>
+    <button id="connect">Connect</button>
+    <button id="send">Send</button>
+    <button id="close">Close</button>
+
+    <pre id="log"></pre>
+
+    <script>
+        let socket = null;
+
+        const log = (message) => {
+            document.getElementById("log").textContent += message + "\n";
+        };
+
+        document.getElementById("connect").onclick = () => {
+            socket = new WebSocket("ws://127.0.0.1:8080/ws");
+            socket.binaryType = "arraybuffer";
+
+            socket.onopen = () => {
+                log("connected");
+            };
+
+            socket.onmessage = (event) => {
+                if (typeof event.data === "string") {
+                    log("text: " + event.data);
+                } else {
+                    log("binary: " + event.data.byteLength + " bytes");
+                }
+            };
+
+            socket.onclose = (event) => {
+                log("closed: code=" + event.code + " reason=" + event.reason);
+            };
+
+            socket.onerror = () => {
+                log("WebSocket error");
+            };
+        };
+
+        document.getElementById("send").onclick = () => {
+            if (socket !== null && socket.readyState === WebSocket.OPEN) {
+                socket.send("Hello from the browser");
+            }
+        };
+
+        document.getElementById("close").onclick = () => {
+            if (socket !== null) {
+                socket.close(1000, "Client finished");
+            }
+        };
+    </script>
+</body>
+</html>
+```
+
+Opening this page and pressing Connect creates a WebSocket connection to:
+
+```
+ws://127.0.0.1:8080/ws
+``` 
+
+Pressing Send transmits a text message. The echo server returns the same message.
+
+### Practical rules
+
+Do not retain `Ctx*` inside the WebSocket session. The HTTP context belongs to the upgrade request, while the `WebSocketConnection*` represents the long-lived upgraded connection.
+
+Free every received WebSocketMessage.
+
+Do not perform blocking operating-system calls inside the session callback. `connection.receive()` and the connection send methods cooperate with the `ext::aio` event loop.
+
+Avoid concurrent writes from several tasks to the same connection unless writes are explicitly serialized. A single writer per connection is the simplest design.
+
+Use a bounded message size and an appropriate read timeout for public servers.
+
+Validate authentication and request headers before calling `c.upgrade_websocket()`.
+
+Use `connection.close()` for normal termination and `connection.abort()` only for unrecoverable connection failures.
+
+## Direct application dispatch (for debugging/testing)
 
 `Application.fetch()` is useful for tests, adapters, and embedded use with an already parsed request:
 
@@ -849,7 +1491,9 @@ Use the project server integration to accept network connections and dispatch re
 
 # HTTP client
 
-`ext::aio::request` supports one-off requests and persistent `Session` objects. Request operations must run inside an `ext::aio` task and event-loop context.
+`ext::aio::request` supports one-off requests and reusable `Session` objects. Request operations must run inside an `ext::aio` task and event-loop context.
+
+A Session currently reuses cookies and configuration. It does not necessarily mean a persistent TCP connection or HTTP keep-alive pool.
 
 ## One-off requests
 
@@ -857,13 +1501,18 @@ Use the project server integration to accept network connections and dispatch re
 import std::io;
 import ext::aio::request;
 
-fn void? fetch_example()
+fn void? fetch_example(void* arg) // async task
 {
     request::Response response = request::get("http://example.com/")!;
     defer response.free();
 
     io::printfn("status: %d", response.status);
     io::printfn("body: %s", response.text());
+}
+
+fn void main()
+{
+    aio::run(&fetch_example)!!;
 }
 ```
 
@@ -969,6 +1618,15 @@ A zero value uses the session timeout.
 
 A session retains cookies received through `Set-Cookie` and shares limits and redirect settings across requests:
 
+The current session cookie store is a simple name/value store. It does not
+implement full browser cookie-domain, path, expiry, or security-attribute
+matching. Use a session only with trusted, related endpoints.
+
+This is especially important because a single session used across unrelated hosts could send stored cookies more broadly than expected.
+
+Avoid automatically following redirects to untrusted hosts when the request
+contains authentication credentials or session cookies.
+
 ```c3
 request::Session session;
 session.init();
@@ -1065,9 +1723,18 @@ request::Response response = request::get(url)!;
 Handle an expected failure directly:
 
 ```c3
-if (catch err = request::get(url)) {
-    io::printfn("request failed: %s", err);
-    return err?;
+fn void? fetch_url(String url)
+{
+    request::Response? result = request::get(url);
+    if (catch err = result) {
+        io::printfn("request failed: %s", err);
+        return err~;
+    }
+
+    request::Response response = result;
+    defer response.free();
+
+    io::printfn("status: %d", response.status);
 }
 ```
 

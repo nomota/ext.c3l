@@ -11,7 +11,7 @@ WEPOLL = $(EXT)/wepoll/*.c3
 MIO = $(EXT)/mio/*.c3
 AIO = $(EXT)/aio/*.c3
 ENCODING = $(EXT)/encoding/*.c3
-AIOHTTP = helpers.c3 headers.c3 response.c3 request.c3 url.c3 params.c3 router.c3 context.c3 cookies.c3 form.c3 body.c3 middleware.c3 cors.c3 application.c3 server.c3 static.c3 chunked.c3 multipart.c3 errhandler.c3 request_id.c3 body_limit.c3 recover.c3 timeout.c3 compress.c3 range.c3 trusted_proxy.c3 ws_handshake.c3 ws_frame.c3 ws_connection.c3 websocket.c3 client.c3
+AIOHTTP = $(EXT)/aiohttp/*.c3
 
 LIBS = $(AIO) $(MIO) $(WEPOLL) $(FIBER) $(IO) $(MEM) $(LIBC) $(ENCODING) $(AIOHTTP)
 
