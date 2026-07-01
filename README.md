@@ -209,6 +209,7 @@ It is built on top of the [fiber](../fiber/README.md) coroutine module.
 | `ext::encoding::http` | HTTP/1.x parser: `Request`, `Response`, `Url`, `SetCookie`, `FormFile`, `KeyValue`, `parse_request()`, `parse_response()`, decode helpers |
 | `ext::encoding::simdjson` | SIMD JSON parser: `ParseResult`, `JsonValue`, `TapeEntry`, `TapeType`, `parse()`, `dump_tape()` |
 
+* [ext/encoding](ext/encoding)
 * More about [Encode/decoders](ext/encoding/README.md)
 
 ### wepoll (epoll for Windows)
@@ -222,6 +223,7 @@ It is built on top of the [fiber](../fiber/README.md) coroutine module.
 | polls | `EPOLLIN`, `EPOLLOUT` |
 | events | `EPOLLERR`, `EPOLLHUP`, `EPOLLRDHUP`, `EPOLLONESHOT` |
 
+* [ext/wepoll](ext/wepoll)
 * More about [`c::wepoll`](ext/wepoll/README.md)
 
 ### ext::mio (Minimal async I/O)
@@ -237,6 +239,7 @@ It is intended to be a low-level building block for event loops, async runtimes,
 | sockets | TcpListener, TcpStream, UdpSocket |
 | primitive non-blocking operation | tcp_socket_fd(), socket_bind_fd(), tcp_listen_fd(), tcp_connect_fd(), tcp_accept_fd(), tcp_read_fd(), tcp_write_fd(), udp_socket_fd(), udp_recvfrom_fd(), udp_sendto_fd(), socket_close_fd(), socket_family_fd(), peer_addr_fd() |
 
+* [ext/mio](ext/mio)
 * More about [`ext::mio`](ext/mio/README.md)
 
 ## ext::aio::http and ext::aio::request
@@ -253,19 +256,10 @@ Asynchronous HTTP server-side application and client libraries for C3.
 | `ext::aio::http` | Build HTTP applications, register routes and middleware, read requests, and create responses |
 | `ext::aio::request` | Send asynchronous outbound HTTP requests |
 
+* [ext/aiohttp](ext/aiohttp)
 * More about [`ext::aio::http` and `ext::aio::request`](ext/aiohttp/README.md)
 
 
-## Usage by test
-
-* [test/hash](test/hash)
-* [test/regex](test/regex)
-* [test/io](test/io)
-* [test/net](test/net)
-* [test/fiber](test/fiber)
-* [test/asyncio](test/asyncio)
-* [test/aiofiles](test/aiofiles)
-* [test/serializer](example/serializer)
 
 
 ## Platform Support
