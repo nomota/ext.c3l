@@ -239,6 +239,23 @@ It is intended to be a low-level building block for event loops, async runtimes,
 
 * More about [`ext::mio`](ext/mio/README.md)
 
+## ext::aio::http and ext::aio::request
+
+Asynchronous HTTP server-side application and client libraries for C3.
+
+- `ext::aio::http` provides routing, middleware, request and response helpers, cookies, CORS, compression, body limits, file responses, streaming, JSON parsing, and WebSocket upgrades.
+- `ext::aio::request` provides an asynchronous HTTP client with sessions, cookies, redirects, query parameters, headers, authentication, request bodies, and response helpers.
+
+### Module overview
+
+| Module | Purpose |
+|---|---|
+| `ext::aio::http` | Build HTTP applications, register routes and middleware, read requests, and create responses |
+| `ext::aio::request` | Send asynchronous outbound HTTP requests |
+
+* More about [`ext::aio::http` and `ext::aio::request`](ext/aiohttp/README.md)
+
+
 ## Usage by test
 
 * [test/hash](test/hash)
