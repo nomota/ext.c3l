@@ -19,7 +19,7 @@ faultdef INVALID_FORM_ENCODING;
 
 fn bool content_type_matches(String value, String media_type)
 {
-    value = trim_spaces(value);
+    value = value.trim();
 
     if (value.len < media_type.len) return false;
     if (!str_iequals(value[0:media_type.len], media_type)) return false;
@@ -55,23 +55,8 @@ fn bool Context.is_form_urlencoded(&self)
 
 // Form decode helpers
 
-fn bool form_hex(char c) @inline @local
-{
-    if (c >= '0' && c <= '9') return true;
-    if (c >= 'a' && c <= 'f') return true;
-    if (c >= 'A' && c <= 'F') return true;
-    return false;
-}
 
-fn char form_hex_value(char c) @local
-{
-    if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-    return 0;
-}
-
-fn String? form_decode_component(String s)
+fn String? decode_component(String s) @local
 {
     DString out;
     out.init(localmem, s.len);
@@ -105,12 +90,12 @@ fn String? form_decode_component(String s)
         char hi = s[i + 1];
         char lo = s[i + 2];
 
-        if (!form_hex(hi) || !form_hex(lo))
+        if (!is_hex(hi) || !is_hex(lo))
         {
             return INVALID_FORM_ENCODING~;
         }
 
-        one[0] = (form_hex_value(hi) << 4) | form_hex_value(lo);
+        one[0] = (hex_value(hi) << 4) | hex_value(lo);
         out.append(one[..]);
 
         i += 2;
@@ -119,7 +104,7 @@ fn String? form_decode_component(String s)
     return out.copy_str(localmem);
 }
 
-fn void? form_parse_pair(Query* form, String pair) @local
+fn void? parse_pair(Query* form, String pair) @local
 {
     if (form == null) return INVALID_FORM_ENCODING~;
 
@@ -148,16 +133,16 @@ fn void? form_parse_pair(Query* form, String pair) @local
         raw_value = pair[eq + 1..];
     }
 
-    String name = form_decode_component(raw_name)!;
+    String name = decode_component(raw_name)!;
     defer localmem.free(name);
 
-    String value = form_decode_component(raw_value)!;
+    String value = decode_component(raw_value)!;
     defer localmem.free(value);
 
     form.add(name, value)!;
 }
 
-fn void? form_parse_urlencoded(Query* form, String body)
+fn void? parse_urlencoded(Query* form, String body)
 {
     if (form == null) return INVALID_FORM_ENCODING~;
     if (body.len == 0) return;
@@ -185,7 +170,7 @@ fn void? form_parse_urlencoded(Query* form, String body)
 
             if (pair.len > 0)
             {
-                form_parse_pair(form, pair)!;
+                parse_pair(form, pair)!;
             }
 
             return;
@@ -195,7 +180,7 @@ fn void? form_parse_urlencoded(Query* form, String body)
 
         if (pair.len > 0)
         {
-            form_parse_pair(form, pair)!;
+            parse_pair(form, pair)!;
         }
 
         start = amp + 1;
@@ -221,7 +206,7 @@ fn Query? Request.form_params(&self)
 
     String body = (String)self.body;
 
-    if (catch err = form_parse_urlencoded(&form, body))
+    if (catch err = parse_urlencoded(&form, body))
     {
         form.free();
         return err~;
@@ -268,7 +253,7 @@ fn void? Context.ensure_form_cache(&self)
 
     String body = (String)self.req.body;
 
-    if (catch err = form_parse_urlencoded(&self.form_cache, body))
+    if (catch err = parse_urlencoded(&self.form_cache, body))
     {
         self.form_cache.clear();
         return err~;

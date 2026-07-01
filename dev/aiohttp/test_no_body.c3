@@ -55,7 +55,7 @@ fn sz? header_only_expected_len(String response)
 
     if (header_end < 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     return header_end + 4;
@@ -74,11 +74,11 @@ fn void? ResponseReader.init(
 {
     if (stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     self.stream = stream;
-    self.buffer.init(aio::http::localmem, 4096);
+    self.buffer.init(http::localmem, 4096);
 }
 
 fn void ResponseReader.free(&self)
@@ -104,7 +104,7 @@ fn String? ResponseReader.read_header_only_response(&self)
 {
     if (self.stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     while (true)
@@ -120,7 +120,7 @@ fn String? ResponseReader.read_header_only_response(&self)
             {
                 String response =
                     text[0:expected_total].copy(
-                        aio::http::localmem
+                        http::localmem
                     );
 
                 self.consume(expected_total);
@@ -131,7 +131,7 @@ fn String? ResponseReader.read_header_only_response(&self)
 
         if (self.buffer.len() >= MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         char[1024] tmp;
@@ -157,7 +157,7 @@ fn String? ResponseReader.read_header_only_response(&self)
 
         if (self.buffer.len() + n > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         self.buffer.append(tmp[0:n]);
@@ -166,28 +166,28 @@ fn String? ResponseReader.read_header_only_response(&self)
     if (self.buffer.len() > 0)
     {
         String response =
-            self.buffer.str_view().copy(aio::http::localmem);
+            self.buffer.str_view().copy(http::localmem);
 
         self.buffer.clear();
 
         return response;
     }
 
-    return aio::http::BODY_INCOMPLETE~;
+    return http::BODY_INCOMPLETE~;
 }
 
 fn String? ResponseReader.read_until_close(&self)
 {
     if (self.stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     while (true)
     {
         if (self.buffer.len() >= MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         char[1024] tmp;
@@ -213,7 +213,7 @@ fn String? ResponseReader.read_until_close(&self)
 
         if (self.buffer.len() + n > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         self.buffer.append(tmp[0:n]);
@@ -221,21 +221,21 @@ fn String? ResponseReader.read_until_close(&self)
 
     if (self.buffer.len() == 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
-    return self.buffer.copy_str(aio::http::localmem);
+    return self.buffer.copy_str(http::localmem);
 }
 
-fn aio::http::Response*? get_handler(
-    aio::http::Context* c
+fn http::Response*? get_handler(
+    http::Context* c
 )
 {
     return c.text("hello")!;
 }
 
-fn aio::http::Response*? no_content_handler(
-    aio::http::Context* c
+fn http::Response*? no_content_handler(
+    http::Context* c
 )
 {
     c.status(204)!;
@@ -243,8 +243,8 @@ fn aio::http::Response*? no_content_handler(
     return c.text("should-not-send")!;
 }
 
-fn aio::http::Response*? not_modified_handler(
-    aio::http::Context* c
+fn http::Response*? not_modified_handler(
+    http::Context* c
 )
 {
     c.status(304)!;
@@ -252,7 +252,7 @@ fn aio::http::Response*? not_modified_handler(
     return c.text("should-not-send")!;
 }
 
-fn void setup_app(aio::http::Application* app)
+fn void setup_app(http::Application* app)
 {
     app.init();
 
@@ -263,12 +263,12 @@ fn void setup_app(aio::http::Application* app)
 
 fn void? server_task(void* arg)
 {
-    aio::http::ApplicationServer* server =
-        (aio::http::ApplicationServer*)arg;
+    http::ApplicationServer* server =
+        (http::ApplicationServer*)arg;
 
     if (server == null)
     {
-        return aio::http::HTTP_SERVER_CLOSED~;
+        return http::SERVER_CLOSED~;
     }
 
     server.serve()!;
@@ -345,7 +345,7 @@ fn void test_head_200_no_body()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -373,7 +373,7 @@ fn void test_head_404_no_body()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -395,7 +395,7 @@ fn void test_head_get_fallback_204_no_body()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -423,7 +423,7 @@ fn void test_204_no_body_even_if_handler_sets_body()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -456,7 +456,7 @@ fn void test_304_no_body_even_if_handler_sets_body()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -483,16 +483,16 @@ fn void test_304_no_body_even_if_handler_sets_body()
 
 fn void test_fetch_raw_204_status()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = app.fetch_raw((char[])
+    http::Response* res = app.fetch_raw((char[])
         "GET /no-content HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     )!!;
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(
         res.status == 204,
@@ -500,7 +500,7 @@ fn void test_fetch_raw_204_status()
     );
 
     @assert(
-        res.body_kind == aio::http::BodyKind.BODY_BYTES,
+        res.body_kind == http::BodyKind.BODY_BYTES,
         "fetch 204 body kind mismatch"
     );
 
@@ -512,16 +512,16 @@ fn void test_fetch_raw_204_status()
 
 fn void test_fetch_raw_304_status()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = app.fetch_raw((char[])
+    http::Response* res = app.fetch_raw((char[])
         "GET /not-modified HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     )!!;
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(
         res.status == 304,
@@ -529,7 +529,7 @@ fn void test_fetch_raw_304_status()
     );
 
     @assert(
-        res.body_kind == aio::http::BodyKind.BODY_BYTES,
+        res.body_kind == http::BodyKind.BODY_BYTES,
         "fetch 304 body kind mismatch"
     );
 
@@ -541,11 +541,11 @@ fn void test_fetch_raw_304_status()
 
 fn void? main_task(void* arg)
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::ApplicationServer server;
+    http::ApplicationServer server;
     server.init(&app, HOST, PORT);
     defer server.free();
 

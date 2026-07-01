@@ -58,24 +58,24 @@ fn sz? response_content_length(String header_block)
         String name = line[0:colon];
         String value = line[colon + 1..].trim();
 
-        if (!aio::http::str_iequals(name, "Content-Length"))
+        if (!http::str_iequals(name, "Content-Length"))
         {
             continue;
         }
 
         sz content_length = value.to_long()!;
-        if (content_length < 0) return aio::http::BAD_REQUEST~;
+        if (content_length < 0) return http::BAD_REQUEST~;
 
         return content_length;
     }
 
-    return aio::http::NOT_FOUND~;
+    return http::NOT_FOUND~;
 }
 
 fn sz? response_expected_total_len(String response)
 {
     sz header_end = response.index_of("\r\n\r\n") ?? -1;
-    if (header_end < 0) return aio::http::BODY_INCOMPLETE~;
+    if (header_end < 0) return http::BODY_INCOMPLETE~;
 
     String header_block = response[0:header_end];
 
@@ -84,14 +84,14 @@ fn sz? response_expected_total_len(String response)
 
     if (content_length > MAX_RESPONSE_BYTES)
     {
-        return aio::http::REQUEST_TOO_LARGE~;
+        return http::REQUEST_TOO_LARGE~;
     }
 
     sz total = header_end + 4 + content_length;
 
     if (total < header_end)
     {
-        return aio::http::REQUEST_TOO_LARGE~;
+        return http::REQUEST_TOO_LARGE~;
     }
 
     return total;
@@ -99,10 +99,10 @@ fn sz? response_expected_total_len(String response)
 
 fn String? read_response(aio::Stream* stream)
 {
-    if (stream == null) return aio::http::BAD_REQUEST~;
+    if (stream == null) return http::BAD_REQUEST~;
 
     DString buf;
-    buf.init(aio::http::localmem, 4096);
+    buf.init(http::localmem, 4096);
     defer buf.free();
 
     sz expected = -1;
@@ -118,7 +118,7 @@ fn String? read_response(aio::Stream* stream)
 
         if (buf.len() > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         String response = buf.str_view();
@@ -134,7 +134,7 @@ fn String? read_response(aio::Stream* stream)
 
                 if (expected > MAX_RESPONSE_BYTES)
                 {
-                    return aio::http::REQUEST_TOO_LARGE~;
+                    return http::REQUEST_TOO_LARGE~;
                 }
             }
         }
@@ -142,23 +142,23 @@ fn String? read_response(aio::Stream* stream)
         if (expected >= 0 && buf.len() >= expected)
         {
             return response[0:expected].copy(
-                aio::http::localmem
+                http::localmem
             );
         }
     }
 
     if (expected < 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     if (buf.len() < expected)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     return buf.str_view()[0:expected].copy(
-        aio::http::localmem
+        http::localmem
     );
 }
 
@@ -177,31 +177,31 @@ fn String? request_once(String request)
     return response;
 }
 
-fn aio::http::Response*? home_handler(aio::http::Context* c)
+fn http::Response*? home_handler(http::Context* c)
 {
     return c.text("home")!!;
 }
 
-fn aio::http::Response*? id_handler(aio::http::Context* c)
+fn http::Response*? id_handler(http::Context* c)
 {
     String id = c.param("id")!!;
 
     return c.text(id)!!;
 }
 
-fn aio::http::Response*? echo_handler(aio::http::Context* c)
+fn http::Response*? echo_handler(http::Context* c)
 {
     return c.text(c.req_text())!!;
 }
 
-fn aio::http::Response*? slow_handler(aio::http::Context* c)
+fn http::Response*? slow_handler(http::Context* c)
 {
     aio::sleep(100)!;
 
     return c.text("slow")!!;
 }
 
-fn void setup_app(aio::http::Application* app)
+fn void setup_app(http::Application* app)
 {
     app.init();
 
@@ -213,8 +213,8 @@ fn void setup_app(aio::http::Application* app)
 
 fn void? server_task(void* arg)
 {
-    aio::http::Application* app =
-        (aio::http::Application*)arg;
+    http::Application* app =
+        (http::Application*)arg;
 
     app.serve(HOST, PORT)!;
 }
@@ -222,7 +222,7 @@ fn void? server_task(void* arg)
 fn void? run_client_case(ClientCase* tc)
 {
     String response = request_once(tc.request)!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     if (!response.contains("HTTP/1.1 200 OK\r\n"))
     {
@@ -232,7 +232,7 @@ fn void? run_client_case(ClientCase* tc)
             response
         );
 
-        return aio::http::BAD_REQUEST~;
+        return http::BAD_REQUEST~;
     }
 
     if (!response.contains(tc.expected_body))
@@ -244,7 +244,7 @@ fn void? run_client_case(ClientCase* tc)
             response
         );
 
-        return aio::http::BAD_REQUEST~;
+        return http::BAD_REQUEST~;
     }
 }
 
@@ -353,7 +353,7 @@ fn void test_http11_default_keep_alive_header()
         "Host: localhost\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 200 OK\r\n"),
@@ -381,7 +381,7 @@ fn void test_http11_connection_close_header()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 200 OK\r\n"),
@@ -406,7 +406,7 @@ fn void test_http10_default_close_header()
         "Host: localhost\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 200 OK\r\n"),
@@ -432,7 +432,7 @@ fn void test_http10_keep_alive_request_header()
         "Connection: keep-alive\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 200 OK\r\n"),
@@ -461,7 +461,7 @@ fn void test_post_concurrent_path_still_works()
         "\r\n"
         "hello"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 200 OK\r\n"),
@@ -500,7 +500,7 @@ fn void? wait_server_ready()
 
 fn void? main_task(void* arg)
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 

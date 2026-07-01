@@ -23,16 +23,16 @@ fn bool contains(char[] haystack, char[] needle)
     return false;
 }
 
-fn aio::http::Request* parse_request(char[] raw)
+fn http::Request* parse_request(char[] raw)
 {
-    aio::http::Request* req = aio::http::request_parse(raw)!!;
+    http::Request* req = http::request_parse(raw)!!;
     return req;
 }
 
 fn void test_request_buffer_init_append()
 {
     DString buf;
-    buf.init(aio::http::localmem, 8);
+    buf.init(http::localmem, 8);
     defer buf.free();
 
     buf.append((char[])"GET ");
@@ -45,7 +45,7 @@ fn void test_request_buffer_init_append()
 fn void test_request_buffer_grows()
 {
     DString buf;
-    buf.init(aio::http::localmem, 4);
+    buf.init(http::localmem, 4);
     defer buf.free();
 
     buf.append((char[])"1234");
@@ -58,7 +58,7 @@ fn void test_request_buffer_grows()
 fn void test_request_buffer_empty_views()
 {
     DString buf;
-    buf.init(aio::http::localmem, 8);
+    buf.init(http::localmem, 8);
     defer buf.free();
 
     @assert(buf.len() == 0, "empty buffer len mismatch");
@@ -73,10 +73,10 @@ fn void test_request_wants_close_http10_default()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    @assert(aio::http::request_wants_close(req), "HTTP/1.0 should close by default");
+    @assert(http::request_wants_close(req), "HTTP/1.0 should close by default");
 }
 
 fn void test_request_wants_close_http10_keep_alive()
@@ -87,10 +87,10 @@ fn void test_request_wants_close_http10_keep_alive()
         "Connection: keep-alive\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    @assert(!aio::http::request_wants_close(req), "HTTP/1.0 keep-alive should not close");
+    @assert(!http::request_wants_close(req), "HTTP/1.0 keep-alive should not close");
 }
 
 fn void test_request_wants_close_http11_default()
@@ -100,10 +100,10 @@ fn void test_request_wants_close_http11_default()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    @assert(!aio::http::request_wants_close(req), "HTTP/1.1 should keep alive by default");
+    @assert(!http::request_wants_close(req), "HTTP/1.1 should keep alive by default");
 }
 
 fn void test_request_wants_close_http11_close()
@@ -114,10 +114,10 @@ fn void test_request_wants_close_http11_close()
         "Connection: close\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    @assert(aio::http::request_wants_close(req), "HTTP/1.1 Connection: close mismatch");
+    @assert(http::request_wants_close(req), "HTTP/1.1 Connection: close mismatch");
 }
 
 fn void test_response_apply_connection_http11()
@@ -127,13 +127,13 @@ fn void test_response_apply_connection_http11()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Response* res = aio::http::response_text("ok")!!;
-    defer aio::http::response_free(res);
+    http::Response* res = http::response_text("ok")!!;
+    defer http::response_free(res);
 
-    aio::http::response_apply_connection(res, req);
+    http::response_apply_connection(res, req);
 
     String conn = res.headers.get("Connection")!!;
     @assert(conn == "keep-alive", "HTTP/1.1 response connection mismatch");
@@ -147,13 +147,13 @@ fn void test_response_apply_connection_http11_close()
         "Connection: close\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Response* res = aio::http::response_text("ok")!!;
-    defer aio::http::response_free(res);
+    http::Response* res = http::response_text("ok")!!;
+    defer http::response_free(res);
 
-    aio::http::response_apply_connection(res, req);
+    http::response_apply_connection(res, req);
 
     String conn = res.headers.get("Connection")!!;
     @assert(conn == "close", "HTTP/1.1 close response connection mismatch");
@@ -167,13 +167,13 @@ fn void test_response_apply_connection_http10_keep_alive()
         "Connection: keep-alive\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Response* res = aio::http::response_text("ok")!!;
-    defer aio::http::response_free(res);
+    http::Response* res = http::response_text("ok")!!;
+    defer http::response_free(res);
 
-    aio::http::response_apply_connection(res, req);
+    http::response_apply_connection(res, req);
 
     String conn = res.headers.get("Connection")!!;
     @assert(conn == "close", "HTTP/1.0 response connection mismatch");
@@ -181,11 +181,11 @@ fn void test_response_apply_connection_http10_keep_alive()
 
 fn void test_application_server_lifecycle()
 {
-    aio::http::Application app;
+    http::Application app;
     app.init();
     defer app.deinit();
 
-    aio::http::ApplicationServer server;
+    http::ApplicationServer server;
     server.init(&app, "127.0.0.1", 18080);
     defer server.free();
 
@@ -196,29 +196,29 @@ fn void test_application_server_lifecycle()
     @assert(!server.closed, "server closed mismatch");
 }
 
-fn void test_http_server_new_free()
+fn void test_app_server_new_free()
 {
-    aio::http::Application app;
+    http::Application app;
     app.init();
     defer app.deinit();
 
-    aio::http::ApplicationServer* server = aio::http::http_server_new(&app, "127.0.0.1", 18081)!!;
-    defer aio::http::http_server_free(server);
+    http::ApplicationServer* server = http::app_server_new(&app, "127.0.0.1", 18081)!!;
+    defer http::app_server_free(server);
 
-    @assert(server.app == &app, "http_server_new app mismatch");
-    @assert(server.host == "127.0.0.1", "http_server_new host mismatch");
-    @assert(server.port == 18081, "http_server_new port mismatch");
-    @assert(!server.closed, "http_server_new closed mismatch");
+    @assert(server.app == &app, "app_server_new app mismatch");
+    @assert(server.host == "127.0.0.1", "app_server_new host mismatch");
+    @assert(server.port == 18081, "app_server_new port mismatch");
+    @assert(!server.closed, "app_server_new closed mismatch");
 }
 
-fn aio::http::Response*? home_handler(aio::http::Context* c)
+fn http::Response*? home_handler(http::Context* c)
 {
     return c.text("home")!!;
 }
 
 fn void test_fetch_then_connection_policy()
 {
-    aio::http::Application app;
+    http::Application app;
     app.init();
     defer app.deinit();
 
@@ -229,16 +229,16 @@ fn void test_fetch_then_connection_policy()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Response* res = app.fetch(req)!!;
-    defer aio::http::response_free(res);
+    http::Response* res = app.fetch(req)!!;
+    defer http::response_free(res);
 
-    aio::http::response_apply_connection(res, req);
+    http::response_apply_connection(res, req);
 
     String wire = res.serialize()!!;
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(contains(wire, "HTTP/1.1 200 OK\r\n"), "fetch status missing");
     @assert(contains(wire, "Connection: keep-alive\r\n"), "connection keep-alive missing");
@@ -247,7 +247,7 @@ fn void test_fetch_then_connection_policy()
 
 fn void test_fetch_close_request()
 {
-    aio::http::Application app;
+    http::Application app;
     app.init();
     defer app.deinit();
 
@@ -259,16 +259,16 @@ fn void test_fetch_close_request()
         "Connection: close\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Response* res = app.fetch(req)!!;
-    defer aio::http::response_free(res);
+    http::Response* res = app.fetch(req)!!;
+    defer http::response_free(res);
 
-    aio::http::response_apply_connection(res, req);
+    http::response_apply_connection(res, req);
 
     String wire = res.serialize()!!;
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(contains(wire, "Connection: close\r\n"), "connection close missing");
     @assert(contains(wire, "\r\n\r\nhome"), "close request body missing");
@@ -276,11 +276,11 @@ fn void test_fetch_close_request()
 
 fn void test_application_server_close_idempotent()
 {
-    aio::http::Application app;
+    http::Application app;
     app.init();
     defer app.deinit();
 
-    aio::http::ApplicationServer server;
+    http::ApplicationServer server;
     server.init(&app, "127.0.0.1", 18090);
     defer server.free();
 
@@ -291,11 +291,11 @@ fn void test_application_server_close_idempotent()
 
 fn void test_application_server_wait_closed_idempotent()
 {
-    aio::http::Application app;
+    http::Application app;
     app.init();
     defer app.deinit();
 
-    aio::http::ApplicationServer server;
+    http::ApplicationServer server;
     server.init(&app, "127.0.0.1", 18091);
     defer server.free();
 
@@ -320,7 +320,7 @@ fn void main()
     test_response_apply_connection_http10_keep_alive();
 
     test_application_server_lifecycle();
-    test_http_server_new_free();
+    test_app_server_new_free();
 
     test_fetch_then_connection_policy();
     test_fetch_close_request();

@@ -1,9 +1,9 @@
 // http_sample.c3
-// ext::serializer::http usage examples
+// ext::encoding::http usage examples
 
 module http_sample;
 
-import ext::serializer::http;
+import ext::encoding::http;
 import std::io;
 import ext::debug;
 

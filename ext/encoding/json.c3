@@ -1,6 +1,6 @@
 // json.c3
 
-module ext::serializer::json;
+module ext::encoding::json;
 
 import std::collections::list;
 import std::collections::map;

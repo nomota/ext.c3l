@@ -19,7 +19,7 @@ const sz REQUEST_ID_MAX_LEN = 128;
 
 // Helpers
 
-fn bool request_id_char_allowed(char c) @inline @local
+fn bool char_allowed(char c) @inline @local
 {
     if (c >= 'a' && c <= 'z') return true;
     if (c >= 'A' && c <= 'Z') return true;
@@ -40,7 +40,7 @@ fn bool request_id_valid(String value) @local
 
     for (sz i = 0; i < value.len; i++)
     {
-        if (!request_id_char_allowed(value[i]))
+        if (!char_allowed(value[i]))
         {
             return false;
         }

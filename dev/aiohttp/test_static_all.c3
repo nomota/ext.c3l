@@ -24,7 +24,7 @@ const String PUBLIC_DIR = "zz_static_all/public";
 const String SECRET_PATH = "zz_static_all/secret.txt";
 const String INDEX_PATH = "zz_static_all/public/index.html";
 const String TXT_PATH = "zz_static_all/public/hello.txt";
-const String CSS_PATH = "zz_static_all/public/app.css";
+const String CSS_PATH = "zz_static_all/public/app.css"; 
 const String JS_PATH = "zz_static_all/public/app.js";
 const String JSON_PATH = "zz_static_all/public/data.json";
 const String DIR_PATH = "zz_static_all/public/dir";
@@ -80,14 +80,14 @@ fn bool has_header(String raw, String header)
 fn String? header_value(String raw, String name)
 {
     sz header_end = raw.index_of("\r\n\r\n") ?? -1;
-    if (header_end < 0) return aio::http::NOT_FOUND~;
+    if (header_end < 0) return http::NOT_FOUND~;
 
     String headers = raw[0:header_end];
     sz pos = 0;
 
     // Skip the status line.
     sz status_end = headers.index_of("\r\n") ?? -1;
-    if (status_end < 0) return aio::http::NOT_FOUND~;
+    if (status_end < 0) return http::NOT_FOUND~;
 
     pos = status_end + 2;
 
@@ -116,7 +116,7 @@ fn String? header_value(String raw, String name)
 
         String header_name = line[0:colon];
 
-        if (!aio::http::str_iequals(header_name, name))
+        if (!http::str_iequals(header_name, name))
         {
             continue;
         }
@@ -124,7 +124,7 @@ fn String? header_value(String raw, String name)
         return line[colon + 1..].trim();
     }
 
-    return aio::http::NOT_FOUND~;
+    return http::NOT_FOUND~;
 }
 
 // File helpers
@@ -159,7 +159,7 @@ fn void? write_all_file(String file_path, char[] data)
 
         if (n <= 0)
         {
-            return aio::http::HTTP_WRITE_ERROR~;
+            return http::WRITE_ERROR~;
         }
 
         total += n;
@@ -211,10 +211,7 @@ fn void? setup_files()
 
 // HTTP client helpers
 
-fn String? fetch_raw(
-    String request,
-    usz read_timeout_us = RESPONSE_TIMEOUT_US
-)
+fn String? fetch_raw(String request, usz read_timeout_us = RESPONSE_TIMEOUT_US)
 {
     aio::Stream* client =
         aio::stream_connect(HOST, PORT)!;
@@ -223,7 +220,7 @@ fn String? fetch_raw(
     client.write_all((char[])request)!;
 
     DString out;
-    out.init(aio::http::localmem, 4096);
+    out.init(http::localmem, 4096);
     defer out.free();
 
     while (true)
@@ -238,18 +235,12 @@ fn String? fetch_raw(
 
         if (catch err = read_result)
         {
-            if (err == aio::CLOSED)
-            {
-                break;
-            }
+            if (err == aio::CLOSED) break;
 
             // Every request in this file eventually asks the
             // server to close the connection. A timeout therefore
             // indicates an incomplete or hung response.
-            if (err == aio::TIMEOUT)
-            {
-                return aio::TIMEOUT~;
-            }
+            if (err == aio::TIMEOUT) return aio::TIMEOUT~;
 
             return err~;
         }
@@ -261,13 +252,13 @@ fn String? fetch_raw(
 
         if (out.len() > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
     }
 
     client.close();
 
-    return out.copy_str(aio::http::localmem);
+    return out.copy_str(http::localmem);
 }
 
 fn void? wait_server_ready()
@@ -333,7 +324,7 @@ fn void? test_static_get_txt()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 200),
@@ -362,7 +353,7 @@ fn void? test_static_get_index()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 200),
@@ -391,7 +382,7 @@ fn void? test_static_head_txt()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 200),
@@ -420,7 +411,7 @@ fn void? test_static_not_found()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 404),
@@ -436,7 +427,7 @@ fn void? test_static_directory_not_found()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 404),
@@ -452,7 +443,7 @@ fn void? test_static_path_traversal_forbidden()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 403),
@@ -468,7 +459,7 @@ fn void? test_static_nested_path_traversal_forbidden()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 403),
@@ -484,7 +475,7 @@ fn void? test_static_percent_encoded_traversal_forbidden()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 403),
@@ -500,7 +491,7 @@ fn void? test_static_percent_encoded_upper_traversal_forbidden()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 403),
@@ -516,7 +507,7 @@ fn void? test_static_backslash_forbidden()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 403),
@@ -538,7 +529,7 @@ fn void? test_static_symlink_forbidden_or_not_found()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 403) ||
@@ -555,7 +546,7 @@ fn void? test_static_content_types()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(css);
+    defer http::localmem.free(css);
 
     @assert(
         status_is(css, 200),
@@ -576,7 +567,7 @@ fn void? test_static_content_types()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(js);
+    defer http::localmem.free(js);
 
     @assert(
         status_is(js, 200),
@@ -598,7 +589,7 @@ fn void? test_static_content_types()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(json);
+    defer http::localmem.free(json);
 
     @assert(
         status_is(json, 200),
@@ -622,7 +613,7 @@ fn void? test_static_cache_headers_exist()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 200),
@@ -651,7 +642,7 @@ fn void? test_static_if_none_match()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(first);
+    defer http::localmem.free(first);
 
     @assert(
         status_is(first, 200),
@@ -669,7 +660,7 @@ fn void? test_static_if_none_match()
     String etag = etag_result;
 
     String request = string::format(
-        aio::http::localmem,
+        http::localmem,
         "GET /static/hello.txt HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "If-None-Match: %s\r\n"
@@ -677,10 +668,10 @@ fn void? test_static_if_none_match()
         "\r\n",
         etag
     );
-    defer aio::http::localmem.free(request);
+    defer http::localmem.free(request);
 
     String second = fetch_raw(request)!;
-    defer aio::http::localmem.free(second);
+    defer http::localmem.free(second);
 
     @assert(
         status_is(second, 304),
@@ -701,7 +692,7 @@ fn void? test_static_if_modified_since()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(first);
+    defer http::localmem.free(first);
 
     @assert(
         status_is(first, 200),
@@ -719,7 +710,7 @@ fn void? test_static_if_modified_since()
     String last_modified = modified_result;
 
     String request = string::format(
-        aio::http::localmem,
+        http::localmem,
         "GET /static/hello.txt HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "If-Modified-Since: %s\r\n"
@@ -727,10 +718,10 @@ fn void? test_static_if_modified_since()
         "\r\n",
         last_modified
     );
-    defer aio::http::localmem.free(request);
+    defer http::localmem.free(request);
 
     String second = fetch_raw(request)!;
-    defer aio::http::localmem.free(second);
+    defer http::localmem.free(second);
 
     @assert(
         status_is(second, 304),
@@ -755,7 +746,7 @@ fn void? test_static_keepalive_pipeline()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         count_occurrences(
@@ -818,7 +809,7 @@ fn void? test_main(void* arg)
     test_static_directory_not_found()!;
     test_static_path_traversal_forbidden()!;
     test_static_nested_path_traversal_forbidden()!;
-    test_static_percent_encoded_traversal_forbidden()!;
+    test_static_percent_encoded_traversal_forbidden()!; 
     test_static_percent_encoded_upper_traversal_forbidden()!;
     test_static_backslash_forbidden()!;
     test_static_symlink_forbidden_or_not_found()!;
@@ -837,7 +828,7 @@ fn void? test_main(void* arg)
 
 fn void main()
 {
-    aio::run(&test_main)!!;
+    aio::run(&test_main)!!; 
 }
 
-// eof
+// eof 

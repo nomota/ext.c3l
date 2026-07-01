@@ -62,12 +62,9 @@ fn void Waiter.cancel(&self, fault err = NONE)
     if (self.task.loop == null) return;
 
     self.state = CANCELLED;
-    if (err == NONE)
-    {
+    if (err == NONE) {
         self.error = CANCELLED;
-    }
-    else
-    {
+    } else {
         self.error = err;
     }
     self.active = false;
@@ -77,8 +74,7 @@ fn void Waiter.cancel(&self, fault err = NONE)
 
 fn void? Waiter.check(&self) @maydiscard
 {
-    if (self.state == CANCELLED)
-    {
+    if (self.state == CANCELLED) {
         if (self.error != NONE) return self.error~;
         return CANCELLED~;
     }

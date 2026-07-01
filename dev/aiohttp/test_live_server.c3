@@ -14,50 +14,50 @@ import ext::debug;
 const String HOST = "127.0.0.1";
 const ushort PORT = 18080;
 
-fn aio::http::Response*? home_handler(aio::http::Context* c)
+fn http::Response*? home_handler(http::Context* c)
 {
     return c.text("home")!;
 }
 
-fn aio::http::Response*? echo_handler(aio::http::Context* c)
+fn http::Response*? echo_handler(http::Context* c)
 {
     return c.text(c.req_text())!;
 }
 
-fn aio::http::Response*? user_handler(aio::http::Context* c)
+fn http::Response*? user_handler(http::Context* c)
 {
     String id = c.param("id")!;
 
     return c.text(id)!;
 }
 
-fn aio::http::Response*? query_handler(aio::http::Context* c)
+fn http::Response*? query_handler(http::Context* c)
 {
     String q = c.query("q")!;
 
     return c.text(q)!;
 }
 
-fn aio::http::Response*? cookie_handler(aio::http::Context* c)
+fn http::Response*? cookie_handler(http::Context* c)
 {
     c.cookie_set_default("sid", "abc")!;
 
     return c.text("cookie")!;
 }
 
-fn aio::http::Response*? middleware_header(
-    aio::http::Context* c,
-    aio::http::Next next
+fn http::Response*? middleware_header(
+    http::Context* c,
+    http::Next next
 )
 {
-    aio::http::Response* res = next(c)!;
+    http::Response* res = next(c)!;
 
     c.header("X-Live-Test", "yes")!;
 
     return res;
 }
 
-fn void setup_app(aio::http::Application* app)
+fn void setup_app(http::Application* app)
 {
     app.init();
 
@@ -71,7 +71,7 @@ fn void setup_app(aio::http::Application* app)
 
 fn void? server_task(void* arg)
 {
-    aio::http::Application* app = (aio::http::Application*)arg;
+    http::Application* app = (http::Application*)arg;
 
     app.serve(HOST, PORT)!;
 }
@@ -110,13 +110,13 @@ fn sz? response_content_length(String header_block)
         String name = line[0:colon];
         String value = line[colon + 1:line.len - colon - 1].trim();
 
-        if (aio::http::str_iequals(name, "Content-Length"))
+        if (http::str_iequals(name, "Content-Length"))
         {
             return value.to_long()!;
         }
     }
 
-    return aio::http::NOT_FOUND~;
+    return http::NOT_FOUND~;
 }
 
 fn sz? response_expected_total_len(String response)
@@ -125,7 +125,7 @@ fn sz? response_expected_total_len(String response)
 
     if (header_end < 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     String header_block = response[0:header_end];
@@ -142,10 +142,10 @@ fn sz? response_expected_total_len(String response)
 
 fn String? read_response(aio::Stream* stream)
 {
-    if (stream == null) return aio::http::BAD_REQUEST~;
+    if (stream == null) return http::BAD_REQUEST~;
 
     DString buf;
-    buf.init(aio::http::localmem, 4096);
+    buf.init(http::localmem, 4096);
     defer buf.free();
 
     while (true)
@@ -165,17 +165,17 @@ fn String? read_response(aio::Stream* stream)
         {
             if (buf.len() >= total)
             {
-                return text[0:total].copy(aio::http::localmem);
+                return text[0:total].copy(http::localmem);
             }
         }
 
         if (buf.len() > 1024 * 1024)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
     }
 
-    return buf.str_view().copy(aio::http::localmem);
+    return buf.str_view().copy(http::localmem);
 }
 
 fn String? request_once(String request)
@@ -200,7 +200,7 @@ fn void test_live_get_root()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 200 OK\r\n"),
@@ -228,7 +228,7 @@ fn void test_live_param()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 200 OK\r\n"),
@@ -248,7 +248,7 @@ fn void test_live_query()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 200 OK\r\n"),
@@ -271,7 +271,7 @@ fn void test_live_post_echo()
         "\r\n"
         "hello"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 200 OK\r\n"),
@@ -291,7 +291,7 @@ fn void test_live_cookie()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 200 OK\r\n"),
@@ -317,7 +317,7 @@ fn void test_live_404()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 404 Not Found\r\n"),
@@ -338,7 +338,7 @@ fn void test_live_405()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 405 Method Not Allowed\r\n"),
@@ -358,7 +358,7 @@ fn void test_live_bad_request()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 400 Bad Request\r\n"),
@@ -390,7 +390,7 @@ fn void test_live_sequential_clients()
             "sequential client body mismatch"
         );
 
-        aio::http::localmem.free(response);
+        http::localmem.free(response);
     }
 }
 
@@ -421,7 +421,7 @@ fn void? wait_server_ready()
 
 fn void? main_task(void* arg)
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 

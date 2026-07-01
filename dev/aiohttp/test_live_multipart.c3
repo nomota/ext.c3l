@@ -52,7 +52,7 @@ fn sz? response_content_length(String header_block)
         }
     }
 
-    return aio::http::NOT_FOUND~;
+    return http::NOT_FOUND~;
 }
 
 fn sz? response_expected_total_len(String response)
@@ -61,7 +61,7 @@ fn sz? response_expected_total_len(String response)
 
     if (header_end < 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     String header_block = response[0:header_end];
@@ -80,11 +80,11 @@ fn void? ResponseReader.init(&self, aio::Stream* stream) @maydiscard
 {
     if (stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     self.stream = stream;
-    self.buffer.init(aio::http::localmem, 4096);
+    self.buffer.init(http::localmem, 4096);
 }
 
 fn void ResponseReader.free(&self)
@@ -110,7 +110,7 @@ fn String? ResponseReader.read_response(&self)
 {
     if (self.stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     while (true)
@@ -123,7 +123,7 @@ fn String? ResponseReader.read_response(&self)
         {
             if (self.buffer.len() >= total)
             {
-                String out = text[0:total].copy(aio::http::localmem);
+                String out = text[0:total].copy(http::localmem);
 
                 self.consume(total);
 
@@ -134,7 +134,7 @@ fn String? ResponseReader.read_response(&self)
         {
             if (catch err = total)
             {
-                if (err != aio::http::BODY_INCOMPLETE)
+                if (err != http::BODY_INCOMPLETE)
                 {
                     return err~;
                 }
@@ -143,7 +143,7 @@ fn String? ResponseReader.read_response(&self)
 
         if (self.buffer.len() > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         char[1024] tmp;
@@ -155,7 +155,7 @@ fn String? ResponseReader.read_response(&self)
         self.buffer.append(tmp[0:n]);
     }
 
-    return aio::http::BODY_INCOMPLETE~;
+    return http::BODY_INCOMPLETE~;
 }
 
 fn String? build_multipart_request(
@@ -165,7 +165,7 @@ fn String? build_multipart_request(
 )
 {
     return string::format(
-        aio::http::localmem,
+        http::localmem,
         "POST %s HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Content-Type: multipart/form-data; boundary=----c3test\r\n"
@@ -180,18 +180,18 @@ fn String? build_multipart_request(
     );
 }
 
-fn aio::http::Response*? field_handler(aio::http::Context* c)
+fn http::Response*? field_handler(http::Context* c)
 {
     String value = c.multipart_value_copy("username")!;
-    defer aio::http::localmem.free(value);
+    defer http::localmem.free(value);
 
     return c.text(value)!;
 }
 
-fn aio::http::Response*? file_handler(aio::http::Context* c)
+fn http::Response*? file_handler(http::Context* c)
 {
-    aio::http::MultipartPart* file = c.multipart_file("avatar")!;
-    defer aio::http::multipart_part_free(file);
+    http::MultipartPart* file = c.multipart_file("avatar")!;
+    defer http::multipart_part_free(file);
 
     @assert(
         file.filename == "avatar.txt",
@@ -209,13 +209,13 @@ fn aio::http::Response*? file_handler(aio::http::Context* c)
     return c.text(file.filename)!;
 }
 
-fn aio::http::Response*? mixed_handler(aio::http::Context* c)
+fn http::Response*? mixed_handler(http::Context* c)
 {
-    aio::http::MultipartForm form = c.multipart()!;
+    http::MultipartForm form = c.multipart()!;
     defer form.free();
 
     String username = form.value("username")!;
-    aio::http::MultipartPart* file = form.file("avatar");
+    http::MultipartPart* file = form.file("avatar");
 
     @assert(
         username == "nomota",
@@ -237,12 +237,12 @@ fn aio::http::Response*? mixed_handler(aio::http::Context* c)
     return c.text("mixed ok")!;
 }
 
-fn aio::http::Response*? two_handler(aio::http::Context* c)
+fn http::Response*? two_handler(http::Context* c)
 {
     return c.text("two")!;
 }
 
-fn void setup_app(aio::http::Application* app)
+fn void setup_app(http::Application* app)
 {
     app.init();
 
@@ -254,8 +254,8 @@ fn void setup_app(aio::http::Application* app)
 
 fn void? server_task(void* arg)
 {
-    aio::http::ApplicationServer* server =
-        (aio::http::ApplicationServer*)arg;
+    http::ApplicationServer* server =
+        (http::ApplicationServer*)arg;
 
     server.serve()!;
 }
@@ -288,10 +288,10 @@ fn void test_live_multipart_field()
         "------c3test--\r\n";
 
     String request = build_multipart_request("/field", body)!!;
-    defer aio::http::localmem.free(request);
+    defer http::localmem.free(request);
 
     String response = request_once(request)!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 200 OK\r\n"),
@@ -315,10 +315,10 @@ fn void test_live_multipart_file()
         "------c3test--\r\n";
 
     String request = build_multipart_request("/file", body)!!;
-    defer aio::http::localmem.free(request);
+    defer http::localmem.free(request);
 
     String response = request_once(request)!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 200 OK\r\n"),
@@ -346,10 +346,10 @@ fn void test_live_multipart_mixed()
         "------c3test--\r\n";
 
     String request = build_multipart_request("/mixed", body)!!;
-    defer aio::http::localmem.free(request);
+    defer http::localmem.free(request);
 
     String response = request_once(request)!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 200 OK\r\n"),
@@ -379,12 +379,12 @@ fn void test_live_multipart_keepalive_then_get()
 
     String request =
         build_multipart_request("/field", body, false)!!;
-    defer aio::http::localmem.free(request);
+    defer http::localmem.free(request);
 
     stream.write_all((char[])request)!!;
 
     String r1 = reader.read_response()!!;
-    defer aio::http::localmem.free(r1);
+    defer http::localmem.free(r1);
 
     @assert(
         r1.contains("HTTP/1.1 200 OK\r\n"),
@@ -407,7 +407,7 @@ fn void test_live_multipart_keepalive_then_get()
     )!!;
 
     String r2 = reader.read_response()!!;
-    defer aio::http::localmem.free(r2);
+    defer http::localmem.free(r2);
 
     @assert(
         r2.contains("HTTP/1.1 200 OK\r\n"),
@@ -443,7 +443,7 @@ fn void test_live_multipart_pipelined_then_get()
 
     String request =
         build_multipart_request("/field", body, false)!!;
-    defer aio::http::localmem.free(request);
+    defer http::localmem.free(request);
 
     stream.write_all((char[])request)!!;
 
@@ -455,10 +455,10 @@ fn void test_live_multipart_pipelined_then_get()
     )!!;
 
     String r1 = reader.read_response()!!;
-    defer aio::http::localmem.free(r1);
+    defer http::localmem.free(r1);
 
     String r2 = reader.read_response()!!;
-    defer aio::http::localmem.free(r2);
+    defer http::localmem.free(r2);
 
     @assert(
         r1.contains("HTTP/1.1 200 OK\r\n"),
@@ -491,11 +491,11 @@ fn void test_live_multipart_pipelined_then_get()
 
 fn void? main_task(void* arg)
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::ApplicationServer server;
+    http::ApplicationServer server;
     server.init(&app, HOST, PORT);
     defer server.free();
 

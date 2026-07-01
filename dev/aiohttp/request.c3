@@ -7,11 +7,9 @@ module ext::aio::http;
 import std::io;
 import ext::mem;
 import ext::debug;
+import ext::encoding::simdjson;
 
-
-// 
 // Faults
-// 
 
 faultdef BAD_REQUEST;
 faultdef REQUEST_TOO_LARGE;
@@ -21,18 +19,14 @@ faultdef INVALID_HEADER;
 faultdef BODY_INCOMPLETE;
 
 
-// 
 // Limits
-// 
 
 const sz MAX_REQUEST_LINE_LEN = 8192;
 const sz MAX_HEADER_BYTES = 64 * 1024;
 const sz MAX_BODY_BYTES = 16 * 1024 * 1024;
 
 
-// 
 // Request
-// 
 
 struct Request
 {
@@ -51,76 +45,10 @@ struct Request
 }
 
 
-// 
 // Internal string helpers
-// 
 
-fn void bytes_free(char[] data)
-{
-    if (data.ptr != null && data.len > 0)
-    {
-        localmem.free(data);
-    }
-}
 
-fn bool is_space(char c) @inline
-{
-    return c == ' ' || c == '\t';
-}
-
-fn bool is_digit(char c) @inline
-{
-    return c >= '0' && c <= '9';
-}
-
-fn bool is_token_char(char c)
-{
-    if (c <= 32 || c == 127) return false;
-
-    switch (c)
-    {
-        case '(':
-        case ')':
-        case '<':
-        case '>':
-        case '@':
-        case ',':
-        case ';':
-        case ':':
-        case '\\':
-        case '"':
-        case '/':
-        case '[':
-        case ']':
-        case '?':
-        case '=':
-        case '{':
-        case '}':
-            return false;
-        default:
-            return true;
-    }
-}
-
-fn String trim_spaces(String s)
-{
-    sz start = 0;
-    sz end = s.len;
-
-    while (start < end && is_space(s[start]))
-    {
-        start++;
-    }
-
-    while (end > start && is_space(s[end - 1]))
-    {
-        end--;
-    }
-
-    return s[start:end - start];
-}
-
-fn bool method_valid(String method)
+fn bool method_valid(String method) @local
 {
     if (method.len == 0) return false;
 
@@ -132,99 +60,16 @@ fn bool method_valid(String method)
     return true;
 }
 
-fn bool version_valid(String version)
+fn bool version_valid(String version) @local
 {
     if (version == "HTTP/1.0") return true;
     if (version == "HTTP/1.1") return true;
     return false;
 }
 
-fn sz find_char(char[] data, char needle)
-{
-    for (sz i = 0; i < data.len; i++)
-    {
-        if (data[i] == needle) return (sz)i;
-    }
-
-    return -1;
-}
-
-fn sz[2]? find_line_end(char[] data, sz start)
-{
-    sz i = start;
-
-    while (i < data.len)
-    {
-        if (i + 1 < data.len && data[i] == '\r' && data[i + 1] == '\n')
-        {
-            return { i, 2 };
-        }
-
-        if (data[i] == '\n')
-        {
-            return { i, 1 };
-        }
-
-        i++;
-    }
-
-    return NOT_FOUND~;
-}
-
-fn sz[2]? find_header_end(char[] data)
-{
-    if (data.len < 2) return NOT_FOUND~;
-
-    for (sz i = 0; i < data.len; i++)
-    {
-        if (i+3 < data.len && 
-            data[i] == '\r'
-            && data[i + 1] == '\n'
-            && data[i + 2] == '\r'
-            && data[i + 3] == '\n')
-        {
-            return {i,4};
-        }
-        if (i+1 < data.len && 
-            data[i] == '\n'
-            && data[i + 1] == '\n')
-        {
-            return {i,2};
-        }
-    }
-
-    return NOT_FOUND~;
-}
-
-fn sz? parse_sz(String s)
-{
-    if (s.len == 0) return BAD_REQUEST~;
-
-    sz value = 0;
-
-    for (sz i = 0; i < s.len; i++)
-    {
-        char c = s[i];
-        if (!is_digit(c)) return BAD_REQUEST~;
-
-        sz digit = (sz)(c - '0');
-
-        // Simple overflow guard.
-        if (value > ((sz::max - digit) / 10))
-        {
-            return REQUEST_TOO_LARGE~;
-        }
-
-        value = value * 10 + digit;
-    }
-
-    return value;
-}
 
 
-// 
 // Lifecycle
-// 
 
 fn void Request.init(&self)
 {
@@ -281,9 +126,7 @@ fn void request_free(Request* req)
 }
 
 
-// 
 // Accessors
-// 
 
 fn String? Request.header(&self, String name)
 {
@@ -293,6 +136,16 @@ fn String? Request.header(&self, String name)
 fn bool Request.has_body(&self) @inline
 {
     return self.body.len > 0;
+}
+
+fn String Request.body_text(&self) @inline
+{
+    return (String)self.body;
+}
+
+fn simdjson::ParseResult? Request.parse_json(&self, Allocator alloc, bool allow_comma = true, bool allow_comment = true)
+{
+    return simdjson::parse(alloc, self.body, allow_comma, allow_comment)!;
 }
 
 fn sz? Request.content_length(&self)
@@ -306,7 +159,7 @@ fn sz? Request.content_length(&self)
 
         if (!str_iequals(h.name, "Content-Length")) continue;
 
-        sz n = parse_sz(trim_spaces(h.value))!;
+        sz n = parse_sz(h.value.trim())!;
 
         if (found > 0 && n != value)
         {
@@ -331,9 +184,7 @@ fn bool Request.is_http_10(&self) @inline
 }
 
 
-// 
 // Request target split
-// 
 
 fn void Request.set_target_parts(&self, String target)
 {
@@ -343,7 +194,7 @@ fn void Request.set_target_parts(&self, String target)
 
     self.target = str_clone(target);
 
-    sz q = find_char((char[])target, '?');
+    sz q = find_char(target, '?');
 
     if (q < 0)
     {
@@ -359,9 +210,7 @@ fn void Request.set_target_parts(&self, String target)
 }
 
 
-// 
 // Request line parser
-// 
 
 fn void? Request.parse_request_line(&self, String line)
 {
@@ -411,21 +260,19 @@ fn void? Request.parse_request_line(&self, String line)
 }
 
 
-// 
 // Header parser
-// 
 
 fn void? Request.parse_header_line(&self, String line) @maydiscard
 {
     if (line.len == 0) return;
 
-    sz colon = find_char((char[])line, ':');
+    sz colon = find_char(line, ':');
     if (colon <= 0) return INVALID_HEADER~;
 
     sz c = (sz)colon;
 
     String name = line[0:c];
-    String value = trim_spaces(line[c + 1:line.len - c - 1]);
+    String value = line[c + 1:line.len - c - 1].trim();
 
     // Headers.add() already validates header name.
     // But invalid names should be parse errors, not silently ignored.
@@ -474,9 +321,7 @@ fn bool Request.has_transfer_encoding(&self)
     return true;
 }
 
-// 
 // Body
-// 
 
 fn void? Request.set_body_copy(&self, char[] body)
 {
@@ -518,9 +363,7 @@ fn void? Request.set_body_borrowed(&self, char[] body)
 }
 
 
-// 
 // Public parser
-// 
 
 fn Request*? request_parse(char[] raw)
 {
@@ -595,9 +438,7 @@ fn Request*? request_parse(char[] raw)
 }
 
 
-// 
 // Incremental parser helpers
-// 
 
 fn bool request_headers_complete(char[] raw)
 {
@@ -660,9 +501,7 @@ fn bool request_message_complete(char[] raw)
 }
 
 
-// 
 // Debug
-// 
 
 fn void Request.dump(&self)
 {

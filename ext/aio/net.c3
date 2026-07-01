@@ -167,7 +167,7 @@ fn void? tcp_connect(mio::Fd fd, String ip, ushort port)
     int so_error = mio::take_error_fd(fd);
     if (so_error != 0)
     {
-        warn("connect failed so_error=%d", so_error);
+        //warn("connect failed so_error=%d", so_error);
         return aio::CONNECT_ERROR~;
     }
 }

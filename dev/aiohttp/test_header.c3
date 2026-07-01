@@ -25,36 +25,36 @@ fn bool contains(String haystack, String needle)
 
 fn void test_ascii_eq_ignore_case()
 {
-    @assert(aio::http::ascii_eq_ignore_case('A', 'a'), "A/a mismatch");
-    @assert(aio::http::ascii_eq_ignore_case('z', 'Z'), "z/Z mismatch");
-    @assert(aio::http::ascii_eq_ignore_case('M', 'm'), "M/m mismatch");
-    @assert(!aio::http::ascii_eq_ignore_case('A', 'b'), "A/b should not match");
+    @assert(http::ascii_eq_ignore_case('A', 'a'), "A/a mismatch");
+    @assert(http::ascii_eq_ignore_case('z', 'Z'), "z/Z mismatch");
+    @assert(http::ascii_eq_ignore_case('M', 'm'), "M/m mismatch");
+    @assert(!http::ascii_eq_ignore_case('A', 'b'), "A/b should not match");
 }
 
 fn void test_str_iequals()
 {
-    @assert(aio::http::str_iequals("Content-Type", "content-type"), "case-insensitive compare failed");
-    @assert(aio::http::str_iequals("HOST", "host"), "HOST compare failed");
-    @assert(!aio::http::str_iequals("Host", "Host2"), "different strings should not match");
-    @assert(!aio::http::str_iequals("Host", "Hos"), "different lengths should not match");
+    @assert(http::str_iequals("Content-Type", "content-type"), "case-insensitive compare failed");
+    @assert(http::str_iequals("HOST", "host"), "HOST compare failed");
+    @assert(!http::str_iequals("Host", "Host2"), "different strings should not match");
+    @assert(!http::str_iequals("Host", "Hos"), "different lengths should not match");
 }
 
 fn void test_valid_header_name()
 {
-    @assert(aio::http::is_valid_name("Host"), "Host should be valid");
-    @assert(aio::http::is_valid_name("Content-Type"), "Content-Type should be valid");
-    @assert(aio::http::is_valid_name("X_Custom"), "X_Custom should be valid");
+    @assert(http::is_valid_name("Host"), "Host should be valid");
+    @assert(http::is_valid_name("Content-Type"), "Content-Type should be valid");
+    @assert(http::is_valid_name("X_Custom"), "X_Custom should be valid");
 
-    @assert(!aio::http::is_valid_name(""), "empty name should be invalid");
-    @assert(!aio::http::is_valid_name("Bad Header"), "space should be invalid");
-    @assert(!aio::http::is_valid_name("Bad:Header"), "colon should be invalid");
-    @assert(!aio::http::is_valid_name("Bad/Header"), "slash should be invalid");
-    @assert(!aio::http::is_valid_name("Bad=Header"), "equals should be invalid");
+    @assert(!http::is_valid_name(""), "empty name should be invalid");
+    @assert(!http::is_valid_name("Bad Header"), "space should be invalid");
+    @assert(!http::is_valid_name("Bad:Header"), "colon should be invalid");
+    @assert(!http::is_valid_name("Bad/Header"), "slash should be invalid");
+    @assert(!http::is_valid_name("Bad=Header"), "equals should be invalid");
 }
 
 fn void test_init_empty()
 {
-    aio::http::Headers h;
+    http::Headers h;
     h.init();
     defer h.free();
 
@@ -66,7 +66,7 @@ fn void test_init_empty()
 
 fn void test_add_get_has()
 {
-    aio::http::Headers h;
+    http::Headers h;
     h.init();
     defer h.free();
 
@@ -87,7 +87,7 @@ fn void test_add_get_has()
 
 fn void test_get_not_found()
 {
-    aio::http::Headers h;
+    http::Headers h;
     h.init();
     defer h.free();
 
@@ -95,7 +95,7 @@ fn void test_get_not_found()
 
     if (catch err = h.get("Missing"))
     {
-        @assert(err == aio::http::NOT_FOUND, "missing header fault mismatch");
+        @assert(err == http::NOT_FOUND, "missing header fault mismatch");
         return;
     }
 
@@ -104,7 +104,7 @@ fn void test_get_not_found()
 
 fn void test_find()
 {
-    aio::http::Headers h;
+    http::Headers h;
     h.init();
     defer h.free();
 
@@ -116,7 +116,7 @@ fn void test_find()
 
     if (catch err = h.find("Missing"))
     {
-        @assert(err == aio::http::NOT_FOUND, "find missing fault mismatch");
+        @assert(err == http::NOT_FOUND, "find missing fault mismatch");
         return;
     }
 
@@ -125,7 +125,7 @@ fn void test_find()
 
 fn void test_add_duplicate_headers()
 {
-    aio::http::Headers h;
+    http::Headers h;
     h.init();
     defer h.free();
 
@@ -140,7 +140,7 @@ fn void test_add_duplicate_headers()
 
 fn void test_set_overwrites_all_existing()
 {
-    aio::http::Headers h;
+    http::Headers h;
     h.init();
     defer h.free();
 
@@ -154,7 +154,7 @@ fn void test_set_overwrites_all_existing()
 
 fn void test_delete()
 {
-    aio::http::Headers h;
+    http::Headers h;
     h.init();
     defer h.free();
 
@@ -175,7 +175,7 @@ fn void test_delete()
 
 fn void test_clear()
 {
-    aio::http::Headers h;
+    http::Headers h;
     h.init();
     defer h.free();
 
@@ -193,13 +193,13 @@ fn void test_clear()
 
 fn void test_invalid_add()
 {
-    aio::http::Headers h;
+    http::Headers h;
     h.init();
     defer h.free();
 
     if (catch err = h.add("Bad Header", "x"))
     {
-        @assert(err == aio::http::INVALID_HEADER_NAME, "invalid add fault mismatch");
+        @assert(err == http::INVALID_HEADER_NAME, "invalid add fault mismatch");
         return;
     }
 
@@ -208,13 +208,13 @@ fn void test_invalid_add()
 
 fn void test_invalid_set()
 {
-    aio::http::Headers h;
+    http::Headers h;
     h.init();
     defer h.free();
 
     if (catch err = h.set("Bad:Header", "x"))
     {
-        @assert(err == aio::http::INVALID_HEADER_NAME, "invalid set fault mismatch");
+        @assert(err == http::INVALID_HEADER_NAME, "invalid set fault mismatch");
         return;
     }
 
@@ -223,7 +223,7 @@ fn void test_invalid_set()
 
 fn void test_serialized_len()
 {
-    aio::http::Headers h;
+    http::Headers h;
     h.init();
     defer h.free();
 
@@ -237,7 +237,7 @@ fn void test_serialized_len()
 
 fn void test_write_to()
 {
-    aio::http::Headers h;
+    http::Headers h;
     h.init();
     defer h.free();
 
@@ -257,7 +257,7 @@ fn void test_write_to()
 
 fn void test_write_to_small_buffer()
 {
-    aio::http::Headers h;
+    http::Headers h;
     h.init();
     defer h.free();
 
@@ -271,19 +271,19 @@ fn void test_write_to_small_buffer()
 
 fn void test_serialize_empty()
 {
-    aio::http::Headers h;
+    http::Headers h;
     h.init();
     defer h.free();
 
     String wire = h.serialize()!!;
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(wire.len == 0, "empty serialize should return empty string");
 }
 
 fn void test_serialize()
 {
-    aio::http::Headers h;
+    http::Headers h;
     h.init();
     defer h.free();
 
@@ -292,7 +292,7 @@ fn void test_serialize()
     h.add("Set-Cookie", "b=2")!!;
 
     String wire = h.serialize()!!;
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(contains(wire, "Host: localhost\r\n"), "serialized Host missing");
     @assert(contains(wire, "Set-Cookie: a=1\r\n"), "serialized first cookie missing");
@@ -301,7 +301,7 @@ fn void test_serialize()
 
 fn void test_convenience_headers()
 {
-    aio::http::Headers h;
+    http::Headers h;
     h.init();
     defer h.free();
 
@@ -320,9 +320,9 @@ fn void test_convenience_headers()
 
 fn void test_header_aliases()
 {
-    aio::http::Param p = {
-        .name = "id".copy(aio::http::localmem),
-        .value = "42".copy(aio::http::localmem),
+    http::Param p = {
+        .name = "id".copy(http::localmem),
+        .value = "42".copy(http::localmem),
     };
     defer p.free();
 

@@ -5,7 +5,7 @@
 // Stage1. Scan and find indices of structural characters, {}[]:,", and begin of a value.
 // Stage2. Walk through the indices to collect Tape entries. Each Tape entry has structural info or a value.
 
-module ext::serializer::simdjson;
+module ext::encoding::simdjson;
 
 import std::collections::list;
 import std::io;

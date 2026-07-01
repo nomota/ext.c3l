@@ -23,27 +23,27 @@ fn bool contains(char[] haystack, char[] needle)
     return false;
 }
 
-fn aio::http::Response*? ok_handler(aio::http::Context* c)
+fn http::Response*? ok_handler(http::Context* c)
 {
     return c.text("ok")!!;
 }
 
-fn aio::http::Response*? echo_target_handler(aio::http::Context* c)
+fn http::Response*? echo_target_handler(http::Context* c)
 {
     return c.text(c.target())!!;
 }
 
-fn aio::http::Response*? echo_path_handler(aio::http::Context* c)
+fn http::Response*? echo_path_handler(http::Context* c)
 {
     return c.text(c.path())!!;
 }
 
-fn aio::http::Response* fetch_raw(aio::http::Application* app, char[] raw)
+fn http::Response* fetch_raw(http::Application* app, char[] raw)
 {
     return app.fetch_raw(raw)!!;
 }
 
-fn void setup_app(aio::http::Application* app)
+fn void setup_app(http::Application* app)
 {
     app.init();
 
@@ -56,12 +56,12 @@ fn void setup_app(aio::http::Application* app)
 
 fn void assert_bad_request(char[] raw, String label)
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch_raw(&app, raw);
-    defer aio::http::response_free(res);
+    http::Response* res = fetch_raw(&app, raw);
+    defer http::response_free(res);
 //warn("%d", res.status);
     @assert(res.status == 400, label);
     @assert((String)res.body == "400 Bad Request", "bad request body mismatch");
@@ -69,12 +69,12 @@ fn void assert_bad_request(char[] raw, String label)
 
 fn void assert_status(char[] raw, ushort status, String label)
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch_raw(&app, raw);
-    defer aio::http::response_free(res);
+    http::Response* res = fetch_raw(&app, raw);
+    defer http::response_free(res);
 
     @assert(res.status == status, label);
 }
@@ -96,16 +96,16 @@ fn void test_blank_request_line_is_bad()
 
 fn void test_lf_only_request_policy()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch_raw(&app, (char[])
+    http::Response* res = fetch_raw(&app, (char[])
         "GET /ok HTTP/1.1\n"
         "Host: localhost\n"
         "\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     // Current parser accepts LF-only line endings.
     @assert(res.status == 200, "LF-only request status mismatch");
@@ -114,16 +114,16 @@ fn void test_lf_only_request_policy()
 
 fn void test_mixed_crlf_lf_request_policy()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch_raw(&app, (char[])
+    http::Response* res = fetch_raw(&app, (char[])
         "GET /ok HTTP/1.1\r\n"
         "Host: localhost\n"
         "\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     // Current parser accepts LF line endings in header parsing.
     @assert(res.status == 200, "mixed CRLF/LF request status mismatch");
@@ -182,16 +182,16 @@ fn void test_invalid_method_char_fail()
 
 fn void test_lowercase_method_policy()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch_raw(&app, (char[])
+    http::Response* res = fetch_raw(&app, (char[])
         "get /ok HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     // Current router matches methods case-insensitively.
     @assert(res.status == 200, "lowercase method status mismatch");
@@ -200,16 +200,16 @@ fn void test_lowercase_method_policy()
 
 fn void test_empty_header_value_allowed()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Request* req = aio::http::request_parse((char[])
+    http::Request* req = http::request_parse((char[])
         "GET /ok HTTP/1.1\r\n"
         "Host:\r\n"
         "\r\n"
     )!!;
-    defer aio::http::request_free(req);
+    defer http::request_free(req);
 
     @assert(req.headers.has("Host"), "empty header value should be stored");
     @assert(req.headers.get("Host")!! == "", "empty header value mismatch");
@@ -268,17 +268,17 @@ fn void test_obs_fold_header_rejected()
 
 fn void test_duplicate_host_policy()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch_raw(&app, (char[])
+    http::Response* res = fetch_raw(&app, (char[])
         "GET /ok HTTP/1.1\r\n"
         "Host: one\r\n"
         "Host: two\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     // Current Headers supports duplicate names. If Host uniqueness is enforced
     // later, narrow this to 400.
@@ -290,15 +290,15 @@ fn void test_duplicate_host_policy()
 
 fn void test_missing_host_http11_policy()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch_raw(&app, (char[])
+    http::Response* res = fetch_raw(&app, (char[])
         "GET /ok HTTP/1.1\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     // Current parser may allow missing Host. If strict HTTP/1.1 is enforced
     // later, narrow this to 400.
@@ -310,12 +310,12 @@ fn void test_missing_host_http11_policy()
 
 fn void test_absolute_form_target_policy()
 {
-    aio::http::Request* req = aio::http::request_parse((char[])
+    http::Request* req = http::request_parse((char[])
         "GET http://example.com/path?q=1 HTTP/1.1\r\n"
         "Host: example.com\r\n"
         "\r\n"
     )!!;
-    defer aio::http::request_free(req);
+    defer http::request_free(req);
 
     @assert(req.target == "http://example.com/path?q=1", "absolute-form target mismatch");
 
@@ -326,16 +326,16 @@ fn void test_absolute_form_target_policy()
 
 fn void test_options_asterisk_policy()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch_raw(&app, (char[])
+    http::Response* res = fetch_raw(&app, (char[])
         "OPTIONS * HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     // Parser may accept target "*", router probably returns 404/405.
     @assert(
@@ -348,14 +348,14 @@ fn void test_options_asterisk_policy()
 
 fn void test_content_length_with_spaces()
 {
-    aio::http::Request* req = aio::http::request_parse((char[])
+    http::Request* req = http::request_parse((char[])
         "POST /ok HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Content-Length:   2  \r\n"
         "\r\n"
         "hi"
     )!!;
-    defer aio::http::request_free(req);
+    defer http::request_free(req);
 
     @assert(req.body.len == 2, "Content-Length spaces body len mismatch");
     @assert((String)req.body == "hi", "Content-Length spaces body mismatch");
@@ -397,7 +397,7 @@ fn void test_hex_content_length_fail()
 
 fn void test_transfer_encoding_case_insensitive_chunked()
 {
-    aio::http::Request* req = aio::http::request_parse((char[])
+    http::Request* req = http::request_parse((char[])
         "POST /ok HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Transfer-Encoding: ChUnKeD\r\n"
@@ -407,7 +407,7 @@ fn void test_transfer_encoding_case_insensitive_chunked()
         "0\r\n"
         "\r\n"
     )!!;
-    defer aio::http::request_free(req);
+    defer http::request_free(req);
 
     @assert(req.is_chunked(), "mixed-case chunked flag mismatch");
     @assert((String)req.body == "hi", "mixed-case chunked body mismatch");
@@ -415,7 +415,7 @@ fn void test_transfer_encoding_case_insensitive_chunked()
 
 fn void test_transfer_encoding_with_spaces()
 {
-    aio::http::Request* req = aio::http::request_parse((char[])
+    http::Request* req = http::request_parse((char[])
         "POST /ok HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Transfer-Encoding:   chunked   \r\n"
@@ -425,7 +425,7 @@ fn void test_transfer_encoding_with_spaces()
         "0\r\n"
         "\r\n"
     )!!;
-    defer aio::http::request_free(req);
+    defer http::request_free(req);
 
     @assert(req.is_chunked(), "spaced chunked flag mismatch");
     @assert((String)req.body == "hi", "spaced chunked body mismatch");
@@ -448,7 +448,7 @@ fn void test_transfer_encoding_list_policy()
 
 fn void test_chunked_with_extensions_and_trailer_request()
 {
-    aio::http::Request* req = aio::http::request_parse((char[])
+    http::Request* req = http::request_parse((char[])
         "POST /ok HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Transfer-Encoding: chunked\r\n"
@@ -459,14 +459,14 @@ fn void test_chunked_with_extensions_and_trailer_request()
         "X-Trailer: yes\r\n"
         "\r\n"
     )!!;
-    defer aio::http::request_free(req);
+    defer http::request_free(req);
 
     @assert((String)req.body == "hi", "chunked extension/trailer body mismatch");
 }
 
 fn void test_body_extra_bytes_after_content_length_ignored_by_single_parse()
 {
-    aio::http::Request* req = aio::http::request_parse((char[])
+    http::Request* req = http::request_parse((char[])
         "POST /ok HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Content-Length: 2\r\n"
@@ -474,7 +474,7 @@ fn void test_body_extra_bytes_after_content_length_ignored_by_single_parse()
         "hiGET /next HTTP/1.1\r\n"
         "\r\n"
     )!!;
-    defer aio::http::request_free(req);
+    defer http::request_free(req);
 
     @assert(req.body.len == 2, "extra bytes single parse body len mismatch");
     @assert((String)req.body == "hi", "extra bytes single parse body mismatch");
@@ -482,14 +482,14 @@ fn void test_body_extra_bytes_after_content_length_ignored_by_single_parse()
 
 fn void test_body_nul_byte_allowed()
 {
-    aio::http::Request* req = aio::http::request_parse((char[])
+    http::Request* req = http::request_parse((char[])
         "POST /ok HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Content-Length: 3\r\n"
         "\r\n"
         "a\0b"
     )!!;
-    defer aio::http::request_free(req);
+    defer http::request_free(req);
 
     @assert(req.body.len == 3, "NUL body len mismatch");
     @assert(req.body[0] == 'a', "NUL body first byte mismatch");
@@ -500,7 +500,7 @@ fn void test_body_nul_byte_allowed()
 fn void test_very_long_request_line_rejected()
 {
     DString req;
-    req.init(aio::http::localmem, 9000);
+    req.init(http::localmem, 9000);
     defer req.free();
 
     req.append("GET /");
@@ -514,11 +514,11 @@ fn void test_very_long_request_line_rejected()
     req.append("Host: localhost\r\n");
     req.append("\r\n");
 
-    if (catch err = aio::http::request_parse((char[])req.str_view()))
+    if (catch err = http::request_parse((char[])req.str_view()))
     {
         @assert(
-            err == aio::http::BAD_REQUEST ||
-            err == aio::http::REQUEST_TOO_LARGE,
+            err == http::BAD_REQUEST ||
+            err == http::REQUEST_TOO_LARGE,
             "long request line fault mismatch"
         );
         return;
@@ -530,7 +530,7 @@ fn void test_very_long_request_line_rejected()
 fn void test_header_bytes_limit_rejected()
 {
     DString req;
-    req.init(aio::http::localmem, 70 * 1024);
+    req.init(http::localmem, 70 * 1024);
     defer req.free();
 
     req.append("GET /ok HTTP/1.1\r\n");
@@ -544,9 +544,9 @@ fn void test_header_bytes_limit_rejected()
 
     req.append("\r\n\r\n");
 
-    if (catch err = aio::http::request_parse((char[])req.str_view()))
+    if (catch err = http::request_parse((char[])req.str_view()))
     {
-        @assert(err == aio::http::REQUEST_TOO_LARGE, "header bytes limit fault mismatch");
+        @assert(err == http::REQUEST_TOO_LARGE, "header bytes limit fault mismatch");
         return;
     }
 

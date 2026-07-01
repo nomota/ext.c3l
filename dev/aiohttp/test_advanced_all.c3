@@ -1,6 +1,6 @@
 // test_advanced_all.c3
 
-// Advanced integration tests for multipart parser,
+// Advanced integration tests for multipart parsing,
 // chunked request edge cases, read timeout,
 // file/stat compatibility, server lifecycle,
 // and duplicate Set-Cookie behavior.
@@ -26,27 +26,17 @@ const String BIN_PATH = "zz_advanced_all/bin.dat";
 const String DIR_PATH = "zz_advanced_all/dir";
 const String LINK_PATH = "zz_advanced_all/link.txt";
 
-fn bool contains(char[] a, char[] b) @inline
+fn bool contains(char[] text, char[] needle) @inline
 {
-    return ((String)a).contains((String)b);
-}
- 
-fn sz find_string(String s, String needle) @inline
-{
-    return s.index_of(needle) ?? -1;
+    return ((String)text).contains((String)needle);
 }
 
 fn String body_part(String raw)
 {
-    sz idx = find_string(raw, "\r\n\r\n");
+    sz idx = raw.index_of("\r\n\r\n") ?? -1;
     if (idx < 0) return "";
 
     return raw[idx + 4..];
-}
-
-fn bool has_header(String raw, String header)
-{
-    return contains(raw, header);
 }
 
 fn bool status_is(String raw, ushort status)
@@ -57,26 +47,20 @@ fn bool status_is(String raw, ushort status)
     return raw.starts_with(prefix);
 }
 
-fn sz count_occurrences(String s, String needle)
+fn sz count_occurrences(String text, String needle)
 {
     if (needle.len == 0) return 0;
 
     sz count = 0;
     sz pos = 0;
 
-    while (pos + needle.len <= s.len)
+    while (pos + needle.len <= text.len)
     {
-        String rest = s[pos..];
-
-        sz? idx = rest.index_of(needle);
-
-        if (catch err = idx)
-        {
-            break;
-        }
+        sz idx = text[pos..].index_of(needle) ?? -1;
+        if (idx < 0) break;
 
         count++;
-        pos += (sz)idx + needle.len;
+        pos += idx + needle.len;
     }
 
     return count;
@@ -95,18 +79,18 @@ fn void cleanup_files()
 
 fn void? write_all_file(String file_path, char[] data)
 {
-    aio::File* f = aio::file_open(file_path, "wb")!;
-    defer f.close();
+    aio::File* file = aio::file_open(file_path, "wb")!;
+    defer file.close();
 
     sz total = 0;
 
     while (total < data.len)
     {
-        sz n = f.write(data[total:data.len - total])!;
+        sz n = file.write(data[total:data.len - total])!;
 
         if (n <= 0)
         {
-            return aio::http::HTTP_WRITE_ERROR~;
+            return http::WRITE_ERROR~;
         }
 
         total += n;
@@ -131,31 +115,29 @@ fn String? fetch_raw(String request)
     client.write_all((char[])request)!;
 
     DString out;
-    out.init(aio::http::localmem, 4096);
+    out.init(http::localmem, 4096);
     defer catch out.free();
 
     char[4096] buf;
 
     while (true)
     {
-        sz? n = client.read_timeout(buf[..], 2_000_000);
+        sz? read_result = client.read_timeout(buf[..], 2_000_000);
 
-        if (catch err = n)
+        if (catch err = read_result)
         {
-            if (err == aio::TIMEOUT) break;
-            if (err == aio::CLOSED) break;
+            if (err == aio::TIMEOUT || err == aio::CLOSED) break;
 
             return err~;
         }
 
+        sz n = read_result;
         if (n == 0) break;
 
         out.append(buf[0:n]);
     }
 
-    client.close();
-
-    return out.copy_str(aio::http::localmem);
+    return out.copy_str(http::localmem);
 }
 
 fn String? fetch_raw_split(String[] parts, ulong delay_us = 20_000)
@@ -163,73 +145,47 @@ fn String? fetch_raw_split(String[] parts, ulong delay_us = 20_000)
     aio::Stream* client = aio::stream_connect(HOST, PORT)!;
     defer client.free();
 
-    bool write_failed = false;
-    fault write_error = aio::NONE;
-
     for (sz i = 0; i < parts.len; i++)
     {
-        if (catch err = client.write_all((char[])parts[i]))
-        {
-            write_failed = true;
-            write_error = err;
-            break;
-        }
+        client.write_all((char[])parts[i])!;
 
-        if (delay_us > 0)
+        if (delay_us > 0 && i + 1 < parts.len)
         {
             aio::sleep((uint)(delay_us / 1000))!;
         }
     }
 
     DString out;
-    out.init(aio::http::localmem, 4096);
+    out.init(http::localmem, 4096);
     defer catch out.free();
 
     char[4096] buf;
 
     while (true)
     {
-        sz? n = client.read_timeout(buf[..], 2_000_000);
+        sz? read_result = client.read_timeout(buf[..], 2_000_000);
 
-        if (catch err = n)
+        if (catch err = read_result)
         {
-            if (err == aio::TIMEOUT) break;
-            if (err == aio::CLOSED) break;
-
-            if (write_failed)
-            {
-                warn("split write failed first: %s", write_error);
-                break;
-            }
+            if (err == aio::TIMEOUT || err == aio::CLOSED) break;
 
             return err~;
         }
 
+        sz n = read_result;
         if (n == 0) break;
 
         out.append(buf[0:n]);
     }
 
-    client.close();
-
-    String raw = out.copy_str(aio::http::localmem);
-
-    if (write_failed)
-    {
-        warn("split write failed: %s", write_error);
-        warn("partial response:\n%s", raw);
-    }
-
-    return raw;
+    return out.copy_str(http::localmem);
 }
 
 // Handlers
 
 fn Response*? chunked_echo_handler(Ctx* c)
 {
-    char[] body = c.body();
-
-    if ((String)body != "Wikipedia")
+    if ((String)c.body() != "Wikipedia")
     {
         c.status(500)!;
         return c.text("bad chunked body")!;
@@ -240,9 +196,7 @@ fn Response*? chunked_echo_handler(Ctx* c)
 
 fn Response*? chunked_upper_echo_handler(Ctx* c)
 {
-    char[] body = c.body();
-
-    if ((String)body != "0123456789")
+    if ((String)c.body() != "0123456789")
     {
         c.status(500)!;
         return c.text("bad chunked uppercase body")!;
@@ -253,15 +207,15 @@ fn Response*? chunked_upper_echo_handler(Ctx* c)
 
 fn Response*? multipart_parser_handler(Ctx* c)
 {
-//warn("-");
-//c.dump();
-//warn("-");
-    String? field = c.multipart_value("field");
-    if (catch err = field)
+    String? field_result = c.multipart_value("field");
+
+    if (catch field_error = field_result)
     {
         c.status(500)!;
         return c.text("missing parsed 'field'")!;
     }
+
+    String field = field_result;
 
     if (field != "hello multipart")
     {
@@ -269,12 +223,15 @@ fn Response*? multipart_parser_handler(Ctx* c)
         return c.text("bad parsed field")!;
     }
 
-    String? second = c.multipart_value("second");
-    if (catch err = second)
+    String? second_result = c.multipart_value("second");
+
+    if (catch second_error = second_result)
     {
         c.status(500)!;
         return c.text("missing 'second' field")!;
     }
+
+    String second = second_result;
 
     if (second != "two")
     {
@@ -285,46 +242,17 @@ fn Response*? multipart_parser_handler(Ctx* c)
     return c.text("multipart-parser-ok")!;
 }
 
-fn Response*? multipart_file_handler(Ctx* c)
-{
-    MultipartPart* file = c.multipart_file_ref("upload");
-
-    if (file == null)
-    {
-        c.status(500)!;
-        return c.text("missing file")!;
-    }
-
-    if (file.filename != "hello world.txt")
-    {
-        c.status(500)!;
-        return c.text("bad filename")!;
-    }
-
-    if (file.content_type != "text/plain")
-    {
-        c.status(500)!;
-        return c.text("bad file content-type")!;
-    }
-
-    if (file.text() != "file body")
-    {
-        c.status(500)!;
-        return c.text("bad file body")!;
-    }
-
-    return c.text("multipart-file-ok")!;
-}
-
 fn Response*? multipart_raw_guard_handler(Ctx* c)
 {
-    String? content_type = c.req_header("Content-Type");
+    String? content_type_result = c.req_header("Content-Type");
 
-    if (catch err = content_type)
+    if (catch header_error = content_type_result)
     {
         c.status(400)!;
         return c.text("missing content-type")!;
     }
+
+    String content_type = content_type_result;
 
     if (!content_type.contains("multipart/form-data"))
     {
@@ -364,24 +292,29 @@ fn void? server_task(void* arg)
 
     if (catch err = server.serve())
     {
-        return;
+        if (!server.closed)
+        {
+            warn("server failed: %s", err);
+            return err~;
+        }
     }
 }
 
 fn void wake_server()
 {
-    aio::Stream*? s = aio::stream_connect(HOST, PORT);
+    aio::Stream*? stream_result = aio::stream_connect(HOST, PORT);
 
-    if (catch err = s)
+    if (catch connect_error = stream_result)
     {
         return;
     }
 
-    s.close();
-    s.free();
+    aio::Stream* stream = stream_result;
+    stream.close();
+    stream.free();
 }
 
-// 1. Multipart parser-level
+// Multipart tests
 
 fn void? test_multipart_parser_level()
 {
@@ -399,8 +332,8 @@ fn void? test_multipart_parser_level()
     char[128] len_buf;
     String content_len = string::bformat(len_buf[..], "%d", body.len);
 
-    String req = string::format(
-        aio::http::localmem,
+    String request = string::format(
+        http::localmem,
         "POST /multipart-parser HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Content-Type: multipart/form-data; boundary=AaB03x\r\n"
@@ -411,11 +344,11 @@ fn void? test_multipart_parser_level()
         content_len,
         body
     );
-    defer aio::http::localmem.free(req);
+    defer http::localmem.free(request);
 
-    String raw = fetch_raw(req)!;
-    defer aio::http::localmem.free(raw);
-//warn("%s", raw);
+    String raw = fetch_raw(request)!;
+    defer http::localmem.free(raw);
+
     @assert(status_is(raw, 200));
     @assert(contains(body_part(raw), "multipart-parser-ok"));
 }
@@ -432,8 +365,8 @@ fn void? test_multipart_raw_guard()
     char[128] len_buf;
     String content_len = string::bformat(len_buf[..], "%d", body.len);
 
-    String req = string::format(
-        aio::http::localmem,
+    String request = string::format(
+        http::localmem,
         "POST /multipart-raw HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Content-Type: multipart/form-data; boundary=BbC04y\r\n"
@@ -444,16 +377,16 @@ fn void? test_multipart_raw_guard()
         content_len,
         body
     );
-    defer aio::http::localmem.free(req);
+    defer http::localmem.free(request);
 
-    String raw = fetch_raw(req)!;
-    defer aio::http::localmem.free(raw);
+    String raw = fetch_raw(request)!;
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(contains(body_part(raw), "multipart-raw-ok"));
 }
 
-// 2. Chunked request split-read / edge cases
+// Chunked request tests
 
 fn void? test_chunked_request_split_reads()
 {
@@ -473,13 +406,13 @@ fn void? test_chunked_request_split_reads()
     };
 
     String raw = fetch_raw_split(parts[..])!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(contains(body_part(raw), "chunked-ok"));
 }
 
-fn void? test_chunked_request_extension_and_uppercase_hex()
+fn void? test_chunked_request_extension()
 {
     String raw = fetch_raw(
         "POST /chunked HTTP/1.1\r\n"
@@ -494,10 +427,29 @@ fn void? test_chunked_request_extension_and_uppercase_hex()
         "0\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(contains(body_part(raw), "chunked-ok"));
+}
+
+fn void? test_chunked_request_uppercase_hex()
+{
+    String raw = fetch_raw(
+        "POST /chunked-upper HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+        "A\r\n"
+        "0123456789\r\n"
+        "0\r\n"
+        "\r\n"
+    )!;
+    defer http::localmem.free(raw);
+
+    @assert(status_is(raw, 200));
+    @assert(contains(body_part(raw), "chunked-upper-ok"));
 }
 
 fn void? test_chunked_request_malformed_size()
@@ -513,18 +465,18 @@ fn void? test_chunked_request_malformed_size()
         "0\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 400));
 }
 
-// 3. Read timeout / slow client
+// Read timeout test
 
 fn void? test_read_timeout_incomplete_headers()
 {
-    ulong old_timeout = aio::http::http_get_read_timeout_us();
-    aio::http::http_set_read_timeout_us(200_000);
-    defer aio::http::http_set_read_timeout_us(old_timeout);
+    ulong old_timeout = http::get_read_timeout_us();
+    http::set_read_timeout_us(200_000);
+    defer http::set_read_timeout_us(old_timeout);
 
     aio::Stream* client = aio::stream_connect(HOST, PORT)!;
     defer client.free();
@@ -532,51 +484,50 @@ fn void? test_read_timeout_incomplete_headers()
     client.write_all((char[])"GET /hello HTTP/1.1\r\nHost: localhost\r\n")!;
 
     DString out;
-    out.init(aio::http::localmem, 4096);
+    out.init(http::localmem, 4096);
     defer out.free();
 
     char[4096] buf;
 
     while (true)
     {
-        sz? n = client.read_timeout(buf[..], 1_500_000);
+        sz? read_result = client.read_timeout(buf[..], 1_500_000);
 
-        if (catch err = n)
+        if (catch err = read_result)
         {
-            if (err == aio::TIMEOUT) break;
-            if (err == aio::CLOSED) break;
+            if (err == aio::TIMEOUT || err == aio::CLOSED) break;
 
             return err~;
         }
 
+        sz n = read_result;
         if (n == 0) break;
 
         out.append(buf[0:n]);
     }
 
-    String raw = out.str_view();
-
-    @assert(status_is(raw, 408));
-
-    client.close();
+    @assert(status_is(out.str_view(), 408));
 }
 
-// 4. File/stat compatibility
+// File/stat compatibility test
 
 fn void? test_file_open_modes_and_statinfo()
 {
-    aio::File* wf = aio::file_open(BIN_PATH, "wb")!;
-    defer wf.close();
+    aio::File* write_file = aio::file_open(BIN_PATH, "wb")!;
 
     char[] data = (char[])"abc123";
-    sz written = wf.write(data)!;
+    sz written = write_file.write(data)!;
+
     @assert(written == data.len);
 
-    aio::File* rf = aio::file_open(BIN_PATH, "rb")!;
-    defer rf.close();
+    write_file.close();
+
+    aio::File* read_file = aio::file_open(BIN_PATH, "rb")!;
 
     char[32] buf;
-    sz n = rf.read(buf[..])!;
+    sz n = read_file.read(buf[..])!;
+
+    read_file.close();
 
     @assert(n == data.len);
     @assert((String)buf[0:n] == "abc123");
@@ -606,7 +557,7 @@ fn void? test_file_open_modes_and_statinfo()
     @assert(link_info.is_link);
 }
 
-// 5. Server lifecycle deterministic test
+// Server lifecycle tests
 
 fn void? test_server_is_alive()
 {
@@ -616,7 +567,7 @@ fn void? test_server_is_alive()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(contains(body_part(raw), "hello"));
@@ -624,31 +575,32 @@ fn void? test_server_is_alive()
 
 fn void? test_server_is_stopped()
 {
-    aio::Stream*? client = aio::stream_connect(HOST, PORT);
+    aio::Stream*? client_result = aio::stream_connect(HOST, PORT);
 
-    if (catch err = client)
+    if (catch connect_error = client_result)
     {
         return;
     }
 
+    aio::Stream* client = client_result;
     client.close();
     client.free();
 
     @assert(false);
 }
 
-// 6. Cookie attributes / duplicate Set-Cookie
+// Duplicate Set-Cookie tests
 
 fn void? test_duplicate_set_cookie_response_serialize()
 {
-    Response* res = aio::http::response_text("ok")!;
-    defer aio::http::response_free(res);
+    Response* response = http::response_text("ok")!;
+    defer http::response_free(response);
 
-    res.set_cookie("sid=abc; Path=/; HttpOnly; SameSite=Lax")!;
-    res.set_cookie("theme=dark; Path=/; Max-Age=3600")!;
+    response.set_cookie("sid=abc; Path=/; HttpOnly; SameSite=Lax")!;
+    response.set_cookie("theme=dark; Path=/; Max-Age=3600")!;
 
-    String wire = res.serialize()!;
-    defer aio::http::localmem.free(wire);
+    String wire = response.serialize()!;
+    defer http::localmem.free(wire);
 
     @assert(count_occurrences(wire, "Set-Cookie: ") == 2);
     @assert(contains(wire, "Set-Cookie: sid=abc; Path=/; HttpOnly; SameSite=Lax\r\n"));
@@ -663,7 +615,7 @@ fn void? test_duplicate_set_cookie_wire()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(count_occurrences(raw, "Set-Cookie: ") == 2);
@@ -672,28 +624,10 @@ fn void? test_duplicate_set_cookie_wire()
     @assert(contains(body_part(raw), "cookie-ok"));
 }
 
-fn void? test_chunked_request_uppercase_hex()
-{
-    String raw = fetch_raw(
-        "POST /chunked-upper HTTP/1.1\r\n"
-        "Host: localhost\r\n"
-        "Transfer-Encoding: chunked\r\n"
-        "Connection: close\r\n"
-        "\r\n"
-        "A\r\n"
-        "0123456789\r\n"
-        "0\r\n"
-        "\r\n"
-    )!;
-    defer aio::http::localmem.free(raw);
-
-    @assert(status_is(raw, 200));
-    @assert(contains(body_part(raw), "chunked-upper-ok"));
-}
-
 fn void? test_main(void* arg)
 {
     setup_files()!;
+    defer cleanup_files();
 
     test_file_open_modes_and_statinfo()!;
     test_duplicate_set_cookie_response_serialize()!;
@@ -706,9 +640,9 @@ fn void? test_main(void* arg)
     app.get("/cookie", &cookie_handler)!;
 
     app.post("/chunked", &chunked_echo_handler)!;
+    app.post("/chunked-upper", &chunked_upper_echo_handler)!;
     app.post("/multipart-parser", &multipart_parser_handler)!;
     app.post("/multipart-raw", &multipart_raw_guard_handler)!;
-    app.post("/chunked-upper", &chunked_upper_echo_handler)!;
 
     ApplicationServer server;
     server.init(&app, HOST, PORT);
@@ -721,25 +655,20 @@ fn void? test_main(void* arg)
 
     test_multipart_parser_level()!;
     test_multipart_raw_guard()!;
-//warn("-");
+
     test_chunked_request_split_reads()!;
-//warn("-");
     test_chunked_request_uppercase_hex()!;
-    test_chunked_request_extension_and_uppercase_hex()!;
-//warn("-");
+    test_chunked_request_extension()!;
     test_chunked_request_malformed_size()!;
-//warn("-");
+
     test_read_timeout_incomplete_headers()!;
-//warn("-");
     test_duplicate_set_cookie_wire()!;
-//warn("-");
+
     server.stop()!;
     wake_server();
     server.wait_closed()!;
 
     test_server_is_stopped()!;
-
-    cleanup_files();
 
     warn("OK");
 }

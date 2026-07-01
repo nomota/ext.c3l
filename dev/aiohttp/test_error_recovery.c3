@@ -89,24 +89,24 @@ fn sz? response_content_length(String header_block)
         String name = line[0:colon];
         String value = line[colon + 1..].trim();
 
-        if (!aio::http::str_iequals(name, "Content-Length"))
+        if (!http::str_iequals(name, "Content-Length"))
         {
             continue;
         }
 
         sz length = value.to_long()!;
-        if (length < 0) return aio::http::BAD_REQUEST~;
+        if (length < 0) return http::BAD_REQUEST~;
 
         return length;
     }
 
-    return aio::http::NOT_FOUND~;
+    return http::NOT_FOUND~;
 }
 
 fn sz? response_expected_total_len(String response)
 {
     sz header_end = response.index_of("\r\n\r\n") ?? -1;
-    if (header_end < 0) return aio::http::BODY_INCOMPLETE~;
+    if (header_end < 0) return http::BODY_INCOMPLETE~;
 
     String header_block = response[0:header_end];
 
@@ -123,7 +123,7 @@ fn sz? response_expected_total_len(String response)
 fn String? read_response(aio::Stream* stream)
 {
     DString buffer;
-    buffer.init(aio::http::localmem, 4096);
+    buffer.init(http::localmem, 4096);
     defer catch buffer.free();
 
     char[1024] tmp;
@@ -139,14 +139,14 @@ fn String? read_response(aio::Stream* stream)
             if (buffer.len() >= expected)
             {
                 return current[0:expected].copy(
-                    aio::http::localmem
+                    http::localmem
                 );
             }
         }
 
         if (buffer.len() > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         sz? n = stream.read_timeout(
@@ -166,7 +166,7 @@ fn String? read_response(aio::Stream* stream)
                 if (buffer.len() >= final_expected)
                 {
                     return current[0:final_expected].copy(
-                        aio::http::localmem
+                        http::localmem
                     );
                 }
             }
@@ -181,7 +181,7 @@ fn String? read_response(aio::Stream* stream)
 
     if (buffer.len() == 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     String current = buffer.str_view();
@@ -193,12 +193,12 @@ fn String? read_response(aio::Stream* stream)
         if (buffer.len() >= expected)
         {
             return current[0:expected].copy(
-                aio::http::localmem
+                http::localmem
             );
         }
     }
 
-    return aio::http::BODY_INCOMPLETE~;
+    return http::BODY_INCOMPLETE~;
 }
 
 fn String? request_once(String request)
@@ -267,7 +267,7 @@ fn void? ResponseReader.init(
 ) @maydiscard
 {
     self.stream = stream;
-    self.buffer.init(aio::http::localmem, 4096);
+    self.buffer.init(http::localmem, 4096);
 }
 
 fn void ResponseReader.free(&self)
@@ -293,7 +293,7 @@ fn String? ResponseReader.read_response(&self)
 {
     if (self.stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     char[1024] tmp;
@@ -309,7 +309,7 @@ fn String? ResponseReader.read_response(&self)
             if (self.buffer.len() >= expected)
             {
                 String response = current[0:expected].copy(
-                    aio::http::localmem
+                    http::localmem
                 );
 
                 self.consume(expected);
@@ -320,7 +320,7 @@ fn String? ResponseReader.read_response(&self)
 
         if (self.buffer.len() > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         sz? n = self.stream.read_timeout(
@@ -341,7 +341,7 @@ fn String? ResponseReader.read_response(&self)
                 {
                     String response =
                         current[0:final_expected].copy(
-                            aio::http::localmem
+                            http::localmem
                         );
 
                     self.consume(final_expected);
@@ -360,7 +360,7 @@ fn String? ResponseReader.read_response(&self)
 
     if (self.buffer.len() == 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     String current = self.buffer.str_view();
@@ -372,7 +372,7 @@ fn String? ResponseReader.read_response(&self)
         if (self.buffer.len() >= expected)
         {
             String response = current[0:expected].copy(
-                aio::http::localmem
+                http::localmem
             );
 
             self.consume(expected);
@@ -381,58 +381,58 @@ fn String? ResponseReader.read_response(&self)
         }
     }
 
-    return aio::http::BODY_INCOMPLETE~;
+    return http::BODY_INCOMPLETE~;
 }
 
 
 // Handlers
 
-fn aio::http::Response*? ok_handler(aio::http::Context* c)
+fn http::Response*? ok_handler(http::Context* c)
 {
     return c.text("ok")!;
 }
 
-fn aio::http::Response*? fault_handler(
-    aio::http::Context* c
+fn http::Response*? fault_handler(
+    http::Context* c
 )
 {
-    return aio::http::BAD_REQUEST~;
+    return http::BAD_REQUEST~;
 }
 
-fn aio::http::Response*? fault_500_handler(
-    aio::http::Context* c
+fn http::Response*? fault_500_handler(
+    http::Context* c
 )
 {
-    return aio::http::STATIC_READ_ERROR~;
+    return http::STATIC_READ_ERROR~;
 }
 
-fn aio::http::Response*? middleware_fault(
-    aio::http::Context* c,
-    aio::http::Next next
+fn http::Response*? middleware_fault(
+    http::Context* c,
+    http::Next next
 )
 {
-    return aio::http::BAD_REQUEST~;
+    return http::BAD_REQUEST~;
 }
 
-fn aio::http::Response*? middleware_fault_after(
-    aio::http::Context* c,
-    aio::http::Next next
+fn http::Response*? middleware_fault_after(
+    http::Context* c,
+    http::Next next
 )
 {
-    aio::http::Response* response = next(c)!;
+    http::Response* response = next(c)!;
 
     @assert(
         response != null,
         "middleware after fault test missing response"
     );
 
-    return aio::http::BAD_REQUEST~;
+    return http::BAD_REQUEST~;
 }
 
 
 // Application and server
 
-fn void? setup_app(aio::http::Application* app)
+fn void? setup_app(http::Application* app)
 {
     app.init();
 
@@ -443,8 +443,8 @@ fn void? setup_app(aio::http::Application* app)
 
 fn void? server_task(void* arg)
 {
-    aio::http::ApplicationServer* server =
-        (aio::http::ApplicationServer*)arg;
+    http::ApplicationServer* server =
+        (http::ApplicationServer*)arg;
 
     if (catch err = server.serve())
     {
@@ -463,7 +463,7 @@ fn void test_ok_before_errors()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         status_is(response, 200),
@@ -483,7 +483,7 @@ fn void test_handler_fault_returns_error()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         status_is(response, 400) ||
@@ -500,7 +500,7 @@ fn void test_handler_fault500_returns_500()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         status_is(response, 500),
@@ -518,7 +518,7 @@ fn void test_server_recovers_after_handler_fault()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         status_is(response, 200),
@@ -538,7 +538,7 @@ fn void test_bad_request_then_new_client_ok()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(bad);
+    defer http::localmem.free(bad);
 
     @assert(
         status_is(bad, 400),
@@ -551,7 +551,7 @@ fn void test_bad_request_then_new_client_ok()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(good);
+    defer http::localmem.free(good);
 
     @assert(
         status_is(good, 200),
@@ -586,10 +586,10 @@ fn void test_malformed_second_pipelined_request()
     )!!;
 
     String first = reader.read_response()!!;
-    defer aio::http::localmem.free(first);
+    defer http::localmem.free(first);
 
     String second = reader.read_response()!!;
-    defer aio::http::localmem.free(second);
+    defer http::localmem.free(second);
 
     @assert(
         status_is(first, 200),
@@ -630,7 +630,7 @@ fn void test_first_pipelined_fault_then_server_recovers()
     )!!;
 
     String first = reader.read_response()!!;
-    defer aio::http::localmem.free(first);
+    defer http::localmem.free(first);
 
     @assert(
         status_is(first, 400) ||
@@ -646,7 +646,7 @@ fn void test_first_pipelined_fault_then_server_recovers()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(good);
+    defer http::localmem.free(good);
 
     @assert(
         status_is(good, 200),
@@ -660,19 +660,19 @@ fn void test_first_pipelined_fault_then_server_recovers()
 
 fn void test_middleware_fault_fetch_raw()
 {
-    aio::http::Application app;
+    http::Application app;
     app.init();
     defer app.deinit();
 
     app.use(&middleware_fault);
     app.get("/ok", &ok_handler)!!;
 
-    aio::http::Response* response = app.fetch_raw((char[])
+    http::Response* response = app.fetch_raw((char[])
         "GET /ok HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     )!!;
-    defer aio::http::response_free(response);
+    defer http::response_free(response);
 
     @assert(
         response.status == 400 ||
@@ -683,19 +683,19 @@ fn void test_middleware_fault_fetch_raw()
 
 fn void test_middleware_after_fault_fetch_raw()
 {
-    aio::http::Application app;
+    http::Application app;
     app.init();
     defer app.deinit();
 
     app.use(&middleware_fault_after);
     app.get("/ok", &ok_handler)!!;
 
-    aio::http::Response* response = app.fetch_raw((char[])
+    http::Response* response = app.fetch_raw((char[])
         "GET /ok HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     )!!;
-    defer aio::http::response_free(response);
+    defer http::response_free(response);
 
     @assert(
         response.status == 400 ||
@@ -720,7 +720,7 @@ fn void test_many_recoveries()
             "many recoveries bad status mismatch"
         );
 
-        aio::http::localmem.free(bad);
+        http::localmem.free(bad);
 
         String good = request_once(
             "GET /ok HTTP/1.1\r\n"
@@ -738,7 +738,7 @@ fn void test_many_recoveries()
             "many recoveries good body mismatch"
         );
 
-        aio::http::localmem.free(good);
+        http::localmem.free(good);
     }
 }
 
@@ -747,11 +747,11 @@ fn void test_many_recoveries()
 
 fn void? main_task(void* arg)
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app)!;
     defer app.deinit();
 
-    aio::http::ApplicationServer server;
+    http::ApplicationServer server;
     server.init(&app, HOST, PORT);
     defer server.free();
 

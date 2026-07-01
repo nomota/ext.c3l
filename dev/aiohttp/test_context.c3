@@ -23,9 +23,9 @@ fn bool contains(char[]haystack, char[] needle)
 }
 
 
-fn aio::http::Request* parse_request(char[] raw)
+fn http::Request* parse_request(char[] raw)
 {
-    aio::http::Request* req = aio::http::request_parse(raw)!!;
+    http::Request* req = http::request_parse(raw)!!;
     return req;
 }
 
@@ -39,10 +39,10 @@ fn void test_context_basic_request_accessors()
         "\r\n"
         "hello";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context c;
+    http::Context c;
     c.init(req)!!;
     defer c.free();
 
@@ -58,7 +58,7 @@ fn void test_context_basic_request_accessors()
 
 fn void test_context_empty_request_accessors()
 {
-    aio::http::Context c = {};
+    http::Context c = {};
 
     @assert(c.method() == "", "empty method mismatch");
     @assert(c.path() == "", "empty path mismatch");
@@ -69,7 +69,7 @@ fn void test_context_empty_request_accessors()
     String? h = c.req_header("Host");
     if (catch err = h)
     {
-        @assert(err == aio::http::CONTEXT_NOT_READY, "empty req_header fault mismatch");
+        @assert(err == http::CONTEXT_NOT_READY, "empty req_header fault mismatch");
         return;
     }
 
@@ -83,17 +83,17 @@ fn void test_context_params()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Params params;
+    http::Params params;
     params.init();
     defer params.free();
 
     params.put("id", "42")!!;
     params.set_splat("users/42")!!;
 
-    aio::http::Context c;
+    http::Context c;
     c.init_with_params(req, &params)!!;
     defer c.free();
 
@@ -113,10 +113,10 @@ fn void test_context_query_cache()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context c;
+    http::Context c;
     c.init(req)!!;
     defer c.free();
 
@@ -128,14 +128,14 @@ fn void test_context_query_cache()
     @assert(c.has_query("q"), "has_query q mismatch");
     @assert(!c.has_query("missing"), "has_query missing mismatch");
 
-    aio::http::Query* queries = c.queries();
+    http::Query* queries = c.queries();
     @assert(queries != null, "queries pointer is null");
     @assert(queries.len() == 2, "queries len mismatch");
 
     String? missing = c.query("missing");
     if (catch err = missing)
     {
-        @assert(err == aio::http::NOT_FOUND, "missing query fault mismatch");
+        @assert(err == http::NOT_FOUND, "missing query fault mismatch");
         return;
     }
 
@@ -149,10 +149,10 @@ fn void test_context_response_status_and_headers()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context c;
+    http::Context c;
     c.init(req)!!;
     defer c.free();
 
@@ -175,14 +175,14 @@ fn void test_context_text_response()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context c;
+    http::Context c;
     c.init(req)!!;
     defer c.free();
 
-    aio::http::Response* res = c.text("hello")!!;
+    http::Response* res = c.text("hello")!!;
 
     @assert(res == c.res, "text response pointer mismatch");
     @assert(res.status == 200, "text response status mismatch");
@@ -197,14 +197,14 @@ fn void test_context_html_response()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context c;
+    http::Context c;
     c.init(req)!!;
     defer c.free();
 
-    aio::http::Response* res = c.html("<h1>Hello</h1>")!!;
+    http::Response* res = c.html("<h1>Hello</h1>")!!;
 
     @assert(res == c.res, "html response pointer mismatch");
     @assert((String)res.body == "<h1>Hello</h1>", "html response body mismatch");
@@ -218,14 +218,14 @@ fn void test_context_json_response()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context c;
+    http::Context c;
     c.init(req)!!;
     defer c.free();
 
-    aio::http::Response* res = c.json("{\"ok\":true}")!!;
+    http::Response* res = c.json("{\"ok\":true}")!!;
 
     @assert(res == c.res, "json response pointer mismatch");
     @assert((String)res.body == "{\"ok\":true}", "json response body mismatch");
@@ -239,14 +239,14 @@ fn void test_context_body_response()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context c;
+    http::Context c;
     c.init(req)!!;
     defer c.free();
 
-    aio::http::Response* res = c.body_response((char[])"raw-body")!!;
+    http::Response* res = c.body_response((char[])"raw-body")!!;
 
     @assert(res == c.res, "body response pointer mismatch");
     @assert((String)res.body == "raw-body", "body response mismatch");
@@ -259,14 +259,14 @@ fn void test_context_redirect()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context c;
+    http::Context c;
     c.init(req)!!;
     defer c.free();
 
-    aio::http::Response* res = c.redirect("/new", 301)!!;
+    http::Response* res = c.redirect("/new", 301)!!;
 
     @assert(res.status == 301, "redirect status mismatch");
     @assert(res.headers.get("Location")!! == "/new", "redirect location mismatch");
@@ -279,14 +279,14 @@ fn void test_context_not_found()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context c;
+    http::Context c;
     c.init(req)!!;
     defer c.free();
 
-    aio::http::Response* res = c.not_found()!!;
+    http::Response* res = c.not_found()!!;
 
     @assert(res.status == 404, "not_found status mismatch");
     @assert(contains(res.body, "404 Not Found"), "not_found body mismatch");
@@ -299,14 +299,14 @@ fn void test_context_internal_error()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context c;
+    http::Context c;
     c.init(req)!!;
     defer c.free();
 
-    aio::http::Response* res = c.internal_error()!!;
+    http::Response* res = c.internal_error()!!;
 
     @assert(res.status == 500, "internal_error status mismatch");
     @assert(contains(res.body, "500 Internal Server Error"), "internal_error body mismatch");
@@ -319,23 +319,23 @@ fn void test_context_with_response_replaces_response()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context c;
+    http::Context c;
     c.init(req)!!;
     defer c.free();
 
-    aio::http::Response* replacement = aio::http::response_text("replacement")!!;
+    http::Response* replacement = http::response_text("replacement")!!;
 
-    aio::http::Response* res = c.with_response(replacement);
+    http::Response* res = c.with_response(replacement);
 
     @assert(res == replacement, "with_response pointer mismatch");
     @assert(c.res == replacement, "context replacement mismatch");
     @assert((String)c.res.body == "replacement", "replacement body mismatch");
 }
 
-fn aio::http::Response*? call_handler(aio::http::Context* c)
+fn http::Response*? call_handler(http::Context* c)
 {
     c.header("X-Handler", "yes")!!;
     return c.text("called")!!;
@@ -348,14 +348,14 @@ fn void test_context_call()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context c;
+    http::Context c;
     c.init(req)!!;
     defer c.free();
 
-    aio::http::Response* res = aio::http::context_call(&c, &call_handler)!!;
+    http::Response* res = http::context_call(&c, &call_handler)!!;
 
     @assert(res == c.res, "context_call response mismatch");
     @assert((String)res.body == "called", "context_call body mismatch");
@@ -369,18 +369,18 @@ fn void test_context_call_null_handler()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context c;
+    http::Context c;
     c.init(req)!!;
     defer c.free();
 
-    aio::http::Response*? res = aio::http::context_call(&c, null);
+    http::Response*? res = http::context_call(&c, null);
 
     if (catch err = res)
     {
-        @assert(err == aio::http::CONTEXT_NOT_READY, "null handler fault mismatch");
+        @assert(err == http::CONTEXT_NOT_READY, "null handler fault mismatch");
         return;
     }
 
@@ -394,10 +394,10 @@ fn void test_context_serialized_response()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context c;
+    http::Context c;
     c.init(req)!!;
     defer c.free();
 
@@ -406,7 +406,7 @@ fn void test_context_serialized_response()
     c.text("accepted")!!;
 
     String wire = c.res.serialize()!!;
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(contains(wire, "HTTP/1.1 202 Accepted\r\n"), "serialized status missing");
     @assert(contains(wire, "X-Test: ok\r\n"), "serialized custom header missing");

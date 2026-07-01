@@ -9,6 +9,8 @@ import std::collections::list;
 import ext::mem;
 import ext::debug;
 
+faultdef INVALID_HEADER_VALUE;
+
 LocalAllocator localmem = null;
 
 fn void init() @init
@@ -37,98 +39,13 @@ struct KeyVals @private
 
 alias Param = KeyVal;
 alias Header = KeyVal;
+alias Auth = KeyVal;
 
 alias Params = KeyVals;
 alias Headers = KeyVals;
 alias Query = KeyVals;
 alias Cookies = KeyVals;
 
-// 
-// Internal helpers
-// 
-
-fn bool ascii_eq_ignore_case(char a, char b) @inline
-{
-    if (a >= 'A' && a <= 'Z') a = a + 32;
-    if (b >= 'A' && b <= 'Z') b = b + 32;
-    return a == b;
-}
-
-fn bool str_iequals(String a, String b)
-{
-    if (a.len != b.len) return false;
-
-    for (sz i = 0; i < a.len; i++)
-    {
-        if (!ascii_eq_ignore_case(a[i], b[i])) return false;
-    }
-
-    return true;
-}
-
-fn bool is_valid_name(String name)
-{
-    if (name.len == 0) return false;
-
-    for (sz i = 0; i < name.len; i++)
-    {
-        char c = name[i];
-
-        // RFC token-ish validation.
-        // Disallow CTL, space, colon.
-        if (c <= 32 || c == 127 || c == ':') return false;
-
-        switch (c)
-        {
-            case '(':
-            case ')':
-            case '<':
-            case '>':
-            case '@':
-            case ',':
-            case ';':
-            case '\\':
-            case '"':
-            case '/':
-            case '[':
-            case ']':
-            case '?':
-            case '=':
-            case '{':
-            case '}':
-                return false;
-            default:
-        }
-    }
-
-    return true;
-}
-
-faultdef INVALID_HEADER_VALUE;
-
-fn bool is_valid_value(String value)
-{
-    for (sz i = 0; i < value.len; i++)
-    {
-        char c = value[i];
-
-        if (c == '\r' || c == '\n') return false;
-        if (c == 127) return false;
-        if (c < 32 && c != '\t') return false;
-    }
-
-    return true;
-}
-
-fn String str_clone(String s) @inline @private
-{
-    return s.copy(localmem);
-}
-
-fn void str_free(String s) @inline @private
-{
-    localmem.free(s);
-}
 
 fn void KeyVal.free(&self)
 {
@@ -140,9 +57,7 @@ fn void KeyVal.free(&self)
 }
 
 
-// 
 // Public API
-// 
 
 fn void KeyVals.init(&self)
 {
@@ -151,9 +66,8 @@ fn void KeyVals.init(&self)
 
 fn void KeyVals.clear(&self)
 {
-    for (sz i = 0; i < self.len(); i++)
-    {
-        self.items[i].free();
+    foreach (item: self.items) {
+        item.free();
     }
 
     self.items.clear();
@@ -161,9 +75,8 @@ fn void KeyVals.clear(&self)
 
 fn void KeyVals.free(&self)
 {
-    for (sz i = 0; i < self.len(); i++)
-    {
-        self.items[i].free();
+    foreach (item: self.items) {
+        item.free();
     }
 
     self.items.free();
@@ -186,15 +99,33 @@ fn bool KeyVals.empty(&self) @inline
 
 fn bool KeyVals.has(&self, String name)
 {
-    for (sz i = 0; i < self.len(); i++)
-    {
-        if (str_iequals(self.items[i].name, name))
-        {
+    foreach (item: self.items) {
+        if (str_iequals(item.name, name)) {
             return true;
         }
     }
 
     return false;
+}
+
+// Returns the name at index.
+//
+// The returned string is owned by KeyVals.
+fn String? KeyVals.name_at(&self, sz index)
+{
+    if (index < 0 || index >= self.len()) return NOT_FOUND~;
+
+    return self.items[index].name;
+}
+
+// Returns the value at index.
+//
+// The returned string is owned by KeyVals.
+fn String? KeyVals.value_at(&self, sz index)
+{
+    if (index < 0 || index >= self.len()) return NOT_FOUND~;
+
+    return self.items[index].value;
 }
 
 faultdef NOT_FOUND;
@@ -205,10 +136,8 @@ faultdef NOT_FOUND;
 // For repeated headers such as Set-Cookie, use values().
 fn String? KeyVals.get(&self, String name)
 {
-    for (sz i = 0; i < self.len(); i++)
-    {
-        if (str_iequals(self.items[i].name, name))
-        {
+    for (sz i = 0; i < self.len(); i++) {
+        if (str_iequals(self.items[i].name, name)) {
             return self.items[i].value;
         }
     }
@@ -219,10 +148,8 @@ fn String? KeyVals.get(&self, String name)
 // Returns the index of the first matching header.
 fn sz? KeyVals.find(&self, String name)
 {
-    for (sz i = 0; i < self.len(); i++)
-    {
-        if (str_iequals(self.items[i].name, name))
-        {
+    for (sz i = 0; i < self.len(); i++) {
+        if (str_iequals(self.items[i].name, name)) {
             return i;
         }
     }
@@ -269,10 +196,8 @@ fn bool KeyVals.delete(&self, String name)
     bool removed = false;
     sz i = 0;
     
-    while (i < self.len())
-    {
-        if (str_iequals(self.items[i].name, name))
-        {
+    while (i < self.len()) {
+        if (str_iequals(self.items[i].name, name)) {
             self.items[i].free();
             self.items.remove_at(i);
             removed = true;
@@ -299,8 +224,7 @@ fn sz KeyVals.write_to(&self, char[] out)
 {
     sz pos = 0;
 
-    for (sz i = 0; i < self.len(); i++)
-    {
+    for (sz i = 0; i < self.len(); i++) {
         Header* h = &self.items[i];
 
         sz need = h.name.len + 2 + h.value.len + 2;
@@ -327,8 +251,7 @@ fn sz KeyVals.serialized_len(&self)
 {
     sz n = 0;
 
-    for (sz i = 0; i < self.len(); i++)
-    {
+    for (sz i = 0; i < self.len(); i++) {
         Header* h = &self.items[i];
         n += h.name.len + 2 + h.value.len + 2;
     }
@@ -354,8 +277,7 @@ fn String? Headers.serialize(&self)
     char[] out = p[0:n];
 
     sz written = self.write_to(out);
-    if (written != n)
-    {
+    if (written != n) {
         localmem.free(p);
         return HEADER_SERIALIZE_ERROR~;
     }
@@ -364,9 +286,8 @@ fn String? Headers.serialize(&self)
     return (String)out;
 }
 
-// 
+
 // Convenience helpers
-// 
 
 fn void? Headers.content_type(&self, String value) @maydiscard
 {
@@ -399,14 +320,11 @@ fn void? Headers.set_cookie(&self, String value) @maydiscard
 }
 
 
-// 
 // Debug
-// 
 
 fn void Headers.dump(&self)
 {
-    for (sz i = 0; i < self.len(); i++)
-    {
+    for (sz i = 0; i < self.len(); i++) {
         io::printfn("%s: %s", self.items[i].name, self.items[i].value);
     }
 }

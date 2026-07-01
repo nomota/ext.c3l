@@ -10,7 +10,7 @@ This module is to fill missing gaps of C3 std lib by providing various encoders/
 
 | Module | Description |
 |--------|-------------|
-| `ext::serializer::json` | JSON serializer: JsonObject, JsonArray, JsonValue, JsonNull, JsonBool, JsonNumber, String, bool, long, double, null, decode(), encode() |
+| `ext::encoding::json` | JSON serializer: JsonObject, JsonArray, JsonValue, JsonNull, JsonBool, JsonNumber, String, bool, long, double, null, decode(), encode() |
 
 * More about [JSON decoder/encoder](./README.json.md)
 
@@ -18,7 +18,7 @@ This module is to fill missing gaps of C3 std lib by providing various encoders/
 
 | Module | Description |
 |--------|-------------|
-| `ext::serializer::http` | HTTP/1.x parser: `Request`, `Response`, `Url`, `SetCookie`, `FormFile`, `KeyValue`, `parse_request()`, `parse_response()`, decode helpers |
+| `ext::encoding::http` | HTTP/1.x parser: `Request`, `Response`, `Url`, `SetCookie`, `FormFile`, `KeyValue`, `parse_request()`, `parse_response()`, decode helpers |
 
 * More about [HTTP parser](./README.http.md)
 
@@ -26,7 +26,7 @@ This module is to fill missing gaps of C3 std lib by providing various encoders/
 
 | Module | Description |
 |--------|-------------|
-| `ext::serializer::simdjson` | SIMD JSON parser: `ParseResult`, `JsonValue`, `TapeEntry`, `TapeType`, `parse()`, `dump_tape()` |
+| `ext::encoding::simdjson` | SIMD JSON parser: `ParseResult`, `JsonValue`, `TapeEntry`, `TapeType`, `parse()`, `dump_tape()` |
 
 * More about [SIMD JSON parser](./README.simdjson.md)
 
@@ -38,9 +38,9 @@ This module is to fill missing gaps of C3 std lib by providing various encoders/
 
 ### Exqmples
 
-* [../../test/serializer/json_sample.c3](../../test/serializer/json_sample.c3)
-* [../../test/serializer/http_sample.c3](../../test/serializer/http_sample.c3)
-* [../../test/serializer/simdjson_sample.c3](../../test/serializer/simdjson_sample.c3)
+* [../../test/encoding/json_sample.c3](../../test/encoding/json_sample.c3)
+* [../../test/encoding/http_sample.c3](../../test/encoding/http_sample.c3)
+* [../../test/encoding/simdjson_sample.c3](../../test/encoding/simdjson_sample.c3)
 
 
 This is a part of the extended C3 library.

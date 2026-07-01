@@ -199,17 +199,17 @@ It is built on top of the [fiber](../fiber/README.md) coroutine module.
 * [ext/mem](ext/mem)
 - More about [Allocation macros](ext/mem/README.md)
 
-### Serializer - various encoder/decoder
+### encoding - various encoder/decoder
 
-`ext::serializer` module is to fill missing gaps of C3 std lib by providing various encoders/decoders.
+`ext::encoding` module is to fill missing gaps of C3 std lib by providing various encoders/decoders.
 
 | Module | Description |
 |--------|-------------|
-| `ext::serializer::json` | JSON serializer: JsonObject, JsonArray, JsonValue, JsonNull, JsonBool, JsonNumber, String, bool, long, double, null, decode(), encode() |
-| `ext::serializer::http` | HTTP/1.x parser: `Request`, `Response`, `Url`, `SetCookie`, `FormFile`, `KeyValue`, `parse_request()`, `parse_response()`, decode helpers |
-| `ext::serializer::simdjson` | SIMD JSON parser: `ParseResult`, `JsonValue`, `TapeEntry`, `TapeType`, `parse()`, `dump_tape()` |
+| `ext::encoding::json` | JSON serializer: JsonObject, JsonArray, JsonValue, JsonNull, JsonBool, JsonNumber, String, bool, long, double, null, decode(), encode() |
+| `ext::encoding::http` | HTTP/1.x parser: `Request`, `Response`, `Url`, `SetCookie`, `FormFile`, `KeyValue`, `parse_request()`, `parse_response()`, decode helpers |
+| `ext::encoding::simdjson` | SIMD JSON parser: `ParseResult`, `JsonValue`, `TapeEntry`, `TapeType`, `parse()`, `dump_tape()` |
 
-* More about [Serializers, Encode/decoders](ext/serializer/README.md)
+* More about [Encode/decoders](ext/encoding/README.md)
 
 ### wepoll (epoll for Windows)
 

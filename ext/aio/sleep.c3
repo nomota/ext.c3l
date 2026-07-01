@@ -12,8 +12,6 @@ struct Sleep @private
     Waiter waiter;
 
     ulong deadline_us;
-
-    Sleep* next;
 }
 
 fn ulong clock_now() @inline // micro second
@@ -35,61 +33,66 @@ fn void Sleep.init(&self, Task* task, ulong deadline_us)
 {
     self.waiter.init(task);
     self.deadline_us = deadline_us;
-    self.next = null;
 }
 
 fn void EventLoop.add_sleep(&self, Sleep* sleep) // private
 {
     if (sleep == null) return;
 
-    sleep.next = null;
-
-    if (self.sleep_head == null) {
-        self.sleep_head = sleep;
-        return;
+    bool inserted = false;
+    for (sz i = 0; i < self.sleeps.len(); i++) {
+        Sleep* s = self.sleeps.get(i);
+        if (sleep.deadline_us < s.deadline_us) {
+            self.sleeps.insert_at(i, sleep);
+            inserted = true;
+            break;
+        }
     }
-
-    if (sleep.deadline_us < self.sleep_head.deadline_us) {
-        sleep.next = self.sleep_head;
-        self.sleep_head = sleep;
-        return;
-    }
-
-    Sleep* prev = self.sleep_head;
-    Sleep* cur = self.sleep_head.next;
-
-    while (cur != null && cur.deadline_us <= sleep.deadline_us) {
-        prev = cur;
-        cur = cur.next;
-    }
-
-    sleep.next = cur;
-    prev.next = sleep;
+    if (!inserted) self.sleeps.push(sleep);
 }
 
 fn void EventLoop.process_sleeps(&self) // private
 {
     ulong now = clock_now();
 
-    while (self.sleep_head != null) {
-        Sleep* sleep = self.sleep_head;
-
-        if (sleep.deadline_us > now) break;
-
-        self.sleep_head = sleep.next;
-        sleep.next = null;
-        sleep.waiter.wake();
+    while (self.sleeps.len() > 0) {
+        Sleep* s = self.sleeps.get(0);
+        if (s == null) {
+            self.sleeps.remove_at(0);
+            continue;
+        }
+        if (s.deadline_us > now) break;
+        self.sleeps.remove_at(0);
+        s.waiter.wake();
     }
+}
+
+fn void EventLoop.remove_task_sleeps(&self, Task* task)
+{
+    sz i = 0;
+    while (i < self.sleeps.len()) {
+        Sleep* s = self.sleeps.get(i);
+        Task* t = s.waiter.task;
+        if (t == task) {
+            s.waiter.active = false;
+            s.waiter.task = null;
+            self.sleeps.remove_at(i);
+            continue;
+        }
+        
+        i++;
+    }
+
 }
 
 fn ulong EventLoop.next_sleep_delay_us(&self) // private
 {
-    if (self.sleep_head == null) return 0;
+    if (self.sleeps.len() == 0) return 0;
 
     ulong now = clock_now();
-    if (self.sleep_head.deadline_us <= now) return 0;
+    if (self.sleeps.get(0).deadline_us <= now) return 0;
 
-    ulong delay = self.sleep_head.deadline_us - now;
+    ulong delay = self.sleeps.get(0).deadline_us - now;
 
     return delay;
 }
@@ -98,29 +101,7 @@ fn void EventLoop.remove_sleep(&self, Sleep* sleep) // private
 {
     if (sleep == null) return;
 
-    Sleep* prev = null;
-    Sleep* cur = self.sleep_head;
-
-    while (cur != null)
-    {
-        if (cur == sleep)
-        {
-            if (prev == null)
-            {
-                self.sleep_head = cur.next;
-            }
-            else
-            {
-                prev.next = cur.next;
-            }
-
-            cur.next = null;
-            return;
-        }
-
-        prev = cur;
-        cur = cur.next;
-    }
+    self.sleeps.remove_first_match(sleep);
 }
 
 fn void? sleep(ulong us) @maydiscard

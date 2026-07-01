@@ -26,7 +26,7 @@ clean:
 	@cd ./test/hash && make clean
 	@cd ./test/io && make clean
 	@cd ./test/fiber && make clean
-	@cd ./test/serializer && make clean
+	@cd ./test/encoding && make clean
 	@cd ./test/aio && make clean
 	@cd ./test/wepoll && make clean
 	@cd ./test/mio && make clean

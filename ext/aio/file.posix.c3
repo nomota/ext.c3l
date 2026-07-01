@@ -99,7 +99,12 @@ fn void* file_load_blocking(void* v_arg) @local
         return v_arg;
     }
 
-    arg.buf = localmem.alloc_array(char, size)!;
+    char[]? buf = aio::localmem.alloc_array(char, size);
+    if (catch err = buf) {
+        arg.error = err;
+        return v_arg;
+    }
+    arg.buf = buf;
 
     sz total = 0;
 
@@ -108,7 +113,7 @@ fn void* file_load_blocking(void* v_arg) @local
 
         if (n < 0) {
             arg.error = errno::get_fault();
-            localmem.free(arg.buf);
+            aio::localmem.free(arg.buf);
             arg.buf = {};
             arg.result = 0;
 
@@ -121,7 +126,7 @@ fn void* file_load_blocking(void* v_arg) @local
     }
 
     if (total == 0) {
-        localmem.free(arg.buf);
+        aio::localmem.free(arg.buf);
         arg.buf = {};
     } else if (total < size) {
         arg.buf = arg.buf[0:total];

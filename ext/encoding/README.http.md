@@ -1,12 +1,12 @@
-# ext::serializer::http - HTTP parser for C3
+# ext::encoding::http - HTTP parser for C3
 
-`ext::serializer::http` is a zero-copy HTTP/1.x request and response parser for the [ext.c3l](../../README.md) library ecosystem. It parses raw byte buffers into `Request` and `Response` structs whose string fields are slices into the original buffer — no heap allocation is required. Decode helpers for URI, cookies, query strings, and form data (both `application/x-www-form-urlencoded` and `multipart/form-data`) are included, all accelerated by an 8-wide SIMD-style scan built on C3's native vector types.
+`ext::encoding::http` is a zero-copy HTTP/1.x request and response parser for the [ext.c3l](../../README.md) library ecosystem. It parses raw byte buffers into `Request` and `Response` structs whose string fields are slices into the original buffer — no heap allocation is required. Decode helpers for URI, cookies, query strings, and form data (both `application/x-www-form-urlencoded` and `multipart/form-data`) are included, all accelerated by an 8-wide SIMD-style scan built on C3's native vector types.
 
 ## Available module
 
 | Module | Description |
 |--------|-------------|
-| `ext::serializer::http` | HTTP/1.x parser: `Request`, `Response`, `Url`, `SetCookie`, `FormFile`, `KeyValue`, `parse_request()`, `parse_response()`, decode helpers |
+| `ext::encoding::http` | HTTP/1.x parser: `Request`, `Response`, `Url`, `SetCookie`, `FormFile`, `KeyValue`, `parse_request()`, `parse_response()`, decode helpers |
 
 ### Files
 
@@ -14,7 +14,7 @@
 
 ### Exqmples
 
-* [../../test/serializer/http_sample.c3](../../test/serializer/http_sample.c3)
+* [../../test/encoding/http_sample.c3](../../test/encoding/http_sample.c3)
 
 This is a part of the extended C3 library.
 Back to [ext.c3l](../../README.md) library.
@@ -172,7 +172,7 @@ struct Response {
 ### Parsing
 
 ```c3
-import ext::serializer::http;
+import ext::encoding::http;
 
 // Parse a complete HTTP request from a raw buffer.
 // Returns a pointer to the first byte of the body, or propagates ERROR / INCOMPLETE.

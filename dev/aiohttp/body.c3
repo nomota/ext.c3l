@@ -15,13 +15,13 @@ import ext::debug;
 
 fn String content_type_base(String value)
 {
-    String v = trim_spaces(value);
+    String v = value.trim();
 
     for (sz i = 0; i < v.len; i++)
     {
         if (v[i] == ';')
         {
-            return trim_spaces(v[0:i]);
+            return v[0:i].trim();
         }
     }
 

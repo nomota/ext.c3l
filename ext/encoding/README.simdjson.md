@@ -1,8 +1,10 @@
-# ext::serializer::simdjson — SIMD-accelerated JSON parser for C3
+// ext/encoding/README.simdjson.md 
 
-`ext::serializer::simdjson` is a high-performance JSON parser for the [ext.c3l](../../README.md) library ecosystem, inspired by the [`simdjson`](https://simdjson.org/) C++ library. It processes JSON in two distinct stages: a SIMD-vectorized scan pass followed by a lightweight tape-building pass, delivering fast parse times with zero allocation per value.
+# ext::encoding::simdjson — SIMD-accelerated JSON parser for C3
 
-* Note: Like `ext::serializer::json`, this parser is zero-copy. `JsonValue` holds slices into the original input buffer. Keep the input buffer alive for the entire lifetime of the `ParseResult`.
+`ext::encoding::simdjson` is a high-performance JSON parser for the [ext.c3l](../../README.md) library ecosystem, inspired by the [`simdjson`](https://simdjson.org/) C++ library. It processes JSON in two distinct stages: a SIMD-vectorized scan pass followed by a lightweight tape-building pass, delivering fast parse times with zero allocation per value.
+
+* Note: Like `ext::encoding::json`, this parser is zero-copy. `JsonValue` holds slices into the original input buffer. Keep the input buffer alive for the entire lifetime of the `ParseResult`.
 
 * Note: The decoded tape is read-only. Do not modify the input buffer after calling `parse()`.
 
@@ -10,7 +12,7 @@
 
 | Module | Description |
 |--------|-------------|
-| `ext::serializer::simdjson` | SIMD JSON parser: `ParseResult`, `JsonValue`, `TapeEntry`, `TapeType`, `parse()`, `dump_tape()` |
+| `ext::encoding::simdjson` | SIMD JSON parser: `ParseResult`, `JsonValue`, `TapeEntry`, `TapeType`, `parse()`, `dump_tape()` |
 
 ### Files
 
@@ -18,7 +20,7 @@
 
 ### Examples 
 
-* [../../test/serializer/simdjson_sample.c3](../../test/serializer/simdjson_sample.c3)
+* [../../test/encoding/simdjson_sample.c3](../../test/encoding/simdjson_sample.c3)
 
 This is a part of the extended C3 library.
 Back to [ext.c3l](../../README.md) library.
@@ -108,7 +110,7 @@ A lightweight, zero-copy cursor into the tape. Copying a `JsonValue` is cheap; n
 ### Parsing
 
 ```c3
-import ext::serializer::simdjson;
+import ext::encoding::simdjson;
 
 // Parse a JSON byte slice.
 // allow_comma   — tolerate trailing commas in arrays and objects (default: true)
@@ -129,7 +131,7 @@ ParseResult? result = simdjson::parse(Allocator alloc, char[] input, bool allow_
 **Example**
 
 ```c3
-import ext::serializer::simdjson;
+import ext::encoding::simdjson;
 
 @pool() {
     char[] src = `{"name":"Alice","scores":[10,20,30]}`;
@@ -270,9 +272,9 @@ Prints all tape entries to stdout with their index, type, and payload. Useful fo
 
 ---
 
-## Comparison with `ext::serializer::json`
+## Comparison with `ext::encoding::json`
 
-| Feature | `ext::serializer::json` | `ext::serializer::simdjson` |
+| Feature | `ext::encoding::json` | `ext::encoding::simdjson` |
 |---------|------------------------|-----------------------------|
 | Parse strategy | Single-pass recursive descent | Two-stage: SIMD scan + tape walk |
 | Value representation | `any`-tagged tree (`JsonValue = any`) | Flat tape with `JsonValue` cursor |
@@ -295,3 +297,5 @@ Prints all tape entries to stdout with their index, type, and payload. Useful fo
 
 This is a part of the extended C3 library.
 Back to [ext.c3l](../../README.md) library.
+
+// eof

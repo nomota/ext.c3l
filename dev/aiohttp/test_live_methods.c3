@@ -30,7 +30,7 @@ macro void assert_response_contains(
         io::printfn("--------------------");
         io::printfn("%s", response);
         io::printfn("--------------------");
-        io::printfn("Expected: %s", expected);
+        warn("Expected: %s", expected);
     }
 
     @assert(response.contains(expected), message);
@@ -64,7 +64,7 @@ fn sz? response_content_length(String header_block)
 
         String name = line[0:colon];
 
-        if (!aio::http::str_iequals(name, "Content-Length"))
+        if (!http::str_iequals(name, "Content-Length"))
         {
             continue;
         }
@@ -75,7 +75,7 @@ fn sz? response_content_length(String header_block)
         return value.to_long()!;
     }
 
-    return aio::http::NOT_FOUND~;
+    return http::NOT_FOUND~;
 }
 
 fn sz? response_expected_total_len(String response)
@@ -84,7 +84,7 @@ fn sz? response_expected_total_len(String response)
 
     if (header_end < 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     String header_block = response[0:header_end];
@@ -106,7 +106,7 @@ fn sz? head_response_expected_total_len(String response)
 
     if (header_end < 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     return header_end + 4;
@@ -138,11 +138,11 @@ fn void? ResponseReader.init(
 {
     if (stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     self.stream = stream;
-    self.buffer.init(aio::http::localmem, 4096);
+    self.buffer.init(http::localmem, 4096);
 }
 
 fn void ResponseReader.free(&self)
@@ -171,7 +171,7 @@ fn String? ResponseReader.read_response(
 {
     if (self.stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     while (true)
@@ -197,7 +197,7 @@ fn String? ResponseReader.read_response(
             {
                 String response =
                     text[0:expected_total].copy(
-                        aio::http::localmem
+                        http::localmem
                     );
 
                 self.consume(expected_total);
@@ -208,7 +208,7 @@ fn String? ResponseReader.read_response(
 
         if (self.buffer.len() >= MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         char[1024] tmp;
@@ -234,7 +234,7 @@ fn String? ResponseReader.read_response(
 
         if (self.buffer.len() + n > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         self.buffer.append(tmp[0:n]);
@@ -243,25 +243,25 @@ fn String? ResponseReader.read_response(
     if (self.buffer.len() > 0)
     {
         String response =
-            self.buffer.str_view().copy(aio::http::localmem);
+            self.buffer.str_view().copy(http::localmem);
 
         self.buffer.clear();
 
         return response;
     }
 
-    return aio::http::BODY_INCOMPLETE~;
+    return http::BODY_INCOMPLETE~;
 }
 
-fn aio::http::Response*? get_handler(
-    aio::http::Context* c
+fn http::Response*? get_handler(
+    http::Context* c
 )
 {
     return c.text("hello")!;
 }
 
-fn aio::http::Response*? options_handler(
-    aio::http::Context* c
+fn http::Response*? options_handler(
+    http::Context* c
 )
 {
     c.header("Allow", "GET, HEAD, OPTIONS")!;
@@ -269,7 +269,7 @@ fn aio::http::Response*? options_handler(
     return c.text("options")!;
 }
 
-fn void setup_app(aio::http::Application* app)
+fn void setup_app(http::Application* app)
 {
     app.init();
 
@@ -279,12 +279,12 @@ fn void setup_app(aio::http::Application* app)
 
 fn void? server_task(void* arg)
 {
-    aio::http::ApplicationServer* server =
-        (aio::http::ApplicationServer*)arg;
+    http::ApplicationServer* server =
+        (http::ApplicationServer*)arg;
 
     if (server == null)
     {
-        return aio::http::HTTP_SERVER_CLOSED~;
+        return http::SERVER_CLOSED~;
     }
 
     server.serve()!;
@@ -345,7 +345,7 @@ fn void test_live_get_has_body()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -374,7 +374,7 @@ fn void test_live_head_has_no_wire_body()
         "\r\n",
         true
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -407,7 +407,7 @@ fn void test_live_options()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -436,7 +436,7 @@ fn void test_live_method_not_allowed()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -469,7 +469,7 @@ fn void test_live_head_keepalive_then_get()
 
     String head_response =
         reader.read_response(true)!!;
-    defer aio::http::localmem.free(head_response);
+    defer http::localmem.free(head_response);
 
     assert_response_contains(
         head_response,
@@ -503,7 +503,7 @@ fn void test_live_head_keepalive_then_get()
 
     String get_response =
         reader.read_response()!!;
-    defer aio::http::localmem.free(get_response);
+    defer http::localmem.free(get_response);
 
     assert_response_contains(
         get_response,
@@ -527,11 +527,11 @@ fn void test_live_head_keepalive_then_get()
 
 fn void? main_task(void* arg)
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::ApplicationServer server;
+    http::ApplicationServer server;
     server.init(&app, HOST, PORT);
     defer server.free();
 

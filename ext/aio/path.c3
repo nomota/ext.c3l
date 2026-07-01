@@ -193,7 +193,7 @@ fn void* _mkdir(void* arg) @local
 {
     Arg* a = (Arg*)arg;
 
-    if (catch err = dir::make_dir(a.path, false, a.mode))
+    if (catch err = dir::make_dir(a.path, true, a.mode))
     {
         a.error = err;
         return (void*)a;
@@ -202,7 +202,8 @@ fn void* _mkdir(void* arg) @local
     return (void*)a;
 }
 
-fn void? mkdir(String path, uint mode = 0o777) @maydiscard
+// recursive=true
+fn void? mkdir(String path, uint mode = 0o755) @maydiscard
 {
     Arg arg = {
         .path = path,

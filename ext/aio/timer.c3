@@ -22,33 +22,32 @@ fn void? timer_task_entry(void* arg) @local
     Timer* t = (Timer*)arg;
     if (t == null) return INVALID_ARG~;
 
-    //ulong timeout_ms = (t.timeout_us + 999) / 1000;
-
-    sleep((uint)t.timeout_us)!;
-
-    t.done = true;
-
-    if (t.cancelled)
-    {
-        localmem.free(t);
-        return;
-    }
-
-    if (t.active)
-    {
-        Task* target = t.target;
-
-        t.active = false;
-        t.target = null;
+    defer {
+        t.done = true;
         t.timer_task = null;
 
-        if (target != null &&
-            target.state != TASK_DONE &&
-            target.state != TASK_CANCELLED &&
-            target.state != TASK_FAILED)
-        {
-            target.cancel_timeout();
+        if (t.cancelled) {
+            localmem.free(t);
         }
+    }
+
+    if (catch err = sleep(t.timeout_us)) {
+        if (err == CANCELLED) return;
+        return err~;
+    }
+
+    if (t.cancelled || !t.active) return;
+
+    Task* target = t.target;
+
+    t.active = false;
+    t.target = null;
+
+    if (target != null &&
+        target.state != TASK_DONE &&
+        target.state != TASK_CANCELLED &&
+        target.state != TASK_FAILED) {
+        target.cancel_timeout();
     }
 }
 
@@ -86,13 +85,23 @@ fn Timer*? start_timer(ulong timeout_us)
 
 fn void Timer.cancel(&self)
 {
+    if (self.cancelled) return;
+
     self.active = false;
     self.cancelled = true;
     self.target = null;
+
+    Task* timer_task = self.timer_task;
     self.timer_task = null;
 
-    if (self.done)
-    {
+    if (timer_task != null &&
+        timer_task.state != TASK_DONE &&
+        timer_task.state != TASK_CANCELLED &&
+        timer_task.state != TASK_FAILED) {
+        timer_task.cancel();
+    }
+
+    if (self.done) {
         localmem.free(self);
     }
 }

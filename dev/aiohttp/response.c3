@@ -100,27 +100,6 @@ fn bool status_allows_body(ushort status)
     return true;
 }
 
-
-// Internal helpers
-
-fn char[]? bytes_clone(char[] data)
-{
-    if (data.len == 0) return {};
-
-    char* p = localmem.malloc(data.len)!;
-    p[0:data.len] = data[0:data.len];
-
-    return p[0:data.len];
-}
-
-fn void body_free(char[] body)
-{
-    if (body.ptr != null && body.len > 0) {
-        localmem.free(body);
-    }
-}
-
-
 // Lifecycle
 
 fn void Response.init(&self)
@@ -145,7 +124,7 @@ fn void Response.free(&self)
 {
     self.headers.free();
 
-    if (self.owns_body) body_free(self.body);
+    if (self.owns_body) bytes_free(self.body);
 
     if (self.owns_file_path && self.file_path.len > 0) {
         localmem.free(self.file_path);
@@ -244,7 +223,7 @@ fn void Response.clear_stream_state(&self)
 
 fn void Response.clear_body_state(&self)
 {
-    if (self.owns_body) body_free(self.body);
+    if (self.owns_body) bytes_free(self.body);
 
     self.body = {};
     self.owns_body = false;
@@ -473,13 +452,19 @@ fn sz Response.headers_len_for_wire(&self)
 {
     sz n = self.headers.serialized_len();
     bool no_body = !status_allows_body(self.status);
+    bool switching_protocols = self.status == 101;
 
-    if ((no_body || self.body_kind != BODY_STREAM) && !self.headers.has("Content-Length")) {
+    if (!switching_protocols &&
+        (no_body || self.body_kind != BODY_STREAM) &&
+        !self.headers.has("Content-Length")) {
         String len_str = string::tformat("%d", self.content_length_for_wire());
         n += "Content-Length".len + 2 + len_str.len + 2;
     }
 
-    if (!no_body && self.body_kind == BODY_STREAM && !self.headers.has("Transfer-Encoding")) {
+    if (!switching_protocols &&
+        !no_body &&
+        self.body_kind == BODY_STREAM &&
+        !self.headers.has("Transfer-Encoding")) {
         n += "Transfer-Encoding".len + 2 + "chunked".len + 2;
     }
 
@@ -495,34 +480,9 @@ fn sz Response.serialized_len(&self)
     return self.status_line_len() + self.headers_len_for_wire() + 2 + self.body_len_for_wire();
 }
 
-
-// Serialization helpers
-
-fn sz write_string(char[] out, sz pos, String s)
+fn sz write_status_code(char[] out, sz pos, ushort status) @local
 {
-    out[pos:s.len] = s[0:s.len];
-    return pos + s.len;
-}
-
-fn sz write_char(char[] out, sz pos, char c)
-{
-    out[pos] = c;
-    return pos + 1;
-}
-
-fn sz write_crlf(char[] out, sz pos)
-{
-    out[pos++] = '\r';
-    out[pos++] = '\n';
-    return pos;
-}
-
-fn sz write_status_code(char[] out, sz pos, ushort status)
-{
-    out[pos++] = (char)('0' + ((status / 100) % 10));
-    out[pos++] = (char)('0' + ((status / 10) % 10));
-    out[pos++] = (char)('0' + (status % 10));
-
+    pos = write_int(out, pos, (int)status);
     return pos;
 }
 
@@ -555,27 +515,28 @@ fn void? write_hex(aio::Stream* stream, usz value) @local
     stream.write_all(buf[0:pos])!;
 }
 
-fn void? write_chunk(aio::Stream* stream, char[] data)
+fn void? write_chunk(aio::Stream* stream, char[] data, ulong timeout_us = 0)
 {
     if (stream == null) return BAD_REQUEST~;
     if (data.len == 0) return;
-
-    write_hex(stream, data.len)!;
-    stream.write_all((char[])"\r\n")!;
-    stream.write_all(data)!;
-    stream.write_all((char[])"\r\n")!;
+    
+    if (timeout_us == 0) timeout_us = get_write_timeout_us();
+    
+    char[32] buf;
+    String size_line = string::bformat(buf[..], "%x\r\n", data.len);
+    
+    stream.write_all_timeout(size_line, timeout_us)!;
+    stream.write_all_timeout(data, timeout_us)!;
+    stream.write_all_timeout((char[])"\r\n", timeout_us)!;
 }
 
-fn void? write_last_chunk(aio::Stream* stream)
+fn void? write_last_chunk(aio::Stream* stream, ulong timeout_us = 0)
 {
     if (stream == null) return BAD_REQUEST~;
 
-    stream.write_all((char[])"0\r\n\r\n")!;
-}
+    if (timeout_us == 0) timeout_us = get_write_timeout_us();
 
-fn void? write_chunk_string(aio::Stream* stream, String data)
-{
-    return write_chunk(stream, (char[])data);
+    stream.write_all_timeout((char[])"0\r\n\r\n", timeout_us)!;
 }
 
 
@@ -603,23 +564,29 @@ fn sz Response.write_to(&self, char[] out)
     pos += header_len;
 
     bool no_body = !status_allows_body(self.status);
-
-    if ((no_body || self.body_kind != BODY_STREAM) && !self.headers.has("Content-Length")) {
+    bool switching_protocols = self.status == 101;
+    
+    if (!switching_protocols &&
+        (no_body || self.body_kind != BODY_STREAM) &&
+        !self.headers.has("Content-Length")) {
         String len_str = string::tformat("%d", self.content_length_for_wire());
-
+    
         pos = write_string(out, pos, "Content-Length");
         pos = write_string(out, pos, ": ");
         pos = write_string(out, pos, len_str);
         pos = write_crlf(out, pos);
     }
-
-    if (!no_body && self.body_kind == BODY_STREAM && !self.headers.has("Transfer-Encoding")) {
+    
+    if (!switching_protocols &&
+        !no_body &&
+        self.body_kind == BODY_STREAM &&
+        !self.headers.has("Transfer-Encoding")) {
         pos = write_string(out, pos, "Transfer-Encoding");
         pos = write_string(out, pos, ": ");
         pos = write_string(out, pos, "chunked");
         pos = write_crlf(out, pos);
     }
-
+    
     if (!self.headers.has("Connection")) {
         pos = write_string(out, pos, "Connection");
         pos = write_string(out, pos, ": ");
@@ -662,6 +629,44 @@ fn String? Response.serialize(&self)
     return (String)p[0:written];
 }
 
+fn String? Response.serialize_headers_only(&self, bool force_no_body = false)
+{
+    DString out;
+    out.init(localmem, 1024);
+    defer catch out.free();
+
+    out.appendf("HTTP/1.1 %d %s\r\n", self.status, status_text(self.status))!;
+
+    bool switching_protocols = self.status == 101;
+
+    if (switching_protocols) {
+        self.headers.remove("Transfer-Encoding");
+        self.headers.remove("Content-Length");
+    } else if (force_no_body || !status_allows_body(self.status)) {
+        self.headers.remove("Transfer-Encoding");
+
+        if (!self.headers.has("Content-Length")) {
+            self.headers.content_length(0)!;
+        }
+    } else if (self.body_kind == BODY_STREAM || self.body_kind == BODY_FILE) {
+        self.headers.remove("Content-Length");
+        self.headers.set("Transfer-Encoding", "chunked")!;
+    } else if (!self.headers.has("Content-Length")) {
+        self.headers.content_length(self.body_len_for_wire())!;
+    }
+
+    if (!self.headers.has("Connection")) {
+        self.headers.connection("close")!;
+    }
+
+    String headers = self.headers.serialize()!;
+    defer localmem.free(headers);
+
+    out.append(headers);
+    out.append("\r\n");
+
+    return out.copy_str(localmem);
+}
 
 // Debug
 

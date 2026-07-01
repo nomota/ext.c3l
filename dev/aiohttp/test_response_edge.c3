@@ -46,12 +46,12 @@ fn String body_part(String response)
     return response[sep + 4:response.len - sep - 4];
 }
 
-fn aio::http::Response*? text_handler(aio::http::Context* c)
+fn http::Response*? text_handler(http::Context* c)
 {
     return c.text("hello")!!;
 }
 
-fn aio::http::Response*? mutate_body_handler(aio::http::Context* c)
+fn http::Response*? mutate_body_handler(http::Context* c)
 {
     c.text("short")!!;
     c.text("a longer body")!!;
@@ -59,37 +59,37 @@ fn aio::http::Response*? mutate_body_handler(aio::http::Context* c)
     return c.res;
 }
 
-fn aio::http::Response*? empty_handler(aio::http::Context* c)
+fn http::Response*? empty_handler(http::Context* c)
 {
-    aio::http::Response* res = aio::http::response_empty(200)!!;
+    http::Response* res = http::response_empty(200)!!;
 
     return res;
 }
 
-fn aio::http::Response*? no_content_handler(aio::http::Context* c)
+fn http::Response*? no_content_handler(http::Context* c)
 {
-    aio::http::Response* res = aio::http::response_empty(204)!!;
+    http::Response* res = http::response_empty(204)!!;
     res.set_text("this body must not be serialized")!!;
 
     return res;
 }
 
-fn aio::http::Response*? not_modified_handler(aio::http::Context* c)
+fn http::Response*? not_modified_handler(http::Context* c)
 {
-    aio::http::Response* res = aio::http::response_empty(304)!!;
+    http::Response* res = http::response_empty(304)!!;
     res.set_text("this body must not be serialized")!!;
 
     return res;
 }
 
-fn aio::http::Response*? redirect_handler(aio::http::Context* c)
+fn http::Response*? redirect_handler(http::Context* c)
 {
     return c.redirect("/target")!!;
 }
 
-fn aio::http::Response*? duplicate_cookie_handler(aio::http::Context* c)
+fn http::Response*? duplicate_cookie_handler(http::Context* c)
 {
-    aio::http::Response* res = c.text("cookies")!!;
+    http::Response* res = c.text("cookies")!!;
 
     res.set_cookie("a=1")!!;
     res.set_cookie("b=2")!!;
@@ -97,9 +97,9 @@ fn aio::http::Response*? duplicate_cookie_handler(aio::http::Context* c)
     return res;
 }
 
-fn aio::http::Response*? overwrite_header_handler(aio::http::Context* c)
+fn http::Response*? overwrite_header_handler(http::Context* c)
 {
-    aio::http::Response* res = c.text("headers")!!;
+    http::Response* res = c.text("headers")!!;
 
     res.header("X-Test", "one")!!;
     res.header("X-Test", "two")!!;
@@ -107,7 +107,7 @@ fn aio::http::Response*? overwrite_header_handler(aio::http::Context* c)
     return res;
 }
 
-fn aio::http::Response*? binary_handler(aio::http::Context* c)
+fn http::Response*? binary_handler(http::Context* c)
 {
     char[7] data;
 
@@ -119,31 +119,31 @@ fn aio::http::Response*? binary_handler(aio::http::Context* c)
     data[5] = 0;
     data[6] = 255;
 
-    aio::http::Response* res = aio::http::response_empty(200)!!;
+    http::Response* res = http::response_empty(200)!!;
     res.set_body_copy(data[..])!!;
     res.header("Content-Type", "application/octet-stream")!!;
 
     return res;
 }
 
-fn aio::http::Response*? custom_status_handler(aio::http::Context* c)
+fn http::Response*? custom_status_handler(http::Context* c)
 {
-    aio::http::Response* res = aio::http::response_empty(201)!!;
+    http::Response* res = http::response_empty(201)!!;
     res.set_text("created")!!;
 
     return res;
 }
 
-fn aio::http::Response*? header_case_handler(aio::http::Context* c)
+fn http::Response*? header_case_handler(http::Context* c)
 {
-    aio::http::Response* res = c.text("case")!!;
+    http::Response* res = c.text("case")!!;
 
     res.header("X-Mixed-Case", "ok")!!;
 
     return res;
 }
 
-fn void setup_app(aio::http::Application* app)
+fn void setup_app(http::Application* app)
 {
     app.init();
 
@@ -160,7 +160,7 @@ fn void setup_app(aio::http::Application* app)
     app.get("/header-case", &header_case_handler)!!;
 }
 
-fn aio::http::Response* fetch(aio::http::Application* app, String method, String path)
+fn http::Response* fetch(http::Application* app, String method, String path)
 {
     char[512] raw;
 
@@ -175,25 +175,25 @@ fn aio::http::Response* fetch(aio::http::Application* app, String method, String
     return app.fetch_raw((char[])req)!!;
 }
 
-fn String serialize_response(aio::http::Response* res)
+fn String serialize_response(http::Response* res)
 {
     return res.serialize()!!;
 }
 
 fn void test_basic_text_response()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch(&app, "GET", "/text");
-    defer aio::http::response_free(res);
+    http::Response* res = fetch(&app, "GET", "/text");
+    defer http::response_free(res);
 
     @assert(res.status == 200, "basic text status mismatch");
     @assert((String)res.body == "hello", "basic text body mismatch");
 
     String wire = serialize_response(res);
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(contains(wire, "HTTP/1.1 200 OK\r\n"), "basic text wire status mismatch");
     @assert(contains(wire, "Content-Length: 5\r\n"), "basic text content length mismatch");
@@ -202,18 +202,18 @@ fn void test_basic_text_response()
 
 fn void test_body_mutation_updates_content_length()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch(&app, "GET", "/mutate-body");
-    defer aio::http::response_free(res);
+    http::Response* res = fetch(&app, "GET", "/mutate-body");
+    defer http::response_free(res);
 
     @assert(res.status == 200, "body mutation status mismatch");
     @assert((String)res.body == "a longer body", "body mutation body mismatch");
 
     String wire = serialize_response(res);
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(contains(wire, "Content-Length: 13\r\n"), "body mutation content length mismatch");
     @assert(contains(wire, "\r\n\r\na longer body"), "body mutation wire body mismatch");
@@ -221,18 +221,18 @@ fn void test_body_mutation_updates_content_length()
 
 fn void test_empty_response()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch(&app, "GET", "/empty");
-    defer aio::http::response_free(res);
+    http::Response* res = fetch(&app, "GET", "/empty");
+    defer http::response_free(res);
 
     @assert(res.status == 200, "empty response status mismatch");
     @assert(res.body.len == 0, "empty response body should be empty");
 
     String wire = serialize_response(res);
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(contains(wire, "HTTP/1.1 200 OK\r\n"), "empty response wire status mismatch");
     @assert(contains(wire, "Content-Length: 0\r\n"), "empty response content length mismatch");
@@ -241,17 +241,17 @@ fn void test_empty_response()
 
 fn void test_no_content_has_no_serialized_body()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch(&app, "GET", "/no-content");
-    defer aio::http::response_free(res);
+    http::Response* res = fetch(&app, "GET", "/no-content");
+    defer http::response_free(res);
 
     @assert(res.status == 204, "204 response status mismatch");
 
     String wire = serialize_response(res);
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(contains(wire, "HTTP/1.1 204 No Content\r\n"), "204 wire status mismatch");
     @assert(!contains(wire, "this body must not be serialized"), "204 body should not be serialized");
@@ -260,17 +260,17 @@ fn void test_no_content_has_no_serialized_body()
 
 fn void test_not_modified_has_no_serialized_body()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch(&app, "GET", "/not-modified");
-    defer aio::http::response_free(res);
+    http::Response* res = fetch(&app, "GET", "/not-modified");
+    defer http::response_free(res);
 
     @assert(res.status == 304, "304 response status mismatch");
 
     String wire = serialize_response(res);
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(contains(wire, "HTTP/1.1 304 Not Modified\r\n"), "304 wire status mismatch");
     @assert(!contains(wire, "this body must not be serialized"), "304 body should not be serialized");
@@ -279,12 +279,12 @@ fn void test_not_modified_has_no_serialized_body()
 
 fn void test_head_response_status_only()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch(&app, "HEAD", "/text");
-    defer aio::http::response_free(res);
+    http::Response* res = fetch(&app, "HEAD", "/text");
+    defer http::response_free(res);
 
     @assert(res.status == 200, "HEAD status mismatch");
     @assert((String)res.body == "hello", "HEAD fetch_raw body policy mismatch");
@@ -292,12 +292,12 @@ fn void test_head_response_status_only()
 
 fn void test_redirect_response()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch(&app, "GET", "/redirect");
-    defer aio::http::response_free(res);
+    http::Response* res = fetch(&app, "GET", "/redirect");
+    defer http::response_free(res);
 
     @assert(
         res.status == 301 ||
@@ -309,22 +309,22 @@ fn void test_redirect_response()
     );
 
     String wire = serialize_response(res);
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(contains(wire, "Location: /target\r\n"), "redirect location header mismatch");
 }
 
 fn void test_duplicate_set_cookie_serialization()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch(&app, "GET", "/cookies");
-    defer aio::http::response_free(res);
+    http::Response* res = fetch(&app, "GET", "/cookies");
+    defer http::response_free(res);
 
     String wire = serialize_response(res);
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(contains(wire, "Set-Cookie: a=1"), "first Set-Cookie missing");
     @assert(contains(wire, "Set-Cookie: b=2"), "second Set-Cookie missing");
@@ -332,27 +332,27 @@ fn void test_duplicate_set_cookie_serialization()
 
 fn void test_header_overwrite_policy()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch(&app, "GET", "/headers");
-    defer aio::http::response_free(res);
+    http::Response* res = fetch(&app, "GET", "/headers");
+    defer http::response_free(res);
 
     String wire = serialize_response(res);
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(contains(wire, "X-Test: two\r\n"), "header overwrite final value missing");
 }
 
 fn void test_binary_response_body()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch(&app, "GET", "/binary");
-    defer aio::http::response_free(res);
+    http::Response* res = fetch(&app, "GET", "/binary");
+    defer http::response_free(res);
 
     @assert(res.status == 200, "binary response status mismatch");
     @assert(res.body.len == 7, "binary response body len mismatch");
@@ -365,7 +365,7 @@ fn void test_binary_response_body()
     @assert(res.body[6] == 255, "binary response byte 6 mismatch");
 
     String wire = serialize_response(res);
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(contains(wire, "Content-Length: 7\r\n"), "binary response content length mismatch");
 
@@ -383,17 +383,17 @@ fn void test_binary_response_body()
 
 fn void test_custom_status()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch(&app, "GET", "/custom-status");
-    defer aio::http::response_free(res);
+    http::Response* res = fetch(&app, "GET", "/custom-status");
+    defer http::response_free(res);
 
     @assert(res.status == 201, "custom status mismatch");
 
     String wire = serialize_response(res);
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(contains(wire, "HTTP/1.1 201 Created\r\n"), "custom status wire mismatch");
     @assert(contains(wire, "\r\n\r\ncreated"), "custom status body mismatch");
@@ -401,45 +401,45 @@ fn void test_custom_status()
 
 fn void test_header_case_preserved()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch(&app, "GET", "/header-case");
-    defer aio::http::response_free(res);
+    http::Response* res = fetch(&app, "GET", "/header-case");
+    defer http::response_free(res);
 
     String wire = serialize_response(res);
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(contains(wire, "X-Mixed-Case: ok\r\n"), "header case preservation mismatch");
 }
 
 fn void test_invalid_response_header_name_policy()
 {
-    aio::http::Response* res = aio::http::response_text("bad")!!;
-    defer aio::http::response_free(res);
+    http::Response* res = http::response_text("bad")!!;
+    defer http::response_free(res);
 
     if (catch err = res.header("Bad Header", "x"))
     {
 //warn("%s", err);
-        @assert(err == aio::http::BAD_REQUEST || err == aio::http::INVALID_HEADER || err == aio::http::INVALID_HEADER_NAME, "invalid response header name fault mismatch");
+        @assert(err == http::BAD_REQUEST || err == http::INVALID_HEADER || err == http::INVALID_HEADER_NAME, "invalid response header name fault mismatch");
         return;
     }
 
     String wire = serialize_response(res);
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(!contains(wire, "Bad Header: x\r\n"), "invalid response header should not serialize");
 }
 
 fn void test_repeated_serialize()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = fetch(&app, "GET", "/text");
-    defer aio::http::response_free(res);
+    http::Response* res = fetch(&app, "GET", "/text");
+    defer http::response_free(res);
 
     for (sz i = 0; i < LOOP_COUNT; i++)
     {
@@ -449,27 +449,27 @@ fn void test_repeated_serialize()
         @assert(contains(wire, "Content-Length: 5\r\n"), "repeated serialize content length mismatch");
         @assert(contains(wire, "\r\n\r\nhello"), "repeated serialize body mismatch");
 
-        aio::http::localmem.free(wire);
+        http::localmem.free(wire);
     }
 }
 
 fn void test_repeated_fetch_and_serialize()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
     for (sz i = 0; i < LOOP_COUNT; i++)
     {
-        aio::http::Response* res = fetch(&app, "GET", "/text");
+        http::Response* res = fetch(&app, "GET", "/text");
 
         String wire = serialize_response(res);
 
         @assert(contains(wire, "HTTP/1.1 200 OK\r\n"), "repeated fetch serialize status mismatch");
         @assert(contains(wire, "\r\n\r\nhello"), "repeated fetch serialize body mismatch");
 
-        aio::http::localmem.free(wire);
-        aio::http::response_free(res);
+        http::localmem.free(wire);
+        http::response_free(res);
     }
 }
 

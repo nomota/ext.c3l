@@ -15,22 +15,22 @@ fn void? sample_stream_writer(aio::Stream* stream, void* arg)
 {
     if (stream == null)
     {
-        return aio::http::BAD_REQUEST~;
+        return http::BAD_REQUEST~;
     }
 
-    aio::http::write_chunk_string(stream, "hello")!;
-    aio::http::write_chunk_string(stream, " ")!;
-    aio::http::write_chunk_string(stream, "stream")!;
+    http::write_chunk(stream, "hello")!;
+    http::write_chunk(stream, " ")!;
+    http::write_chunk(stream, "stream")!;
 }
 
 fn void test_response_stream_metadata()
 {
-    aio::http::Response* res =
-        aio::http::response_stream(&sample_stream_writer, null)!!;
-    defer aio::http::response_free(res);
+    http::Response* res =
+        http::response_stream(&sample_stream_writer, null)!!;
+    defer http::response_free(res);
 
     @assert(
-        res.body_kind == aio::http::BodyKind.BODY_STREAM,
+        res.body_kind == http::BodyKind.BODY_STREAM,
         "stream body kind mismatch"
     );
     @assert(
@@ -64,7 +64,7 @@ fn void test_response_stream_metadata()
     );
 
     String wire = res.serialize()!!;
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(
         wire.contains("HTTP/1.1 200 OK\r\n"),
@@ -86,12 +86,12 @@ fn void test_response_stream_metadata()
 
 fn void test_response_file_metadata()
 {
-    aio::http::Response* res =
-        aio::http::response_file("public/index.html", 1234)!!;
-    defer aio::http::response_free(res);
+    http::Response* res =
+        http::response_file("public/index.html", 1234)!!;
+    defer http::response_free(res);
 
     @assert(
-        res.body_kind == aio::http::BodyKind.BODY_FILE,
+        res.body_kind == http::BodyKind.BODY_FILE,
         "file body kind mismatch"
     );
     @assert(
@@ -146,7 +146,7 @@ fn void test_response_file_metadata()
     );
 
     String wire = res.serialize()!!;
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(
         wire.contains("HTTP/1.1 200 OK\r\n"),
@@ -170,14 +170,14 @@ fn void test_response_file_metadata()
 
 fn void test_stream_replaced_by_body()
 {
-    aio::http::Response* res =
-        aio::http::response_stream(&sample_stream_writer, null)!!;
-    defer aio::http::response_free(res);
+    http::Response* res =
+        http::response_stream(&sample_stream_writer, null)!!;
+    defer http::response_free(res);
 
     res.set_text("plain body")!!;
 
     @assert(
-        res.body_kind == aio::http::BodyKind.BODY_BYTES,
+        res.body_kind == http::BodyKind.BODY_BYTES,
         "replaced stream body kind mismatch"
     );
     @assert(
@@ -206,7 +206,7 @@ fn void test_stream_replaced_by_body()
     );
 
     String wire = res.serialize()!!;
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(
         wire.contains("Content-Length: 10\r\n"),
@@ -220,14 +220,14 @@ fn void test_stream_replaced_by_body()
 
 fn void test_file_replaced_by_body()
 {
-    aio::http::Response* res =
-        aio::http::response_file("public/app.js", 100)!!;
-    defer aio::http::response_free(res);
+    http::Response* res =
+        http::response_file("public/app.js", 100)!!;
+    defer http::response_free(res);
 
     res.set_text("changed")!!;
 
     @assert(
-        res.body_kind == aio::http::BodyKind.BODY_BYTES,
+        res.body_kind == http::BodyKind.BODY_BYTES,
         "replaced file body kind mismatch"
     );
     @assert(
@@ -260,7 +260,7 @@ fn void test_file_replaced_by_body()
     );
 
     String wire = res.serialize()!!;
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(
         wire.contains("Content-Length: 7\r\n"),
@@ -274,14 +274,14 @@ fn void test_file_replaced_by_body()
 
 fn void test_no_body_status_clears_wire_body()
 {
-    aio::http::Response* res =
-        aio::http::response_stream(&sample_stream_writer, null)!!;
-    defer aio::http::response_free(res);
+    http::Response* res =
+        http::response_stream(&sample_stream_writer, null)!!;
+    defer http::response_free(res);
 
     res.set_status(204)!!;
 
     @assert(
-        res.body_kind == aio::http::BodyKind.BODY_STREAM,
+        res.body_kind == http::BodyKind.BODY_STREAM,
         "no-body status body kind mismatch"
     );
     @assert(
@@ -294,7 +294,7 @@ fn void test_no_body_status_clears_wire_body()
     );
 
     String wire = res.serialize()!!;
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(
         wire.contains("HTTP/1.1 204 No Content\r\n"),

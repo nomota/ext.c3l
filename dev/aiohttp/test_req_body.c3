@@ -83,7 +83,7 @@ fn sz? response_content_length(String header_block)
         String name = line[0:colon];
         String value = line[colon + 1..].trim();
 
-        if (!aio::http::str_iequals(name, "Content-Length"))
+        if (!http::str_iequals(name, "Content-Length"))
         {
             continue;
         }
@@ -92,13 +92,13 @@ fn sz? response_content_length(String header_block)
 
         if (content_length < 0)
         {
-            return aio::http::BAD_REQUEST~;
+            return http::BAD_REQUEST~;
         }
 
         return content_length;
     }
 
-    return aio::http::NOT_FOUND~;
+    return http::NOT_FOUND~;
 }
 
 fn sz? response_expected_total_len(String response)
@@ -108,7 +108,7 @@ fn sz? response_expected_total_len(String response)
 
     if (header_end < 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     String header_block = response[0:header_end];
@@ -118,14 +118,14 @@ fn sz? response_expected_total_len(String response)
 
     if (content_length > MAX_RESPONSE_BYTES)
     {
-        return aio::http::REQUEST_TOO_LARGE~;
+        return http::REQUEST_TOO_LARGE~;
     }
 
     sz total = header_end + 4 + content_length;
 
     if (total < header_end)
     {
-        return aio::http::REQUEST_TOO_LARGE~;
+        return http::REQUEST_TOO_LARGE~;
     }
 
     return total;
@@ -146,7 +146,7 @@ fn void? write_all_file(String file_path, char[] data)
 
         if (n <= 0)
         {
-            return aio::http::STATIC_READ_ERROR~;
+            return http::STATIC_READ_ERROR~;
         }
 
         total += n;
@@ -219,7 +219,7 @@ fn String? fetch_raw(String request)
     client.write_all((char[])request)!;
 
     DString out;
-    out.init(aio::http::localmem, 4096);
+    out.init(http::localmem, 4096);
     defer out.free();
 
     sz expected = -1;
@@ -238,7 +238,7 @@ fn String? fetch_raw(String request)
                 if (expected >= 0 &&
                     out.len() < expected)
                 {
-                    return aio::http::BODY_INCOMPLETE~;
+                    return http::BODY_INCOMPLETE~;
                 }
 
                 break;
@@ -260,7 +260,7 @@ fn String? fetch_raw(String request)
 
         if (out.len() > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         String response = out.str_view();
@@ -281,7 +281,7 @@ fn String? fetch_raw(String request)
             client.close();
 
             return response[0:expected].copy(
-                aio::http::localmem
+                http::localmem
             );
         }
     }
@@ -290,10 +290,10 @@ fn String? fetch_raw(String request)
 
     if (expected >= 0 && out.len() < expected)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
-    return out.copy_str(aio::http::localmem);
+    return out.copy_str(http::localmem);
 }
 
 fn Response*? chunked_echo_handler(Ctx* c)
@@ -435,7 +435,7 @@ fn void? test_chunked_request_ok()
         "0\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 200),
@@ -461,7 +461,7 @@ fn void? test_chunked_request_malformed()
         "0\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 400),
@@ -488,7 +488,7 @@ fn void? test_multipart_wire_body()
     );
 
     String request = string::format(
-        aio::http::localmem,
+        http::localmem,
         "POST /multipart HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Content-Type: multipart/form-data; "
@@ -500,10 +500,10 @@ fn void? test_multipart_wire_body()
         content_length,
         body
     );
-    defer aio::http::localmem.free(request);
+    defer http::localmem.free(request);
 
     String raw = fetch_raw(request)!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 200),
@@ -535,7 +535,7 @@ fn void? test_multipart_missing_boundary_wire()
     );
 
     String request = string::format(
-        aio::http::localmem,
+        http::localmem,
         "POST /multipart-missing-boundary HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Content-Type: multipart/form-data\r\n"
@@ -546,10 +546,10 @@ fn void? test_multipart_missing_boundary_wire()
         content_length,
         body
     );
-    defer aio::http::localmem.free(request);
+    defer http::localmem.free(request);
 
     String raw = fetch_raw(request)!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 200),
@@ -581,7 +581,7 @@ fn void? assert_static_content_type(
     );
 
     String raw = fetch_raw(request)!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 200),

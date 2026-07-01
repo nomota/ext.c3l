@@ -77,7 +77,7 @@ fn String? fetch_raw(String request, ulong read_timeout_us = 2_000_000)
     client.write_all((char[])request)!;
 
     DString out;
-    out.init(aio::http::localmem, 4096);
+    out.init(http::localmem, 4096);
     defer catch out.free();
 
     char[4096] buf;
@@ -101,7 +101,7 @@ fn String? fetch_raw(String request, ulong read_timeout_us = 2_000_000)
 
     client.close();
 
-    return out.copy_str(aio::http::localmem);
+    return out.copy_str(http::localmem);
 }
 
 
@@ -211,16 +211,16 @@ fn void? test_default_not_found()
     app.init();
     defer app.deinit();
 
-    Request* req = aio::http::request_parse((char[])
+    Request* req = http::request_parse((char[])
         "GET /missing HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::request_free(req);
+    defer http::request_free(req);
 
     Response* res = app.fetch(req)!;
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 404);
 }
@@ -235,7 +235,7 @@ fn void? test_custom_not_found_wire()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 404));
     @assert(custom_not_found_called);
@@ -254,7 +254,7 @@ fn void? test_custom_handler_error_wire()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 500));
     @assert(custom_error_called);
@@ -274,7 +274,7 @@ fn void? test_custom_middleware_error_wire()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 500));
     @assert(custom_error_called);
@@ -294,16 +294,16 @@ fn void? test_error_handler_failure_fallback()
 
     failing_error_called = false;
 
-    Request* req = aio::http::request_parse((char[])
+    Request* req = http::request_parse((char[])
         "GET /fail HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::request_free(req);
+    defer http::request_free(req);
 
     Response* res = app.fetch(req)!;
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(failing_error_called);
     @assert(res.status == 500);
@@ -339,7 +339,7 @@ fn void? test_keepalive_after_not_found()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(count_occurrences(raw, "HTTP/1.1 404 ") == 1);
     @assert(count_occurrences(raw, "HTTP/1.1 200 OK") == 1);
@@ -364,7 +364,7 @@ fn void? test_keepalive_after_error()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(count_occurrences(raw, "HTTP/1.1 500 ") == 1);
     @assert(count_occurrences(raw, "HTTP/1.1 200 OK") == 1);

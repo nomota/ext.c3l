@@ -8,14 +8,9 @@ import std::io;
 import ext::mem;
 import ext::debug;
 import c::errno;
-
-
-// Faults
+import ext::encoding::simdjson;
 
 faultdef CONTEXT_NOT_READY;
-
-
-// Context
 
 struct Context
 {
@@ -35,6 +30,10 @@ struct Context
 
     MultipartForm multipart_cache;
     bool multipart_cache_ready;
+
+    bool ws_upgrade;
+    WebSocketHandler ws_handler;
+    ulong ws_read_timeout_us;
 }
 
 alias Ctx = Context;
@@ -60,6 +59,10 @@ fn void? Context.init(&self, Request* req) @maydiscard
 
     self.multipart_cache.init();
     self.multipart_cache_ready = false;
+    
+    self.ws_upgrade = false;
+    self.ws_handler = null;
+    self.ws_read_timeout_us = WS_DEFAULT_READ_TIMEOUT_US;
 }
 
 fn void? Context.init_with_params(&self, Request* req, Params* params) @maydiscard
@@ -83,6 +86,10 @@ fn void? Context.init_with_params(&self, Request* req, Params* params) @maydisca
 
     self.multipart_cache.init();
     self.multipart_cache_ready = false;
+
+    self.ws_upgrade = false;
+    self.ws_handler = null;
+    self.ws_read_timeout_us = WS_DEFAULT_READ_TIMEOUT_US;
 }
 
 fn void Context.free(&self)
@@ -102,6 +109,10 @@ fn void Context.free(&self)
     self.cookie_cache_ready = false;
     self.form_cache_ready = false;
     self.multipart_cache_ready = false;
+
+    self.ws_upgrade = false;
+    self.ws_handler = null;
+    self.ws_read_timeout_us = WS_DEFAULT_READ_TIMEOUT_US;
 }
 
 fn Context*? context_new(Request* req)
@@ -169,6 +180,64 @@ fn char[] Context.body(&self)
     return self.req.body;
 }
 
+fn String Context.body_text(&self)
+{
+    if (self.req == null) return "";
+    return self.req.body_text();
+}
+
+fn void? Context.set_params(&self, Params* params)
+{
+    if (params == null) return errno::E_INVALID_ARG~;
+
+    self.params.free();
+    self.params.init();
+    self.params.copy_from(params)!;
+}
+
+
+fn simdjson::ParseResult? Context.req_json(&self, bool allow_comma = true, bool allow_comment = true)
+{
+    if (self.req == null) return CONTEXT_NOT_READY~;
+    return self.req.parse_json(localmem, allow_comma, allow_comment)!;
+}
+
+fn simdjson::ParseResult? Context.req_json_with_allocator(&self, Allocator alloc, bool allow_comma = true, bool allow_comment = true)
+{
+    if (self.req == null) return CONTEXT_NOT_READY~;
+    return self.req.parse_json(alloc, allow_comma, allow_comment)!;
+}
+
+fn Response*? Context.upgrade_websocket(&self, WebSocketHandler handler, ulong read_timeout_us = WS_DEFAULT_READ_TIMEOUT_US)
+{
+    if (self.req == null || self.res == null) return CONTEXT_NOT_READY~;
+    if (handler == null) return errno::E_INVALID_ARG~;
+
+    Response* response = websocket_handshake_response(self.req)!;
+
+    self.with_response(response);
+
+    self.ws_upgrade = true;
+    self.ws_handler = handler;
+    self.ws_read_timeout_us = read_timeout_us;
+
+    return self.res;
+}
+
+fn bool Context.is_websocket_upgrade(&self) @inline
+{
+    return self.ws_upgrade;
+}
+
+fn WebSocketHandler Context.websocket_handler(&self) @inline
+{
+    return self.ws_handler;
+}
+
+fn ulong Context.websocket_read_timeout_us(&self) @inline
+{
+    return self.ws_read_timeout_us;
+}
 
 // Params
 

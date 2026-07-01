@@ -95,7 +95,7 @@ fn void? write_all_file(String file_path, char[] data)
 
         if (n <= 0)
         {
-            return aio::http::HTTP_WRITE_ERROR~;
+            return http::WRITE_ERROR~;
         }
 
         total += n;
@@ -126,7 +126,7 @@ fn String? fetch_raw(
     client.write_all((char[])request)!;
 
     DString out;
-    out.init(aio::http::localmem, 4096);
+    out.init(http::localmem, 4096);
     defer out.free();
 
     while (true)
@@ -161,13 +161,13 @@ fn String? fetch_raw(
 
         if (out.len() > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
     }
 
     client.close();
 
-    return out.copy_str(aio::http::localmem);
+    return out.copy_str(http::localmem);
 }
 
 fn String? fetch_raw_split(
@@ -191,7 +191,7 @@ fn String? fetch_raw_split(
     }
 
     DString out;
-    out.init(aio::http::localmem, 4096);
+    out.init(http::localmem, 4096);
     defer out.free();
 
     while (true)
@@ -226,13 +226,13 @@ fn String? fetch_raw_split(
 
         if (out.len() > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
     }
 
     client.close();
 
-    return out.copy_str(aio::http::localmem);
+    return out.copy_str(http::localmem);
 }
 
 // Handlers
@@ -270,17 +270,17 @@ fn Response*? chunked_upper_handler(Ctx* c)
 
 fn void? stream_writer(aio::Stream* stream, void* arg)
 {
-    aio::http::write_chunk(
+    http::write_chunk(
         stream,
         (char[])"stream-"
     )!;
 
-    aio::http::write_chunk(
+    http::write_chunk(
         stream,
         (char[])"chunk-"
     )!;
 
-    aio::http::write_chunk(
+    http::write_chunk(
         stream,
         (char[])"body"
     )!;
@@ -289,7 +289,7 @@ fn void? stream_writer(aio::Stream* stream, void* arg)
 fn Response*? stream_handler(Ctx* c)
 {
     Response* res =
-        aio::http::response_stream(
+        http::response_stream(
             &stream_writer,
             null
         )!;
@@ -304,7 +304,7 @@ fn Response*? stream_handler(Ctx* c)
 fn Response*? file_handler(Ctx* c)
 {
     Response* res =
-        aio::http::response_file(
+        http::response_file(
             FILE_PATH,
             FILE_SIZE
         )!;
@@ -319,7 +319,7 @@ fn Response*? file_handler(Ctx* c)
 fn Response*? no_content_handler(Ctx* c)
 {
     Response* res =
-        aio::http::response_text(
+        http::response_text(
             "must-not-appear"
         )!;
 
@@ -331,7 +331,7 @@ fn Response*? no_content_handler(Ctx* c)
 fn Response*? not_modified_handler(Ctx* c)
 {
     Response* res =
-        aio::http::response_text(
+        http::response_text(
             "must-not-appear"
         )!;
 
@@ -413,7 +413,7 @@ fn void? test_chunked_request_split_reads()
     };
 
     String raw = fetch_raw_split(parts[..])!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 200),
@@ -441,7 +441,7 @@ fn void? test_chunked_request_extension()
         "0\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 200),
@@ -467,7 +467,7 @@ fn void? test_chunked_request_uppercase_hex()
         "0\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 200),
@@ -499,7 +499,7 @@ fn void? test_chunked_request_trailer()
         "X-Test-Trailer: yes\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 200),
@@ -525,7 +525,7 @@ fn void? test_chunked_request_malformed_size()
         "0\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 400),
@@ -536,11 +536,11 @@ fn void? test_chunked_request_malformed_size()
 fn void? test_chunked_request_incomplete_timeout()
 {
     ulong old_timeout =
-        aio::http::http_get_read_timeout_us();
+        http::get_read_timeout_us();
 
-    aio::http::http_set_read_timeout_us(200_000);
+    http::set_read_timeout_us(200_000);
 
-    defer aio::http::http_set_read_timeout_us(
+    defer http::set_read_timeout_us(
         old_timeout
     );
 
@@ -559,7 +559,7 @@ fn void? test_chunked_request_incomplete_timeout()
     )!;
 
     DString out;
-    out.init(aio::http::localmem, 4096);
+    out.init(http::localmem, 4096);
     defer out.free();
 
     while (true)
@@ -594,7 +594,7 @@ fn void? test_chunked_request_incomplete_timeout()
 
         if (out.len() > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
     }
 
@@ -627,7 +627,7 @@ fn void? test_chunked_post_then_get_pipeline()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         count_occurrences(
@@ -669,7 +669,7 @@ fn void? test_chunked_stream_response()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 200),
@@ -714,7 +714,7 @@ fn void? test_file_response()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 200),
@@ -750,7 +750,7 @@ fn void? test_head_stream_response_has_no_chunk_body()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 200),
@@ -786,7 +786,7 @@ fn void? test_head_file_response_has_no_body()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 200),
@@ -822,7 +822,7 @@ fn void? test_204_has_no_chunk_body()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 204),
@@ -860,7 +860,7 @@ fn void? test_304_has_no_chunk_body()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         status_is(raw, 304),

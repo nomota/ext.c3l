@@ -49,8 +49,7 @@ fn void? client_task(void* arg) @local
 
     server.add_client(stream);
 
-    defer
-    {
+    defer {
         server.remove_client(stream);
         stream.free();
     }
@@ -88,8 +87,7 @@ fn void Server.abort_clients(&self)
 
 fn void Server.close_clients(&self)
 {
-    foreach (stream: self.clients.array_view())
-    {
+    foreach (stream: self.clients.array_view()) {
         if (stream == null) continue;
 
         stream.close();
@@ -102,13 +100,11 @@ fn void Server.close(&self)
 
     self.closed = true;
 
-    if (self.serving_task != null)
-    {
+    if (self.serving_task != null) {
         self.serving_task.cancel();
     }
 
-    if (!io::fd_invalid(self.fd))
-    {
+    if (!io::fd_invalid(self.fd)) {
         net::socket_close(self.fd);
         self.fd = io::fd_null();
     }
@@ -124,8 +120,7 @@ fn void Server.stop(&self)
 // The caller must call wait_closed() before free() after close().
 fn void? Server.wait_closed(&self) @maydiscard
 {
-    if (catch err = self.client_tasks.join_all())
-    {
+    if (catch err = self.client_tasks.join_all()) {
         if (err == CANCELLED) return;
         if (err == CLOSED) return;
         if (err == IO_ERROR) return;
@@ -173,8 +168,7 @@ fn void? Server.serve_forever(&self) @maydiscard
     self.serving_task = current_task()!;
     defer self.serving_task = null;
 
-    while (!self.closed)
-    {
+    while (!self.closed) {
         Fd client_fd = net::tcp_accept(self.fd)!;
 
         Stream* stream = stream_new(client_fd)!;

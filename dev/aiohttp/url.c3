@@ -17,36 +17,6 @@ faultdef INVALID_URL_ENCODING;
 
 
 // 
-// Internal helpers
-// 
-
-fn bool is_hex(char c) @local
-{
-    if (c >= '0' && c <= '9') return true;
-    if (c >= 'a' && c <= 'f') return true;
-    if (c >= 'A' && c <= 'F') return true;
-    return false;
-}
-
-fn char hex_value(char c) @local
-{
-    if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-    return 0;
-}
-
-fn sz find_char_from(String s, char needle, sz start)
-{
-    for (sz i = start; i < s.len; i++)
-    {
-        if (s[i] == needle) return (sz)i;
-    }
-
-    return -1;
-}
-
-// 
 // Percent decoding
 // 
 
@@ -134,7 +104,7 @@ fn void? query_parse_pair(Query* out, String pair)
 {
     if (pair.len == 0) return;
 
-    sz eq = find_char_from(pair, '=', 0);
+    sz eq = find_char(pair, '=', 0);
 
     String raw_name;
     String raw_value;
@@ -186,7 +156,7 @@ fn void? query_parse(Query* out, String query_string)
 
     while (start <= query_string.len)
     {
-        sz amp = find_char_from(query_string, '&', start);
+        sz amp = find_char(query_string, '&', start);
 
         String pair;
 

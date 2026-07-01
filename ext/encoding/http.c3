@@ -5,7 +5,7 @@
 
 // Nomota <hiongun@gmail.com>; MIT License
 
-module ext::serializer::http;
+module ext::encoding::http;
 
 import c::string;
 import ext::debug;

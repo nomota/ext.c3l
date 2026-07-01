@@ -1,6 +1,6 @@
-# ext::serializer::json - JSON decoder for C3
+# ext::encoding::json - JSON decoder for C3
 
-`ext::serializer::json` is a JSON decoder for the [ext.c3l](../..README.md) library ecosystem. It parses a JSON string into a tree of `JsonValue`s backed by a caller-supplied allocator, with optional support for trailing commas and comments.
+`ext::encoding::json` is a JSON decoder for the [ext.c3l](../..README.md) library ecosystem. It parses a JSON string into a tree of `JsonValue`s backed by a caller-supplied allocator, with optional support for trailing commas and comments.
 
 * Note: This is highly efficient because they minimize the copy of data, remembering positional info on the given input buffer. So you need to be careful to keep the input buffer available while the parsed object is alive.
 
@@ -10,7 +10,7 @@
 
 | Module | Description |
 |--------|-------------|
-| `ext::serializer::json` | JSON serializer: JsonObject, JsonArray, JsonValue, JsonNull, JsonBool, JsonNumber, String, bool, long, double, null, decode(), encode() |
+| `ext::encoding::json` | JSON serializer: JsonObject, JsonArray, JsonValue, JsonNull, JsonBool, JsonNumber, String, bool, long, double, null, decode(), encode() |
 
 ### Files
 
@@ -18,7 +18,7 @@
 
 ### Exqmples
 
-* [../../test/serializer/json_sample.c3](../../test/serializer/json_sample.c3)
+* [../../test/encoding/json_sample.c3](../../test/encoding/json_sample.c3)
 
 This is a part of the extended C3 library.
 Back to [ext.c3l](../../README.md) library.
@@ -43,7 +43,7 @@ Numbers are kept as raw `char[]` slices and converted on demand via `as_int()` /
 ### Decoding
 
 ```c3
-import ext::serializer::json;
+import ext::encoding::json;
 
 // Parse a JSON string.
 // allow_comma – tolerate trailing commas in arrays and objects (default: true)

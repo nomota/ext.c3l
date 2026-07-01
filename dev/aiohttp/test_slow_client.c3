@@ -14,11 +14,11 @@ import ext::debug;
 const String HOST = "127.0.0.1";
 const ushort PORT = 18089;
 
-const usz TEST_READ_TIMEOUT_US = 1_000_000;
+const usz TEST_READ_TIMEOUT_US = 500_000;
 const usz WITHIN_TIMEOUT_DELAY_US = 50_000;
-const usz EXCEEDS_TIMEOUT_DELAY_US = 1_500_000;
+const usz EXCEEDS_TIMEOUT_DELAY_US = 750_000;
 const usz SERVER_START_DELAY_US = 100_000;
-const usz DEFAULT_READ_TIMEOUT_US = 5_000_000;
+const usz DEFAULT_READ_TIMEOUT_US = 2_500_000;
 
 const sz MAX_RESPONSE_BYTES = 1024 * 1024;
 
@@ -31,11 +31,11 @@ macro void assert_response_contains(
     if (!response.contains(expected))
     {
         io::printfn("");
-        io::printfn("Unexpected response:");
+        warn("Unexpected response:");
         io::printfn("--------------------");
         io::printfn("%s", response);
         io::printfn("--------------------");
-        io::printfn("Expected: %s", expected);
+        warn("Expected: %s", expected);
     }
 
     @assert(response.contains(expected), message);
@@ -76,7 +76,7 @@ fn sz? response_content_length(String header_block)
         }
     }
 
-    return aio::http::NOT_FOUND~;
+    return http::NOT_FOUND~;
 }
 
 fn sz? response_expected_total_len(String response)
@@ -85,7 +85,7 @@ fn sz? response_expected_total_len(String response)
 
     if (header_end < 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     String header_block = response[0:header_end];
@@ -110,11 +110,11 @@ fn void? ResponseReader.init(&self, aio::Stream* stream) @maydiscard
 {
     if (stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     self.stream = stream;
-    self.buffer.init(aio::http::localmem, 4096);
+    self.buffer.init(http::localmem, 4096);
 }
 
 fn void ResponseReader.free(&self)
@@ -140,7 +140,7 @@ fn String? ResponseReader.read_response(&self)
 {
     if (self.stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     while (true)
@@ -153,7 +153,7 @@ fn String? ResponseReader.read_response(&self)
         {
             if (self.buffer.len() >= total)
             {
-                String out = text[0:total].copy(aio::http::localmem);
+                String out = text[0:total].copy(http::localmem);
 
                 self.consume(total);
 
@@ -163,7 +163,7 @@ fn String? ResponseReader.read_response(&self)
 
         if (self.buffer.len() > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         char[1024] tmp;
@@ -177,27 +177,27 @@ fn String? ResponseReader.read_response(&self)
 
     if (self.buffer.len() > 0)
     {
-        String out = self.buffer.str_view().copy(aio::http::localmem);
+        String out = self.buffer.str_view().copy(http::localmem);
 
         self.buffer.clear();
 
         return out;
     }
 
-    return aio::http::BODY_INCOMPLETE~;
+    return http::BODY_INCOMPLETE~;
 }
 
-fn aio::http::Response*? home_handler(aio::http::Context* c)
+fn http::Response*? home_handler(http::Context* c)
 {
     return c.text("home")!;
 }
 
-fn aio::http::Response*? echo_handler(aio::http::Context* c)
+fn http::Response*? echo_handler(http::Context* c)
 {
     return c.text(c.req_text())!;
 }
 
-fn void setup_app(aio::http::Application* app)
+fn void setup_app(http::Application* app)
 {
     app.init();
 
@@ -207,8 +207,8 @@ fn void setup_app(aio::http::Application* app)
 
 fn void? server_task(void* arg)
 {
-    aio::http::ApplicationServer* server =
-        (aio::http::ApplicationServer*)arg;
+    http::ApplicationServer* server =
+        (http::ApplicationServer*)arg;
 
     server.serve()!;
 }
@@ -235,7 +235,7 @@ fn void test_slow_header_within_timeout()
     )!!;
 
     String response = reader.read_response()!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -275,7 +275,7 @@ fn void test_slow_body_within_timeout()
     stream.write_all((char[])"world")!!;
 
     String response = reader.read_response()!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -308,7 +308,7 @@ fn void test_slow_header_exceeds_timeout()
     aio::sleep(EXCEEDS_TIMEOUT_DELAY_US)!!;
 
     String response = reader.read_response()!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -350,7 +350,7 @@ fn void test_slow_body_exceeds_timeout()
     aio::sleep(EXCEEDS_TIMEOUT_DELAY_US)!!;
 
     String response = reader.read_response()!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -388,7 +388,7 @@ fn void test_timeout_connection_is_closed()
     aio::sleep(EXCEEDS_TIMEOUT_DELAY_US)!!;
 
     String response = reader.read_response()!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -406,14 +406,13 @@ fn void test_timeout_connection_is_closed()
 
 fn void? main_task(void* arg)
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::http_set_read_timeout_us(TEST_READ_TIMEOUT_US);
-    defer aio::http::http_set_read_timeout_us(DEFAULT_READ_TIMEOUT_US);
+    http::set_read_timeout_us(TEST_READ_TIMEOUT_US);
 
-    aio::http::ApplicationServer server;
+    http::ApplicationServer server;
     server.init(&app, HOST, PORT);
     defer server.free();
 

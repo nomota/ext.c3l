@@ -17,18 +17,18 @@ import ext::mem;
 const sz DEFAULT_COMPRESS_MIN_SIZE = 1024;
 
 tlocal sz compress_min_size = DEFAULT_COMPRESS_MIN_SIZE;
-tlocal bool compress_gzip_enabled = true;
-tlocal bool compress_deflate_enabled = true;
+tlocal bool gzip_enabled = true;
+tlocal bool deflate_enabled = true;
 
 
 // Encoding
 
 enum CompressEncoding
 {
-    COMPRESS_IDENTITY,
-    COMPRESS_GZIP,
-    COMPRESS_DEFLATE,
-    COMPRESS_NOT_ACCEPTABLE,
+    IDENTITY,
+    GZIP,
+    DEFLATE,
+    NOT_ACCEPTABLE,
 }
 
 
@@ -49,27 +49,27 @@ fn sz compress_get_min_size()
     return compress_min_size;
 }
 
-fn void compress_enable_gzip(bool enabled)
+fn void enable_gzip(bool enabled)
 {
-    compress_gzip_enabled = enabled;
+    gzip_enabled = enabled;
 }
 
-fn void compress_enable_deflate(bool enabled)
+fn void enable_deflate(bool enabled)
 {
-    compress_deflate_enabled = enabled;
+    deflate_enabled = enabled;
 }
 
 fn void compress_reset()
 {
     compress_min_size = DEFAULT_COMPRESS_MIN_SIZE;
-    compress_gzip_enabled = true;
-    compress_deflate_enabled = true;
+    gzip_enabled = true;
+    deflate_enabled = true;
 }
 
 
 // Header helpers
 
-fn int compress_parse_q1000(String value) @local
+fn int parse_q1000(String value) @local
 {
     value = value.trim();
 
@@ -112,7 +112,7 @@ fn int compress_parse_q1000(String value) @local
     return q;
 }
 
-fn String compress_item_name(String item) @local
+fn String item_name(String item) @local
 {
     sz semicolon = item.index_of(";") ?? -1;
 
@@ -121,7 +121,7 @@ fn String compress_item_name(String item) @local
     return item[0:semicolon].trim();
 }
 
-fn int compress_item_q(String item) @local
+fn int item_q(String item) @local
 {
     sz semicolon = item.index_of(";") ?? -1;
 
@@ -149,13 +149,13 @@ fn int compress_item_q(String item) @local
         String name = param[0:equals].trim();
         String value = param[equals + 1..].trim();
 
-        if (str_iequals(name, "q")) return compress_parse_q1000(value);
+        if (str_iequals(name, "q")) return parse_q1000(value);
     }
 
     return 1000;
 }
 
-fn int compress_find_encoding_q(String accept_encoding, String encoding, bool* found) @local
+fn int find_encoding_q(String accept_encoding, String encoding, bool* found) @local
 {
     *found = false;
 
@@ -173,59 +173,59 @@ fn int compress_find_encoding_q(String accept_encoding, String encoding, bool* f
             remaining = remaining[comma + 1..];
         }
 
-        String name = compress_item_name(item);
+        String name = item_name(item);
 
         if (str_iequals(name, encoding)) {
             *found = true;
-            return compress_item_q(item);
+            return item_q(item);
         }
     }
 
     return 0;
 }
 
-fn int compress_effective_encoding_q(String accept_encoding, String encoding, int wildcard_q) @local
+fn int effective_encoding_q(String accept_encoding, String encoding, int wildcard_q) @local
 {
     bool found = false;
-    int q = compress_find_encoding_q(accept_encoding, encoding, &found);
+    int q = find_encoding_q(accept_encoding, encoding, &found);
 
     if (found) return q;
 
     return wildcard_q;
 }
 
-fn CompressEncoding compress_select_encoding(String accept_encoding)
+fn CompressEncoding select_encoding(String accept_encoding)
 {
     bool wildcard_found = false;
-    int wildcard_q = compress_find_encoding_q(accept_encoding, "*", &wildcard_found);
+    int wildcard_q = find_encoding_q(accept_encoding, "*", &wildcard_found);
 
     if (!wildcard_found) wildcard_q = 0;
 
-    int gzip_q = compress_effective_encoding_q(accept_encoding, "gzip", wildcard_q);
-    int deflate_q = compress_effective_encoding_q(accept_encoding, "deflate", wildcard_q);
+    int gzip_q = effective_encoding_q(accept_encoding, "gzip", wildcard_q);
+    int deflate_q = effective_encoding_q(accept_encoding, "deflate", wildcard_q);
 
     bool identity_found = false;
-    int identity_q = compress_find_encoding_q(accept_encoding, "identity", &identity_found);
+    int identity_q = find_encoding_q(accept_encoding, "identity", &identity_found);
 
     if (!identity_found) identity_q = 1000;
-    if (!compress_gzip_enabled) gzip_q = 0;
-    if (!compress_deflate_enabled) deflate_q = 0;
+    if (!gzip_enabled) gzip_q = 0;
+    if (!deflate_enabled) deflate_q = 0;
 
     if (identity_found && identity_q > 0 && identity_q >= gzip_q && identity_q >= deflate_q) {
-        return COMPRESS_IDENTITY;
+        return IDENTITY;
     }
 
-    if (gzip_q > 0 && gzip_q >= deflate_q) return COMPRESS_GZIP;
-    if (deflate_q > 0) return COMPRESS_DEFLATE;
-    if (identity_q > 0) return COMPRESS_IDENTITY;
+    if (gzip_q > 0 && gzip_q >= deflate_q) return GZIP;
+    if (deflate_q > 0) return DEFLATE;
+    if (identity_q > 0) return IDENTITY;
 
-    return COMPRESS_NOT_ACCEPTABLE;
+    return NOT_ACCEPTABLE;
 }
 
 
 // Content-Type helpers
 
-fn bool compress_media_type_matches(String content_type, String prefix) @local
+fn bool media_type_matches(String content_type, String prefix) @local
 {
     content_type = content_type.trim();
 
@@ -234,25 +234,25 @@ fn bool compress_media_type_matches(String content_type, String prefix) @local
     return str_iequals(content_type[0:prefix.len], prefix);
 }
 
-fn bool compress_content_type_allowed(String content_type) @local
+fn bool content_type_allowed(String content_type) @local
 {
     if (content_type.len == 0) return false;
 
-    if (compress_media_type_matches(content_type, "text/")) return true;
-    if (compress_media_type_matches(content_type, "application/json")) return true;
-    if (compress_media_type_matches(content_type, "application/javascript")) return true;
-    if (compress_media_type_matches(content_type, "application/x-javascript")) return true;
-    if (compress_media_type_matches(content_type, "application/xml")) return true;
-    if (compress_media_type_matches(content_type, "application/xhtml+xml")) return true;
-    if (compress_media_type_matches(content_type, "application/wasm")) return true;
-    if (compress_media_type_matches(content_type, "image/svg+xml")) return true;
+    if (media_type_matches(content_type, "text/")) return true;
+    if (media_type_matches(content_type, "application/json")) return true;
+    if (media_type_matches(content_type, "application/javascript")) return true;
+    if (media_type_matches(content_type, "application/x-javascript")) return true;
+    if (media_type_matches(content_type, "application/xml")) return true;
+    if (media_type_matches(content_type, "application/xhtml+xml")) return true;
+    if (media_type_matches(content_type, "application/wasm")) return true;
+    if (media_type_matches(content_type, "image/svg+xml")) return true;
     if (content_type.contains("+json")) return true;
     if (content_type.contains("+xml")) return true;
 
     return false;
 }
 
-fn bool compress_response_content_type_allowed(Response* res) @local
+fn bool response_content_type_allowed(Response* res) @local
 {
     if (res == null) return false;
 
@@ -260,13 +260,13 @@ fn bool compress_response_content_type_allowed(Response* res) @local
 
     if (catch err = content_type) return false;
 
-    return compress_content_type_allowed(content_type);
+    return content_type_allowed(content_type);
 }
 
 
 // Vary helper
 
-fn bool compress_vary_contains(String value, String name) @local
+fn bool vary_contains(String value, String name) @local
 {
     String remaining = value;
 
@@ -288,7 +288,7 @@ fn bool compress_vary_contains(String value, String name) @local
     return false;
 }
 
-fn void? compress_add_vary(Response* res, String name) @local
+fn void? add_vary(Response* res, String name) @local
 {
     if (res == null) return;
 
@@ -299,7 +299,7 @@ fn void? compress_add_vary(Response* res, String name) @local
         return;
     }
 
-    if (compress_vary_contains(old, name)) return;
+    if (vary_contains(old, name)) return;
 
     String value = string::format(localmem, "%s, %s", old, name);
     defer localmem.free(value);
@@ -310,7 +310,7 @@ fn void? compress_add_vary(Response* res, String name) @local
 
 // Response helpers
 
-fn bool compress_body_kind_supported(Response* res) @local
+fn bool body_kind_supported(Response* res) @local
 {
     if (res == null) return false;
     if (res.body_kind == BODY_EMPTY) return false;
@@ -320,14 +320,14 @@ fn bool compress_body_kind_supported(Response* res) @local
     return true;
 }
 
-fn bool compress_response_allowed(Response* res) @local
+fn bool response_allowed(Response* res) @local
 {
     if (res == null) return false;
     if (!status_allows_body(res.status)) return false;
-    if (!compress_body_kind_supported(res)) return false;
+    if (!body_kind_supported(res)) return false;
     if (res.body.len < compress_min_size) return false;
     if (res.headers.has("Content-Encoding")) return false;
-    if (!compress_response_content_type_allowed(res)) return false;
+    if (!response_content_type_allowed(res)) return false;
 
     return true;
 }
@@ -337,10 +337,10 @@ faultdef UNDEFINED_ENCODING;
 fn char[]? compress_body(char[] input, CompressEncoding encoding) @local
 {
     switch (encoding) {
-        case COMPRESS_GZIP:
+        case GZIP:
             return gzip::compress(localmem, input)!;
 
-        case COMPRESS_DEFLATE:
+        case DEFLATE:
             return deflate::compress(localmem, input)!;
 
         default:
@@ -348,13 +348,13 @@ fn char[]? compress_body(char[] input, CompressEncoding encoding) @local
     }
 }
 
-fn String compress_encoding_name(CompressEncoding encoding) @local
+fn String encoding_name(CompressEncoding encoding) @local
 {
     switch (encoding) {
-        case COMPRESS_GZIP:
+        case GZIP:
             return "gzip";
 
-        case COMPRESS_DEFLATE:
+        case DEFLATE:
             return "deflate";
 
         default:
@@ -362,7 +362,7 @@ fn String compress_encoding_name(CompressEncoding encoding) @local
     }
 }
 
-fn void? compress_replace_body(Response* res, char[] compressed) @maydiscard
+fn void? replace_body(Response* res, char[] compressed) @maydiscard @local
 {
     if (res.owns_body && res.body.len > 0) {
         localmem.free(res.body);
@@ -384,19 +384,19 @@ fn Response*? middleware_compress(Ctx* c, Next next)
 
     Response* res = next(c)!;
 
-    compress_add_vary(res, "Accept-Encoding")!;
+    add_vary(res, "Accept-Encoding")!;
 
     if (str_iequals(c.method(), "HEAD")) return res;
-    if (!compress_response_allowed(res)) return res;
+    if (!response_allowed(res)) return res;
 
     String? accept_encoding = c.req_header("Accept-Encoding");
 
     if (catch err = accept_encoding) return res;
 
-    CompressEncoding encoding = compress_select_encoding(accept_encoding);
+    CompressEncoding encoding = select_encoding(accept_encoding);
 
-    if (encoding == COMPRESS_IDENTITY) return res;
-    if (encoding == COMPRESS_NOT_ACCEPTABLE) return res;
+    if (encoding == IDENTITY) return res;
+    if (encoding == NOT_ACCEPTABLE) return res;
 
     char[] compressed = compress_body(res.body, encoding)!;
 
@@ -405,8 +405,8 @@ fn Response*? middleware_compress(Ctx* c, Next next)
         return res;
     }
 
-    compress_replace_body(res, compressed)!;
-    res.headers.set("Content-Encoding", compress_encoding_name(encoding))!;
+    replace_body(res, compressed)!;
+    res.headers.set("Content-Encoding", encoding_name(encoding))!;
 
     return res;
 }
@@ -418,8 +418,8 @@ fn void compress_dump()
 {
     io::printfn("compression:");
     io::printfn("  min_size = %d", compress_min_size);
-    io::printfn("  gzip     = %s", compress_gzip_enabled ? "true" : "false");
-    io::printfn("  deflate  = %s", compress_deflate_enabled ? "true" : "false");
+    io::printfn("  gzip     = %s", gzip_enabled ? "true" : "false");
+    io::printfn("  deflate  = %s", deflate_enabled ? "true" : "false");
 }
 
 // eof

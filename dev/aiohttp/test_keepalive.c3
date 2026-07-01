@@ -52,7 +52,7 @@ fn sz? response_content_length(String header_block)
         }
     }
 
-    return aio::http::NOT_FOUND~;
+    return http::NOT_FOUND~;
 }
 
 fn sz? response_expected_total_len(String response)
@@ -61,7 +61,7 @@ fn sz? response_expected_total_len(String response)
 
     if (header_end < 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     String header_block = response[0:header_end];
@@ -80,11 +80,11 @@ fn void? ResponseReader.init(&self, aio::Stream* stream) @maydiscard
 {
     if (stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     self.stream = stream;
-    self.buffer.init(aio::http::localmem, 4096);
+    self.buffer.init(http::localmem, 4096);
 }
 
 fn void ResponseReader.free(&self)
@@ -110,7 +110,7 @@ fn String? ResponseReader.read_response(&self)
 {
     if (self.stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     while (true)
@@ -123,7 +123,7 @@ fn String? ResponseReader.read_response(&self)
         {
             if (self.buffer.len() >= total)
             {
-                String out = text[0:total].copy(aio::http::localmem);
+                String out = text[0:total].copy(http::localmem);
 
                 self.consume(total);
 
@@ -133,7 +133,7 @@ fn String? ResponseReader.read_response(&self)
 
         if (self.buffer.len() > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         char[1024] tmp;
@@ -145,37 +145,37 @@ fn String? ResponseReader.read_response(&self)
         self.buffer.append(tmp[0:n]);
     }
 
-    return aio::http::BODY_INCOMPLETE~;
+    return http::BODY_INCOMPLETE~;
 }
 
-fn aio::http::Response*? one_handler(aio::http::Context* c)
+fn http::Response*? one_handler(http::Context* c)
 {
     return c.text("one")!;
 }
 
-fn aio::http::Response*? two_handler(aio::http::Context* c)
+fn http::Response*? two_handler(http::Context* c)
 {
     return c.text("two")!;
 }
 
-fn aio::http::Response*? three_handler(aio::http::Context* c)
+fn http::Response*? three_handler(http::Context* c)
 {
     return c.text("three")!;
 }
 
-fn aio::http::Response*? echo_handler(aio::http::Context* c)
+fn http::Response*? echo_handler(http::Context* c)
 {
     return c.text(c.req_text())!;
 }
 
-fn aio::http::Response*? id_handler(aio::http::Context* c)
+fn http::Response*? id_handler(http::Context* c)
 {
     String id = c.param("id")!;
 
     return c.text(id)!;
 }
 
-fn void setup_app(aio::http::Application* app)
+fn void setup_app(http::Application* app)
 {
     app.init();
 
@@ -188,8 +188,8 @@ fn void setup_app(aio::http::Application* app)
 
 fn void? server_task(void* arg)
 {
-    aio::http::ApplicationServer* server =
-        (aio::http::ApplicationServer*)arg;
+    http::ApplicationServer* server =
+        (http::ApplicationServer*)arg;
 
     server.serve()!;
 }
@@ -210,7 +210,7 @@ fn void test_two_requests_one_connection()
     )!!;
 
     String r1 = reader.read_response()!!;
-    defer aio::http::localmem.free(r1);
+    defer http::localmem.free(r1);
 
     @assert(
         r1.contains("HTTP/1.1 200 OK\r\n"),
@@ -233,7 +233,7 @@ fn void test_two_requests_one_connection()
     )!!;
 
     String r2 = reader.read_response()!!;
-    defer aio::http::localmem.free(r2);
+    defer http::localmem.free(r2);
 
     @assert(
         r2.contains("HTTP/1.1 200 OK\r\n"),
@@ -267,7 +267,7 @@ fn void test_three_requests_one_connection()
     )!!;
 
     String r1 = reader.read_response()!!;
-    defer aio::http::localmem.free(r1);
+    defer http::localmem.free(r1);
 
     stream.write_all((char[])
         "GET /two HTTP/1.1\r\n"
@@ -276,7 +276,7 @@ fn void test_three_requests_one_connection()
     )!!;
 
     String r2 = reader.read_response()!!;
-    defer aio::http::localmem.free(r2);
+    defer http::localmem.free(r2);
 
     stream.write_all((char[])
         "GET /three HTTP/1.1\r\n"
@@ -286,7 +286,7 @@ fn void test_three_requests_one_connection()
     )!!;
 
     String r3 = reader.read_response()!!;
-    defer aio::http::localmem.free(r3);
+    defer http::localmem.free(r3);
 
     @assert(
         r1.contains("Connection: keep-alive\r\n"),
@@ -338,10 +338,10 @@ fn void test_pipelined_two_get_requests()
     )!!;
 
     String r1 = reader.read_response()!!;
-    defer aio::http::localmem.free(r1);
+    defer http::localmem.free(r1);
 
     String r2 = reader.read_response()!!;
-    defer aio::http::localmem.free(r2);
+    defer http::localmem.free(r2);
 
     @assert(
         r1.contains("HTTP/1.1 200 OK\r\n"),
@@ -395,13 +395,13 @@ fn void test_pipelined_three_get_requests()
     )!!;
 
     String r1 = reader.read_response()!!;
-    defer aio::http::localmem.free(r1);
+    defer http::localmem.free(r1);
 
     String r2 = reader.read_response()!!;
-    defer aio::http::localmem.free(r2);
+    defer http::localmem.free(r2);
 
     String r3 = reader.read_response()!!;
-    defer aio::http::localmem.free(r3);
+    defer http::localmem.free(r3);
 
     @assert(
         r1.contains("\r\n\r\none"),
@@ -455,10 +455,10 @@ fn void test_pipelined_post_then_get()
     )!!;
 
     String r1 = reader.read_response()!!;
-    defer aio::http::localmem.free(r1);
+    defer http::localmem.free(r1);
 
     String r2 = reader.read_response()!!;
-    defer aio::http::localmem.free(r2);
+    defer http::localmem.free(r2);
 
     @assert(
         r1.contains("HTTP/1.1 200 OK\r\n"),
@@ -505,7 +505,7 @@ fn void test_keep_alive_with_route_params()
     )!!;
 
     String r1 = reader.read_response()!!;
-    defer aio::http::localmem.free(r1);
+    defer http::localmem.free(r1);
 
     stream.write_all((char[])
         "GET /id/beta HTTP/1.1\r\n"
@@ -515,7 +515,7 @@ fn void test_keep_alive_with_route_params()
     )!!;
 
     String r2 = reader.read_response()!!;
-    defer aio::http::localmem.free(r2);
+    defer http::localmem.free(r2);
 
     @assert(
         r1.contains("\r\n\r\nalpha"),
@@ -546,7 +546,7 @@ fn void test_http10_keep_alive_request_still_closes_after_response()
     )!!;
 
     String r1 = reader.read_response()!!;
-    defer aio::http::localmem.free(r1);
+    defer http::localmem.free(r1);
 
     @assert(
         r1.contains("HTTP/1.1 200 OK\r\n"),
@@ -591,7 +591,7 @@ fn void test_pipelined_chunked_post_then_get()
     )!!;
 
     String r1 = reader.read_response()!!;
-    defer aio::http::localmem.free(r1);
+    defer http::localmem.free(r1);
 
     @assert(
         r1.contains("HTTP/1.1 200 OK\r\n"),
@@ -607,7 +607,7 @@ fn void test_pipelined_chunked_post_then_get()
     );
 
     String r2 = reader.read_response()!!;
-    defer aio::http::localmem.free(r2);
+    defer http::localmem.free(r2);
 
     @assert(
         r2.contains("HTTP/1.1 200 OK\r\n"),
@@ -627,11 +627,11 @@ fn void test_pipelined_chunked_post_then_get()
 
 fn void? main_task(void* arg)
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::ApplicationServer server;
+    http::ApplicationServer server;
     server.init(&app, HOST, PORT);
     defer server.free();
 

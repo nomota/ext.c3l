@@ -86,7 +86,7 @@ fn void? write_all_file(String file_path, char[] data)
 
         if (n <= 0)
         {
-            return aio::http::STATIC_READ_ERROR~;
+            return http::STATIC_READ_ERROR~;
         }
 
         total += n;
@@ -121,7 +121,7 @@ fn String? fetch_raw(String request)
     client.write_all((char[])request)!;
 
     DString out;
-    out.init(aio::http::localmem, 4096);
+    out.init(http::localmem, 4096);
     defer catch out.free();
 
     char[4096] buf;
@@ -145,7 +145,7 @@ fn String? fetch_raw(String request)
 
     client.close();
 
-    return out.copy_str(aio::http::localmem);
+    return out.copy_str(http::localmem);
 }
 
 fn Response*? hello_handler(Ctx* c)
@@ -212,14 +212,14 @@ fn void? test_statinfo()
 
 fn void? test_set_cookie_duplicate()
 {
-    Response* res = aio::http::response_text("ok")!;
-    defer aio::http::response_free(res);
+    Response* res = http::response_text("ok")!;
+    defer http::response_free(res);
 
     res.set_cookie("a=1; Path=/")!;
     res.set_cookie("b=2; Path=/")!;
 
     String wire = res.serialize()!;
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(count_occurrences(wire, "Set-Cookie: ") == 2);
     @assert(contains(wire, "Set-Cookie: a=1; Path=/\r\n"));
@@ -234,7 +234,7 @@ fn void? test_set_cookie_wire()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(count_occurrences(raw, "Set-Cookie: ") == 2);
@@ -251,7 +251,7 @@ fn void? test_server_shutdown(ApplicationServer* server)
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(contains(body_part(raw), "hello"));

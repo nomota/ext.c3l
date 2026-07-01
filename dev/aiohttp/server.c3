@@ -10,42 +10,123 @@ import ext::debug;
 import ext::aio;
 import c::errno;
 
+
 // Faults
 
-faultdef HTTP_SERVER_CLOSED;
-faultdef HTTP_READ_ERROR;
-faultdef HTTP_WRITE_ERROR;
-faultdef HTTP_REQUEST_INCOMPLETE;
-faultdef HTTP_REQUEST_TIMEOUT;
-faultdef HTTP_CLIENT_CLOSED;
+faultdef SERVER_CLOSED;
+faultdef READ_ERROR;
+faultdef WRITE_ERROR;
+faultdef REQUEST_INCOMPLETE;
+faultdef REQUEST_TIMEOUT;
+faultdef CLIENT_CLOSED;
+faultdef SLOW_CLIENT;
+faultdef WRITE_TIMEOUT;
 
-const ulong HTTP_READ_TIMEOUT_US = 5_000_000;
+// Configuration
+
+const ulong READ_TIMEOUT_US = 30_000_000;
+const ulong WRITE_TIMEOUT_US = 30_000_000;
+
+const sz SLOW_READ_MIN_BYTES = 16;
+const sz MAX_CONSECUTIVE_SLOW_READS = 64;
 
 // Limits
 
-const sz HTTP_READ_CHUNK_SIZE = 8192;
-const sz HTTP_MAX_REQUEST_BYTES = MAX_HEADER_BYTES + MAX_BODY_BYTES;
-
+const sz READ_CHUNK_SIZE = 8192;
+const sz MAX_REQUEST_BYTES = MAX_HEADER_BYTES + MAX_BODY_BYTES;
 const sz FILE_CHUNK_SIZE = 64 * 1024;
 
-fn void? write_file_chunked(aio::Stream* client, String path) @private
+
+ulong read_timeout_us = READ_TIMEOUT_US;
+ulong write_timeout_us = WRITE_TIMEOUT_US;
+
+sz slow_read_min_bytes = SLOW_READ_MIN_BYTES;
+sz max_consecutive_slow_reads = MAX_CONSECUTIVE_SLOW_READS;
+
+fn void set_read_timeout_us(ulong timeout_us)
 {
-    aio::File* file = aio::file_open(path, "r")!;
+    read_timeout_us = timeout_us == 0 ? READ_TIMEOUT_US : timeout_us;
+}
+
+fn ulong get_read_timeout_us()
+{
+    return read_timeout_us;
+}
+
+fn void set_write_timeout_us(ulong timeout_us)
+{
+    write_timeout_us = timeout_us == 0 ? WRITE_TIMEOUT_US : timeout_us;
+}
+
+fn ulong get_write_timeout_us()
+{
+    return write_timeout_us;
+}
+
+fn void set_slow_read_limit(sz min_bytes, sz max_consecutive_reads)
+{
+    slow_read_min_bytes = min_bytes > 0 ? min_bytes : SLOW_READ_MIN_BYTES;
+    max_consecutive_slow_reads = max_consecutive_reads > 0
+        ? max_consecutive_reads
+        : MAX_CONSECUTIVE_SLOW_READS;
+}
+
+fn void reset_flow_control()
+{
+    read_timeout_us = READ_TIMEOUT_US;
+    write_timeout_us = WRITE_TIMEOUT_US;
+
+    slow_read_min_bytes = SLOW_READ_MIN_BYTES;
+    max_consecutive_slow_reads = MAX_CONSECUTIVE_SLOW_READS;
+}
+
+// File response writer
+
+fn void? write_file_chunked(aio::Stream* client, String path, sz offset, sz length)
+{
+    if (client == null) return WRITE_ERROR~;
+    if (path.len == 0) return READ_ERROR~;
+    if (offset < 0 || length < 0) return READ_ERROR~;
+
+    aio::File* file = aio::file_open(path, "rb")!;
     defer file.free();
 
-    char[FILE_CHUNK_SIZE] buf;
+    if (offset > 0) {
+        long position = file.seek((long)offset, 0)!;
 
-    while (true)
-    {
-        sz n = file.read(buf[..])!;
+        if (position != (long)offset) {
+            return READ_ERROR~;
+        }
+    }
 
-        if (n == 0) break;
+    char[FILE_CHUNK_SIZE] buffer;
+    sz remaining = length;
 
-        write_chunk(client, buf[0:n])!;
+    while (remaining > 0) {
+        sz read_size = remaining;
+
+        if (read_size > FILE_CHUNK_SIZE) {
+            read_size = FILE_CHUNK_SIZE;
+        }
+
+        sz n = file.read(buffer[0:read_size])!;
+
+        if (n <= 0) {
+            return REQUEST_INCOMPLETE~;
+        }
+
+        if (n > remaining) {
+            return READ_ERROR~;
+        }
+
+        write_chunk(client, buffer[0:n])!;
+
+        remaining -= n;
     }
 
     write_last_chunk(client)!;
 }
+
 
 // Server
 
@@ -63,47 +144,21 @@ struct ApplicationServer
     bool waited;
 }
 
-// Active app binding
 
-// The current aio server callback cannot capture app state directly.
+// Active application binding
+
+// The current aio server callback cannot capture application state directly.
 // Keep the active application in thread-local storage.
 //
-// If multiple servers are run in the same thread, replace this with
-// an explicit server callback context.
-tlocal Application* current_http_app = null;
+// If multiple servers run in the same thread, replace this with an explicit
+// server callback context.
 
-// Read timeout configuration
+tlocal Application* current_app = null;
 
-// This is intentionally not thread-local.
-//
-// The configured timeout is copied into each HttpConnection when the
-// connection handler starts. Changing this value affects new connections.
-ulong http_read_timeout_us = HTTP_READ_TIMEOUT_US;
-
-fn void http_set_read_timeout_us(ulong timeout_us)
-{
-    if (timeout_us == 0)
-    {
-        http_read_timeout_us = HTTP_READ_TIMEOUT_US;
-        return;
-    }
-
-    http_read_timeout_us = timeout_us;
-}
-
-fn ulong http_get_read_timeout_us()
-{
-    return http_read_timeout_us;
-}
 
 // Lifecycle
 
-fn void ApplicationServer.init(
-    &self,
-    Application* app,
-    String host,
-    ushort port
-)
+fn void ApplicationServer.init(&self, Application* app, String host, ushort port)
 {
     self.app = app;
     self.server = null;
@@ -117,12 +172,7 @@ fn void ApplicationServer.init(
     self.waited = false;
 }
 
-fn void ApplicationServer.init_owned(
-    &self,
-    Application* app,
-    String host,
-    ushort port
-)
+fn void ApplicationServer.init_owned(&self, Application* app, String host, ushort port)
 {
     self.app = app;
     self.server = null;
@@ -138,16 +188,13 @@ fn void ApplicationServer.init_owned(
 
 fn void ApplicationServer.free(&self)
 {
-    if (self.server != null)
-    {
-        if (!self.closed)
-        {
+    if (self.server != null) {
+        if (!self.closed) {
             self.server.close();
             self.closed = true;
         }
 
-        if (!self.waited)
-        {
+        if (!self.waited) {
             self.server.wait_closed();
             self.waited = true;
         }
@@ -156,8 +203,7 @@ fn void ApplicationServer.free(&self)
         self.server = null;
     }
 
-    if (self.owns_app && self.app != null)
-    {
+    if (self.owns_app && self.app != null) {
         self.app.free();
     }
 
@@ -179,8 +225,7 @@ fn void? ApplicationServer.close(&self) @maydiscard
 
     self.closed = true;
 
-    if (self.server != null)
-    {
+    if (self.server != null) {
         self.server.close();
     }
 }
@@ -189,19 +234,14 @@ fn void? ApplicationServer.wait_closed(&self) @maydiscard
 {
     if (self.waited) return;
 
-    if (self.server != null)
-    {
+    if (self.server != null) {
         self.server.wait_closed()!;
     }
 
     self.waited = true;
 }
 
-fn ApplicationServer*? http_server_new(
-    Application* app,
-    String host,
-    ushort port
-)
+fn ApplicationServer*? app_server_new(Application* app, String host, ushort port)
 {
     ApplicationServer* server = localmem.alloc(ApplicationServer)!;
 
@@ -210,13 +250,14 @@ fn ApplicationServer*? http_server_new(
     return server;
 }
 
-fn void http_server_free(ApplicationServer* server)
+fn void app_server_free(ApplicationServer* server)
 {
     if (server == null) return;
 
     server.free();
     localmem.free(server);
 }
+
 
 // Connection policy
 
@@ -226,42 +267,36 @@ fn bool request_wants_close(Request* req)
 
     String? connection = req.header("Connection");
 
-    if (catch err = connection)
-    {
+    if (catch connection) {
         return req.is_http_10();
     }
 
-    String value = connection.trim();
-
-    if (str_iequals(value, "close"))
-    {
+    if (header_has_token(connection, "close")) {
         return true;
     }
 
-    if (req.is_http_10() && !str_iequals(value, "keep-alive"))
-    {
+    if (req.is_http_10() && !header_has_token(connection, "keep-alive")) {
         return true;
     }
 
     return false;
 }
 
-fn void? response_apply_connection(
-    Response* res,
-    Request* req
-) @maydiscard
+fn void? response_apply_connection(Response* res, Request* req) @maydiscard
 {
-    if (res == null) return HTTP_WRITE_ERROR~;
-    if (req == null) return HTTP_WRITE_ERROR~;
+    if (res == null) return WRITE_ERROR~;
+    if (req == null) return WRITE_ERROR~;
 
-    if (request_wants_close(req))
-    {
+    if (res.status == 101) {
+        return;
+    }
+
+    if (request_wants_close(req)) {
         res.header("Connection", "close")!;
         return;
     }
 
-    if (req.is_http_11())
-    {
+    if (req.is_http_11()) {
         res.header("Connection", "keep-alive")!;
         return;
     }
@@ -271,59 +306,66 @@ fn void? response_apply_connection(
 
 // HTTP connection
 
-struct HttpConnection
+struct Connection @local
 {
     Stream* stream;
     DString buffer;
+
     ulong read_timeout_us;
+    ulong write_timeout_us;
+
+    sz slow_read_count;
 }
 
-fn void? HttpConnection.init(
-    &self,
-    Stream* stream,
-    ulong read_timeout_us
-) @maydiscard
+fn void? Connection.init(&self, Stream* stream, ulong read_timeout_us, ulong write_timeout_us) @maydiscard
 {
-    if (stream == null)
-    {
-        return HTTP_SERVER_CLOSED~;
-    }
+    if (stream == null) return SERVER_CLOSED~;
 
     self.stream = stream;
-    self.read_timeout_us = read_timeout_us;
 
-    if (self.read_timeout_us == 0)
-    {
-        self.read_timeout_us = HTTP_READ_TIMEOUT_US;
+    self.read_timeout_us = read_timeout_us;
+    self.write_timeout_us = write_timeout_us;
+
+    if (self.read_timeout_us == 0) {
+        self.read_timeout_us = READ_TIMEOUT_US;
     }
 
-    self.buffer.init(localmem, HTTP_READ_CHUNK_SIZE);
+    if (self.write_timeout_us == 0) {
+        self.write_timeout_us = WRITE_TIMEOUT_US;
+    }
+
+    self.slow_read_count = 0;
+
+    self.buffer.init(localmem, READ_CHUNK_SIZE);
 }
 
-fn void HttpConnection.free(&self)
+fn void Connection.free(&self)
 {
     self.buffer.free();
 
     self.stream = null;
+
     self.read_timeout_us = 0;
+    self.write_timeout_us = 0;
+
+    self.slow_read_count = 0;
 }
 
-fn String HttpConnection.str_view(&self)
+fn String Connection.str_view(&self)
 {
     return self.buffer.str_view();
 }
 
-fn char[] HttpConnection.bytes(&self)
+fn char[] Connection.bytes(&self)
 {
     return (char[])self.buffer.str_view();
 }
 
-fn void HttpConnection.consume(&self, sz n)
+fn void Connection.consume(&self, sz n)
 {
     if (n <= 0) return;
 
-    if (n >= self.buffer.len())
-    {
+    if (n >= self.buffer.len()) {
         self.buffer.clear();
         return;
     }
@@ -331,21 +373,37 @@ fn void HttpConnection.consume(&self, sz n)
     self.buffer.delete(0, (usz)n);
 }
 
+fn void? Connection.record_read_progress(&self, sz bytes)
+{
+    if (bytes <= 0) return SLOW_CLIENT~;
+
+    if (bytes < slow_read_min_bytes) {
+        self.slow_read_count++;
+
+        if (self.slow_read_count > max_consecutive_slow_reads) {
+            return SLOW_CLIENT~;
+        }
+
+        return;
+    }
+
+    self.slow_read_count = 0;
+}
+
 // Expected request length
 
-struct HttpExpectedLen
+struct ExpectedLen @local
 {
     bool ok;
     sz value;
     fault err;
 }
 
-fn HttpExpectedLen http_expected_len_from_buffer(char[] raw)
+fn ExpectedLen expected_len_from_buffer(char[] raw) @local
 {
     sz[2]? header_pos = find_header_end(raw);
 
-    if (catch err = header_pos)
-    {
+    if (catch err = header_pos) {
         return {
             .ok = false,
             .value = 0,
@@ -357,8 +415,7 @@ fn HttpExpectedLen http_expected_len_from_buffer(char[] raw)
     sz body_start = header_pos[0] + header_pos[1];
     sz gap = header_pos[1];
 
-    if (header_end > MAX_HEADER_BYTES)
-    {
+    if (header_end > MAX_HEADER_BYTES) {
         return {
             .ok = false,
             .value = 0,
@@ -368,8 +425,7 @@ fn HttpExpectedLen http_expected_len_from_buffer(char[] raw)
 
     Request*? maybe_tmp = request_new();
 
-    if (catch err = maybe_tmp)
-    {
+    if (catch err = maybe_tmp) {
         return {
             .ok = false,
             .value = 0,
@@ -382,8 +438,7 @@ fn HttpExpectedLen http_expected_len_from_buffer(char[] raw)
 
     char[] header_block = raw[0:header_end + gap / 2];
 
-    if (catch err = tmp.parse_headers_block(header_block))
-    {
+    if (catch err = tmp.parse_headers_block(header_block)) {
         return {
             .ok = false,
             .value = 0,
@@ -391,10 +446,8 @@ fn HttpExpectedLen http_expected_len_from_buffer(char[] raw)
         };
     }
 
-    if (tmp.is_chunked())
-    {
-        if (tmp.headers.has("Content-Length"))
-        {
+    if (tmp.is_chunked()) {
+        if (tmp.headers.has("Content-Length")) {
             return {
                 .ok = false,
                 .value = 0,
@@ -403,13 +456,10 @@ fn HttpExpectedLen http_expected_len_from_buffer(char[] raw)
         }
 
         char[] body_input = raw[body_start:raw.len - body_start];
+        sz? chunked_len = chunked_expected_len(body_input);
 
-        sz? maybe_chunked_len = chunked_expected_len(body_input);
-
-        if (catch err = maybe_chunked_len)
-        {
-            if (err == CHUNKED_BODY_INCOMPLETE)
-            {
+        if (catch err = chunked_len) {
+            if (err == CHUNKED_BODY_INCOMPLETE) {
                 return {
                     .ok = false,
                     .value = 0,
@@ -424,10 +474,7 @@ fn HttpExpectedLen http_expected_len_from_buffer(char[] raw)
             };
         }
 
-        sz chunked_len = maybe_chunked_len;
-
-        if (chunked_len > MAX_BODY_BYTES)
-        {
+        if (chunked_len > MAX_BODY_BYTES) {
             return {
                 .ok = false,
                 .value = 0,
@@ -444,8 +491,7 @@ fn HttpExpectedLen http_expected_len_from_buffer(char[] raw)
 
     sz? maybe_content_len = tmp.content_length();
 
-    if (catch err = maybe_content_len)
-    {
+    if (catch err = maybe_content_len) {
         return {
             .ok = false,
             .value = 0,
@@ -455,8 +501,7 @@ fn HttpExpectedLen http_expected_len_from_buffer(char[] raw)
 
     sz content_len = maybe_content_len;
 
-    if (content_len > MAX_BODY_BYTES)
-    {
+    if (content_len > MAX_BODY_BYTES) {
         return {
             .ok = false,
             .value = 0,
@@ -471,199 +516,121 @@ fn HttpExpectedLen http_expected_len_from_buffer(char[] raw)
     };
 }
 
+
 // Read request
 
-fn Request*? http_read_request(HttpConnection* conn)
+fn char[]? Connection.copy_pending(&self)
 {
-    if (conn == null)
-    {
+    char[] pending = self.bytes();
+
+    if (pending.len == 0) return {};
+
+    return bytes_clone(pending)!;
+}
+
+fn Request*? read_request(Connection* conn) @local
+{
+    if (conn == null) {
         return errno::E_INVALID_ARG~;
     }
 
-    if (conn.stream == null)
-    {
-        return HTTP_SERVER_CLOSED~;
+    if (conn.stream == null) {
+        return SERVER_CLOSED~;
     }
 
-    while (true)
-    {
+    while (true) {
         String view = conn.buffer.str_view();
 
-        if (request_headers_complete((char[])view))
-        {
-            HttpExpectedLen expected =
-                http_expected_len_from_buffer((char[])view);
+        if (request_headers_complete((char[])view)) {
+            ExpectedLen expected = expected_len_from_buffer((char[])view);
 
-            if (!expected.ok)
-            {
-                if (expected.err != BODY_INCOMPLETE)
-                {
+            if (!expected.ok) {
+                if (expected.err != BODY_INCOMPLETE) {
                     return expected.err~;
                 }
-            }
-            else if (conn.buffer.len() >= expected.value)
-            {
+            } else if (conn.buffer.len() >= expected.value) {
                 sz total = expected.value;
                 char[] raw = ((char[])view)[0:total];
 
                 Request* req = request_parse(raw)!;
 
                 conn.consume(total);
-
+                conn.slow_read_count = 0;
+                
                 req.remote_ip = conn.stream.peer_ip()!;
 
                 return req;
             }
         }
 
-        if (conn.buffer.len() >= HTTP_MAX_REQUEST_BYTES)
-        {
+        if (conn.buffer.len() >= MAX_REQUEST_BYTES) {
             return REQUEST_TOO_LARGE~;
         }
 
-        char[HTTP_READ_CHUNK_SIZE] tmp;
+        char[READ_CHUNK_SIZE] buffer;
+        sz? n = conn.stream.read_timeout(buffer[..], conn.read_timeout_us);
 
-        sz? maybe_n = conn.stream.read_timeout(
-            tmp[..],
-            conn.read_timeout_us
-        );
-
-        if (catch err = maybe_n)
-        {
-            if (err == aio::TIMEOUT)
-            {
-                return HTTP_REQUEST_TIMEOUT~;
+        if (catch err = n) {
+            if (err == aio::TIMEOUT) {
+                return REQUEST_TIMEOUT~;
             }
 
-            if (err == aio::CLOSED)
-            {
-                if (conn.buffer.len() == 0)
-                {
-                    return HTTP_CLIENT_CLOSED~;
+            if (err == aio::CLOSED) {
+                if (conn.buffer.len() == 0) {
+                    return CLIENT_CLOSED~;
                 }
 
                 return BODY_INCOMPLETE~;
             }
 
-            return HTTP_READ_ERROR~;
+            return READ_ERROR~;
         }
 
-        sz n = maybe_n;
-
-        if (n == 0)
-        {
-            if (conn.buffer.len() == 0)
-            {
-                return HTTP_CLIENT_CLOSED~;
+        if (n == 0) {
+            if (conn.buffer.len() == 0) {
+                return CLIENT_CLOSED~;
             }
-
+        
             return BODY_INCOMPLETE~;
         }
+        
+        conn.record_read_progress(n)!;
 
-        if (conn.buffer.len() + n > HTTP_MAX_REQUEST_BYTES)
-        {
+        if (conn.buffer.len() + n > MAX_REQUEST_BYTES) {
             return REQUEST_TOO_LARGE~;
         }
 
-        conn.buffer.append(tmp[0:n]);
+        conn.buffer.append(buffer[0:n]);
     }
 }
+
 
 // Write response
 
-fn void? http_write_all(
-    Stream* stream,
-    String wire
-) @private
+
+fn void? write_all(Stream* stream, String wire) @maydiscard @local
 {
-    if (stream == null) return HTTP_WRITE_ERROR~;
-    if (wire.len == 0) return HTTP_WRITE_ERROR~;
-
-    sz total = 0;
-
-    while (total < wire.len)
-    {
-        sz? maybe_n = stream.write(
-            ((char[])wire)[total:wire.len - total]
-        );
-
-        if (catch err = maybe_n)
-        {
-            return HTTP_WRITE_ERROR~;
-        }
-
-        sz n = maybe_n;
-
-        if (n <= 0)
-        {
-            return HTTP_WRITE_ERROR~;
-        }
-
-        total += n;
-    }
+    return stream.write_all_timeout(wire, get_write_timeout_us());
 }
 
-fn String? Response.serialize_headers_only(
-    &self,
-    bool force_no_body = false
-)
+
+fn void? write_response(Stream* stream, Response* res) @maydiscard @local
 {
-    DString out;
-    out.init(localmem, 1024);
-    defer catch out.free();
+    if (stream == null) return WRITE_ERROR~;
+    if (res == null) return WRITE_ERROR~;
 
-    out.appendf(
-        "HTTP/1.1 %d %s\r\n",
-        self.status,
-        status_text(self.status)
-    )!;
+    if (res.status == 101) {
+        res.headers.remove("Transfer-Encoding");
+        res.headers.remove("Content-Length");
 
-    if (force_no_body || !status_allows_body(self.status))
-    {
-        self.headers.remove("Transfer-Encoding");
+        String wire = res.serialize_headers_only(true)!;
+        defer localmem.free(wire);
 
-        if (!self.headers.has("Content-Length"))
-        {
-            self.headers.content_length(0)!;
-        }
-    }
-    else if (
-        self.body_kind == BODY_STREAM ||
-        self.body_kind == BODY_FILE
-    )
-    {
-        self.headers.remove("Content-Length");
-        self.headers.set("Transfer-Encoding", "chunked")!;
-    }
-    else if (!self.headers.has("Content-Length"))
-    {
-        self.headers.content_length(self.body_len_for_wire())!;
+        write_all(stream, wire)!;
+        return;
     }
 
-    if (!self.headers.has("Connection"))
-    {
-        self.headers.connection("close")!;
-    }
-
-    String headers = self.headers.serialize()!;
-    defer localmem.free(headers);
-
-    out.append(headers);
-    out.append("\r\n");
-
-    return out.copy_str(localmem);
-}
-
-fn void? http_write_response(
-    Stream* stream,
-    Response* res
-) @maydiscard
-{
-    if (stream == null) return HTTP_WRITE_ERROR~;
-    if (res == null) return HTTP_WRITE_ERROR~;
-
-    if (!status_allows_body(res.status))
-    {
+    if (!status_allows_body(res.status)) {
         res.headers.remove("Transfer-Encoding");
         res.headers.content_length(0)!;
 
@@ -683,54 +650,48 @@ fn void? http_write_response(
 
         defer localmem.free(wire);
 
-        http_write_all(stream, wire)!;
+        write_all(stream, wire)!;
         return;
     }
 
-    if (res.body_kind == BODY_STREAM)
-    {
+    if (res.body_kind == BODY_STREAM) {
         String headers = res.serialize_headers_only()!;
         defer localmem.free(headers);
 
-        http_write_all(stream, headers)!;
+        write_all(stream, headers)!;
 
         res.stream_writer(stream, res.stream_arg)!;
         write_last_chunk(stream)!;
-
         return;
     }
 
-    if (res.body_kind == BODY_FILE)
-    {
+    if (res.body_kind == BODY_FILE) {
+        if (res.file_offset < 0 || res.file_size < 0) {
+            return WRITE_ERROR~;
+        }
+
         String headers = res.serialize_headers_only()!;
         defer localmem.free(headers);
 
-        http_write_all(stream, headers)!;
-
-        write_file_chunked(stream, res.file_path)!;
-
+        write_all(stream, headers)!;
+        write_file_chunked(stream, res.file_path, res.file_offset, res.file_size)!;
         return;
     }
 
     String wire = res.serialize()!;
     defer localmem.free(wire);
 
-    http_write_all(stream, wire)!;
+    write_all(stream, wire)!;
 }
 
-fn void? http_write_response_for_request(
-    Stream* stream,
-    Response* res,
-    Request* req
-) @maydiscard
+fn void? write_response_for_request(Stream* stream, Response* res, Request* req) @maydiscard @local
 {
-    if (stream == null) return HTTP_WRITE_ERROR~;
-    if (res == null) return HTTP_WRITE_ERROR~;
-    if (req == null) return HTTP_WRITE_ERROR~;
+    if (stream == null) return WRITE_ERROR~;
+    if (res == null) return WRITE_ERROR~;
+    if (req == null) return WRITE_ERROR~;
 
-    if (!str_iequals(req.method, "HEAD"))
-    {
-        http_write_response(stream, res)!;
+    if (!str_iequals(req.method, "HEAD")) {
+        write_response(stream, res)!;
         return;
     }
 
@@ -740,27 +701,17 @@ fn void? http_write_response_for_request(
 
     res.headers.remove("Transfer-Encoding");
 
-    if (!status_allows_body(res.status))
-    {
+    if (!status_allows_body(res.status)) {
         res.headers.content_length(0)!;
-    }
-    else if (old_kind == BODY_FILE)
-    {
-        if (res.file_size >= 0)
-        {
+    } else if (old_kind == BODY_FILE) {
+        if (res.file_size >= 0) {
             res.headers.content_length(res.file_size)!;
-        }
-        else
-        {
+        } else {
             res.headers.content_length(0)!;
         }
-    }
-    else if (old_kind == BODY_STREAM)
-    {
+    } else if (old_kind == BODY_STREAM) {
         res.headers.content_length(0)!;
-    }
-    else
-    {
+    } else {
         res.headers.content_length(res.body_len_for_wire())!;
     }
 
@@ -776,13 +727,10 @@ fn void? http_write_response_for_request(
 
     defer localmem.free(wire);
 
-    http_write_all(stream, wire)!;
+    write_all(stream, wire)!;
 }
 
-fn Response*? http_error_response(
-    ushort status,
-    String body
-)
+fn Response*? error_response(ushort status, String body)
 {
     Response* res = response_text(body)!;
 
@@ -792,25 +740,22 @@ fn Response*? http_error_response(
     return res;
 }
 
+
 // Client handler
 
-fn void? http_handle_client(Stream* stream)
+fn void? handle_client(Stream* stream) @local
 {
-    Application* app = current_http_app;
+    Application* app = current_app;
 
     char[256] error_buffer;
 
-    if (app == null)
-    {
-        Response* res = http_error_response(
+    if (app == null) {
+        Response* res = error_response(
             500,
-            string::bformat(
-                error_buffer[..],
-                "500 Internal Server Error\napp==null"
-            )
+            string::bformat(error_buffer[..], "500 Internal Server Error\napp==null")
         )!;
 
-        http_write_response(stream, res);
+        write_response(stream, res);
 
         response_free(res);
         stream.close();
@@ -818,52 +763,35 @@ fn void? http_handle_client(Stream* stream)
         return;
     }
 
-    HttpConnection conn;
-    conn.init(stream, http_get_read_timeout_us())!;
+    Connection conn;
+    conn.init(stream, get_read_timeout_us(), get_write_timeout_us())!;
     defer conn.free();
 
-    while (true)
-    {
-        Request*? maybe_req = http_read_request(&conn);
+    while (true) {
+        Request*? req = read_request(&conn);
 
-        if (catch err = maybe_req)
-        {
+        if (catch err = req) {
             if (
-                err == HTTP_CLIENT_CLOSED ||
-                err == HTTP_REQUEST_INCOMPLETE ||
+                err == CLIENT_CLOSED ||
+                err == REQUEST_INCOMPLETE ||
                 err == BODY_INCOMPLETE ||
                 err == aio::CLOSED
-            )
-            {
+            ) {
                 stream.close();
                 return;
             }
 
             Response* error_res;
 
-            if (err == HTTP_REQUEST_TIMEOUT)
-            {
-                error_res = http_error_response(
-                    408,
-                    "408 Request Timeout"
-                )!;
-            }
-            else if (err == REQUEST_TOO_LARGE)
-            {
-                error_res = http_error_response(
-                    413,
-                    "413 Payload Too Large"
-                )!;
-            }
-            else
-            {
-                error_res = http_error_response(
-                    400,
-                    "400 Bad Request"
-                )!;
+            if (err == REQUEST_TIMEOUT) {
+                error_res = error_response(408, "408 Request Timeout")!;
+            } else if (err == REQUEST_TOO_LARGE) {
+                error_res = error_response(413, "413 Payload Too Large")!;
+            } else {
+                error_res = error_response(400, "400 Bad Request")!;
             }
 
-            http_write_response(stream, error_res);
+            write_response(stream, error_res);
 
             response_free(error_res);
             stream.close();
@@ -871,125 +799,141 @@ fn void? http_handle_client(Stream* stream)
             return;
         }
 
-        Request* req = maybe_req;
-
-        Response*? maybe_res = app.fetch(req);
-
-        if (catch err = maybe_res)
-        {
+        Context* c = context_new(req)!;
+        
+        Response*? res = app.fetch_context(c);
+        
+        if (catch err = res) {
+            Context* failed_context = c;
+        
             Response* error_res;
-
-            if (err == NOT_FOUND)
-            {
-                error_res = http_error_response(
-                    404,
-                    "404 Not Found"
-                )!;
-            }
-            else
-            {
-                error_res = http_error_response(
+        
+            if (err == NOT_FOUND) {
+                error_res = error_response(404, "404 Not Found")!;
+            } else if (err == WS_UNSUPPORTED_VERSION) {
+                error_res = websocket_version_response()!;
+                error_res.header("Connection", "close")!;
+            } else if (err == WS_BAD_HANDSHAKE || err == WS_INVALID_KEY) {
+                error_res = error_response(400, "400 Bad WebSocket Handshake")!;
+            } else {
+                error_res = error_response(
                     500,
-                    string::bformat(
-                        error_buffer[..],
-                        "500 Internal Server Error\n%s",
-                        err
-                    )
+                    string::bformat(error_buffer[..], "500 Internal Server Error\n%s", err)
                 )!;
             }
-
-            http_write_response(stream, error_res);
-
+        
+            write_response(stream, error_res);
+        
             response_free(error_res);
+            context_free(failed_context);
             request_free(req);
-
+        
             stream.close();
-
             return;
         }
-
-        Response* res = maybe_res;
-
-        response_apply_connection(res, req);
-
+        
+        response_apply_connection(res, req)!;
+        
+        if (c.ws_upgrade) {
+            if (res.status != 101 || c.ws_handler == null) {
+                context_free(c);
+                request_free(req);
+        
+                stream.close();
+                return WS_BAD_HANDSHAKE~;
+            }
+        
+            if (catch write_response_for_request(stream, res, req)) {
+                context_free(c);
+                request_free(req);
+        
+                stream.close();
+                return;
+            }
+        
+            char[] pending = conn.copy_pending()!;
+            conn.buffer.clear();
+        
+            WebSocketHandler ws_handler = c.ws_handler;
+            ulong ws_timeout = c.ws_read_timeout_us;
+        
+            context_free(c);
+            request_free(req);
+        
+            WebSocketConnection ws;
+            ws.init(stream, true, pending, true);
+            ws.set_read_timeout_us(ws_timeout);
+        
+            if (catch err = ws.run(ws_handler)) {
+                ws.abort();
+                ws.deinit();
+                return;
+            }
+        
+            if (ws.is_open()) {
+                if (catch ws.close(WS_CLOSE_NORMAL, "")) {
+                    ws.abort();
+                }
+            }
+            
+            ws.deinit();
+            return;
+        }
+        
         bool close_connection = request_wants_close(req);
-
-        if (catch http_write_response_for_request(
-            stream,
-            res,
-            req
-        ))
-        {
-            response_free(res);
+        
+        if (catch write_response_for_request(stream, res, req)) {
+            context_free(c);
             request_free(req);
-
+        
             stream.close();
-
             return;
         }
-
-        response_free(res);
+        
+        context_free(c);
         request_free(req);
-
-        if (close_connection)
-        {
+        
+        if (close_connection) {
             stream.close();
             return;
         }
     }
 }
 
+
 // Serve
 
 fn void? ApplicationServer.serve(&self)
 {
-    if (self.closed || self.app == null)
-    {
-        return HTTP_SERVER_CLOSED~;
+    if (self.closed || self.app == null) {
+        return SERVER_CLOSED~;
     }
 
-    if (self.serving)
-    {
-        return HTTP_SERVER_CLOSED~;
-    }
+    if (self.serving)  return SERVER_CLOSED~;
 
-    Application* previous_app = current_http_app;
-    current_http_app = self.app;
+    Application* previous_app = current_app;
+    current_app = self.app;
 
-    defer
-    {
-        current_http_app = previous_app;
-    }
+    defer current_app = previous_app;
 
-    aio::Server* server = aio::start_server(
-        &http_handle_client,
-        self.host,
-        self.port
-    )!;
+    aio::Server* server = aio::start_server(&handle_client, self.host, self.port)!;
 
     self.server = server;
     self.serving = true;
     self.closed = false;
     self.waited = false;
 
-    io::printfn(
-        "Listening on http://%s:%d",
-        self.host,
-        self.port
-    );
+    io::printfn("Listening on http://%s:%d", self.host, self.port);
 
-    if (catch err = server.serve_forever())
-    {
+    if (catch err = server.serve_forever()) {
         self.serving = false;
 
-        if (!self.closed)
-        {
+        if (!self.closed) {
             server.close();
             self.closed = true;
         }
 
-        if (!self.waited)
-        {
+        if (!self.waited) {
             server.wait_closed();
             self.waited = true;
         }
@@ -999,13 +943,11 @@ fn void? ApplicationServer.serve(&self)
 
     self.serving = false;
 
-    if (!self.closed)
-    {
+    if (!self.closed) {
         self.closed = true;
     }
 
-    if (!self.waited)
-    {
+    if (!self.waited) {
         server.wait_closed()!;
         self.waited = true;
     }
@@ -1013,19 +955,14 @@ fn void? ApplicationServer.serve(&self)
 
 fn void? ApplicationServer.stop(&self) @maydiscard
 {
-    if (self.server == null)
-    {
-        return HTTP_SERVER_CLOSED~;
+    if (self.server == null) {
+        return SERVER_CLOSED~;
     }
 
     self.server.stop();
 }
 
-fn void? http_serve(
-    Application* app,
-    String host,
-    ushort port
-)
+fn void? serve(Application* app, String host, ushort port) @local
 {
     ApplicationServer server;
     server.init(app, host, port);
@@ -1034,30 +971,28 @@ fn void? http_serve(
     server.serve()!;
 }
 
+
 // Convenience serve helpers
 
-fn void? Application.serve(
-    &self,
-    String host,
-    ushort port
-)
+fn void? Application.serve(&self, String host, ushort port)
 {
-    http_serve(self, host, port)!;
+    serve(self, host, port)!;
 }
 
 fn void? Application.listen(&self, ushort port)
 {
-    http_serve(self, "127.0.0.1", port)!;
+    serve(self, "127.0.0.1", port)!;
 }
 
-// Debug default app example
 
-fn Response*? http_default_handler(Context* c)
+// Debug default application example
+
+fn Response*? default_handler(Context* c)
 {
     return c.text("Hello from ext::aio::http")!;
 }
 
-fn void? http_server_example()
+fn void? server_example()
 {
     Application app;
     app.init();
@@ -1066,7 +1001,7 @@ fn void? http_server_example()
     app.use(&middleware_logger);
     app.use(&middleware_powered_by);
 
-    app.get("/", &http_default_handler)!;
+    app.get("/", &default_handler)!;
 
     app.listen(8080)!;
 }

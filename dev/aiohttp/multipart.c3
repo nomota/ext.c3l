@@ -18,7 +18,7 @@ import c::errno;
 faultdef UNSUPPORTED_MULTIPART_TYPE;
 faultdef INVALID_MULTIPART_BODY;
 faultdef MULTIPART_BODY_INCOMPLETE;
-faultdef MULTIPART_BOUNDARY_NOT_FOUND;
+faultdef BOUNDARY_NOT_FOUND;
 faultdef MULTIPART_TOO_LARGE;
 faultdef INVALID_RFC5987_VALUE;
 faultdef UNSUPPORTED_RFC5987_CHARSET;
@@ -49,7 +49,7 @@ struct MultipartForm
 // Helpers
 // 
 
-fn bool multipart_is_boundary_char(char c) @local
+fn bool is_boundary_char(char c) @local
 {
     if (c >= '0' && c <= '9') return true;
     if (c >= 'a' && c <= 'z') return true;
@@ -75,73 +75,20 @@ fn bool multipart_is_boundary_char(char c) @local
     }
 }
 
-fn bool multipart_boundary_valid(String boundary) @local
+fn bool boundary_valid(String boundary) @local
 {
     if (boundary.len == 0) return false;
     if (boundary.len > 70) return false;
 
     for (sz i = 0; i < boundary.len; i++)
     {
-        if (!multipart_is_boundary_char(boundary[i])) return false;
+        if (!is_boundary_char(boundary[i])) return false;
     }
 
     return true;
 }
 
-fn sz multipart_find_bytes(char[] data, char[] needle, sz start) @local
-{
-    if (needle.len == 0) return start;
-    if (data.len < needle.len) return -1;
-
-    for (sz i = start; i + needle.len <= data.len; i++)
-    {
-        if (data[i:needle.len] == needle[0:needle.len]) return i;
-    }
-
-    return -1;
-}
-
-fn sz multipart_find_crlf(char[] data, sz start) @local
-{
-    for (sz i = start; i + 1 < data.len; i++)
-    {
-        if (data[i] == '\r' && data[i + 1] == '\n') return i;
-    }
-
-    return -1;
-}
-
-fn sz multipart_find_header_end(char[] data, sz start, sz end) @local
-{
-    if (end < start) return -1;
-
-    for (sz i = start; i + 3 < end; i++)
-    {
-        if (data[i] == '\r'
-            && data[i + 1] == '\n'
-            && data[i + 2] == '\r'
-            && data[i + 3] == '\n')
-        {
-            return i;
-        }
-    }
-
-    return -1;
-}
-
-fn String multipart_trim_quotes(String s) @local
-{
-    s = trim_spaces(s);
-
-    if (s.len >= 2 && s[0] == '"' && s[s.len - 1] == '"')
-    {
-        return s[1:s.len - 2];
-    }
-
-    return s;
-}
-
-fn String? multipart_content_type_param(String content_type, String name)
+fn String? content_type_param(String content_type, String name)
 {
     sz pos = 0;
 
@@ -162,21 +109,21 @@ fn String? multipart_content_type_param(String content_type, String name)
 
         if (semi < 0)
         {
-            part = trim_spaces(content_type[pos:content_type.len - pos]);
+            part = content_type[pos:content_type.len - pos].trim();
             pos = content_type.len;
         }
         else
         {
-            part = trim_spaces(content_type[pos:semi - pos]);
+            part = content_type[pos:semi - pos].trim();
             pos = semi + 1;
         }
 
-        sz eq = find_char((char[])part, '=');
+        sz eq = find_char(part, '=', 0);
 
         if (eq <= 0) continue;
 
-        String key = trim_spaces(part[0:eq]);
-        String value = multipart_trim_quotes(part[eq + 1:part.len - eq - 1]);
+        String key = part[0:eq].trim();
+        String value = trim_quotes(part[eq + 1:part.len - eq - 1]);
 
         if (str_iequals(key, name))
         {
@@ -187,15 +134,15 @@ fn String? multipart_content_type_param(String content_type, String name)
     return NOT_FOUND~;
 }
 
-fn String? multipart_boundary_from_content_type(String content_type)
+fn String? boundary_from_content_type(String content_type)
 {
-    String? boundary = multipart_content_type_param(content_type, "boundary");
+    String? boundary = content_type_param(content_type, "boundary");
     if (catch err = boundary) return err~;
 
-    if (!multipart_boundary_valid(boundary))
+    if (!boundary_valid(boundary))
     {
         localmem.free(boundary);
-        return MULTIPART_BOUNDARY_NOT_FOUND~;
+        return BOUNDARY_NOT_FOUND~;
     }
 
     return boundary;
@@ -217,62 +164,13 @@ fn bool Context.is_multipart(&self)
     return self.req.is_multipart();
 }
 
-fn String? multipart_header_param(String value, String name)
+fn String? header_param(String value, String name)
 {
-    return multipart_content_type_param(value, name);
+    return content_type_param(value, name);
 }
 
-fn int multipart_hex_value(char c) @local
-{
-    if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
 
-    return -1;
-}
-
-fn String? multipart_percent_decode_copy(String value) @local
-{
-    char* p = localmem.malloc(value.len + 1)!;
-
-    sz pos = 0;
-    sz i = 0;
-
-    while (i < value.len)
-    {
-        if (value[i] == '%')
-        {
-            if (i + 2 >= value.len)
-            {
-                String out = (String)p[0:pos];
-                localmem.free(out);
-                return INVALID_RFC5987_VALUE~;
-            }
-
-            int hi = multipart_hex_value(value[i + 1]);
-            int lo = multipart_hex_value(value[i + 2]);
-
-            if (hi < 0 || lo < 0)
-            {
-                String out = (String)p[0:pos];
-                localmem.free(out);
-                return INVALID_RFC5987_VALUE~;
-            }
-
-            p[pos++] = (char)(hi * 16 + lo);
-            i += 3;
-            continue;
-        }
-
-        p[pos++] = value[i];
-        i++;
-    }
-
-    p[pos] = 0;
-    return (String)p[0:pos];
-}
-
-fn String? multipart_latin1_to_utf8_copy(String value) @local
+fn String? latin1_to_utf8_copy(String value) @local
 {
     char* p = localmem.malloc(value.len * 2 + 1)!;
 
@@ -297,9 +195,9 @@ fn String? multipart_latin1_to_utf8_copy(String value) @local
     return (String)p[0:pos];
 }
 
-fn String? multipart_decode_rfc5987_value(String raw_value)
+fn String? decode_rfc5987_value(String raw_value)
 {
-    String value = multipart_trim_quotes(raw_value);
+    String value = trim_quotes(raw_value);
 
     sz first_quote = -1;
 
@@ -336,7 +234,7 @@ fn String? multipart_decode_rfc5987_value(String raw_value)
     String charset = value[0:first_quote];
     String encoded = value[second_quote + 1:value.len - second_quote - 1];
 
-    String decoded = multipart_percent_decode_copy(encoded)!;
+    String decoded = percent_decode(encoded)!;
 
     if (str_iequals(charset, "UTF-8") || str_iequals(charset, "UTF8"))
     {
@@ -347,7 +245,7 @@ fn String? multipart_decode_rfc5987_value(String raw_value)
     {
         defer localmem.free(decoded);
 
-        return multipart_latin1_to_utf8_copy(decoded)!;
+        return latin1_to_utf8_copy(decoded)!;
     }
 
     localmem.free(decoded);
@@ -491,24 +389,24 @@ fn MultipartPart* MultipartForm.file(&self, String name)
 // Part parser
 // 
 
-fn void? multipart_parse_part_headers(MultipartPart* part, char[] header_block)
+fn void? parse_part_headers(MultipartPart* part, char[] header_block) @local
 {
     sz pos = 0;
 
     while (pos < header_block.len)
     {
-        sz line_end = multipart_find_crlf(header_block, pos);
+        sz line_end = find_crlf(header_block, pos);
         if (line_end < 0) return INVALID_MULTIPART_BODY~;
 
         if (line_end == pos) break;
 
         String line = (String)header_block[pos:line_end - pos];
 
-        sz colon = find_char((char[])line, ':');
+        sz colon = find_char(line, ':', 0);
         if (colon <= 0) return INVALID_HEADER~;
 
         String name = line[0:colon];
-        String value = trim_spaces(line[colon + 1:line.len - colon - 1]);
+        String value = line[colon + 1:line.len - colon - 1].trim();
 
         if (!is_valid_name(name)) return INVALID_HEADER~;
 
@@ -520,20 +418,20 @@ fn void? multipart_parse_part_headers(MultipartPart* part, char[] header_block)
     String? cd = part.headers.get("Content-Disposition");
     if (catch err = cd) return INVALID_MULTIPART_BODY~;
 
-    String? field_name = multipart_header_param(cd, "name");
+    String? field_name = header_param(cd, "name");
     if (catch err = field_name) return INVALID_MULTIPART_BODY~;
     defer localmem.free(field_name);
 
     str_free(part.name);
     part.name = str_clone(field_name);
 
-    String? filename_ext = multipart_header_param(cd, "filename*");
+    String? filename_ext = header_param(cd, "filename*");
     
     if (try filename_ext)
     {
         defer localmem.free(filename_ext);
     
-        String decoded_filename = multipart_decode_rfc5987_value(filename_ext)!;
+        String decoded_filename = decode_rfc5987_value(filename_ext)!;
         defer localmem.free(decoded_filename);
     
         str_free(part.filename);
@@ -541,7 +439,7 @@ fn void? multipart_parse_part_headers(MultipartPart* part, char[] header_block)
     }
     else
     {
-        String? filename = multipart_header_param(cd, "filename");
+        String? filename = header_param(cd, "filename");
     
         if (try filename)
         {
@@ -560,12 +458,12 @@ fn void? multipart_parse_part_headers(MultipartPart* part, char[] header_block)
     }
 }
 
-fn void? multipart_add_part(MultipartForm* form, char[] header_block, char[] body)
+fn void? add_part(MultipartForm* form, char[] header_block, char[] body) @local
 {
     MultipartPart part;
     part.init();
 
-    if (catch err = multipart_parse_part_headers(&part, header_block))
+    if (catch err = parse_part_headers(&part, header_block))
     {
         part.free();
         return err~;
@@ -587,9 +485,9 @@ fn void? multipart_add_part(MultipartForm* form, char[] header_block, char[] bod
 
 fn MultipartForm? multipart_parse(char[] body, String boundary)
 {
-    if (!multipart_boundary_valid(boundary))
+    if (!boundary_valid(boundary))
     {
-        return MULTIPART_BOUNDARY_NOT_FOUND~;
+        return BOUNDARY_NOT_FOUND~;
     }
 
     MultipartForm form;
@@ -612,11 +510,11 @@ fn MultipartForm? multipart_parse(char[] body, String boundary)
     char[] first_marker = (char[])marker.str_view();
     char[] repeated_marker = (char[])next_marker.str_view();
 
-    sz pos = multipart_find_bytes(body, first_marker, 0);
+    sz pos = find_bytes(body, first_marker, 0);
     if (pos < 0)
     {
         form.free();
-        return MULTIPART_BOUNDARY_NOT_FOUND~;
+        return BOUNDARY_NOT_FOUND~;
     }
 
     pos += first_marker.len;
@@ -636,18 +534,18 @@ fn MultipartForm? multipart_parse(char[] body, String boundary)
 
     while (true)
     {
-        sz header_end = multipart_find_header_end(body, pos, body.len);
-        if (header_end < 0)
+        sz[2]? header_end = find_header_end(body, pos, body.len)!;
+        if (catch err = header_end)
         {
             form.free();
             return MULTIPART_BODY_INCOMPLETE~;
         }
 
-        char[] header_block = body[pos:header_end - pos + 2];
+        char[] header_block = body[pos:header_end[0] - pos + 2];
 
-        sz body_start = header_end + 4;
+        sz body_start = header_end[0] + 4;
 
-        sz next = multipart_find_bytes(body, repeated_marker, body_start);
+        sz next = find_bytes(body, repeated_marker, body_start);
         if (next < 0)
         {
             form.free();
@@ -656,7 +554,7 @@ fn MultipartForm? multipart_parse(char[] body, String boundary)
 
         char[] part_body = body[body_start:next - body_start];
 
-        multipart_add_part(&form, header_block, part_body)!;
+        add_part(&form, header_block, part_body)!;
 
         pos = next + repeated_marker.len;
 
@@ -688,7 +586,7 @@ fn MultipartForm? Request.multipart(&self)
     }
 
     String ct = self.header("Content-Type")!;
-    String boundary = multipart_boundary_from_content_type(ct)!;
+    String boundary = boundary_from_content_type(ct)!;
     defer localmem.free(boundary);
 
     return multipart_parse(self.body, boundary)!;
@@ -740,7 +638,7 @@ fn void? Context.ensure_multipart_cache(&self)
     self.multipart_cache.init();
 
     String ct = self.req.header("Content-Type")!;
-    String boundary = multipart_boundary_from_content_type(ct)!;
+    String boundary = boundary_from_content_type(ct)!;
     defer localmem.free(boundary);
 
     MultipartForm form = multipart_parse(self.req.body, boundary)!;

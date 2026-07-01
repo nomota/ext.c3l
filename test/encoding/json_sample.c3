@@ -2,10 +2,10 @@
 
 
 // 
-// ext::serializer::json — sample examples
+// ext::encoding::json — sample examples
 // 
 
-import ext::serializer::json;
+import ext::encoding::json;
 import std::io;
 import std::collections::list;
 import ext::debug;

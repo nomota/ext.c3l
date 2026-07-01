@@ -56,7 +56,7 @@ fn String? response_header(
 
     if (header_end < 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     String header_block = response[0:header_end];
@@ -87,7 +87,7 @@ fn String? response_header(
 
         String name = line[0:colon];
 
-        if (!aio::http::str_iequals(name, expected_name))
+        if (!http::str_iequals(name, expected_name))
         {
             continue;
         }
@@ -97,7 +97,7 @@ fn String? response_header(
         ].trim();
     }
 
-    return aio::http::NOT_FOUND~;
+    return http::NOT_FOUND~;
 }
 
 fn bool response_is_chunked(String response)
@@ -112,7 +112,7 @@ fn bool response_is_chunked(String response)
         return false;
     }
 
-    return aio::http::str_iequals(
+    return http::str_iequals(
         transfer_encoding.trim(),
         "chunked"
     );
@@ -131,7 +131,7 @@ fn sz? parse_hex_size(String value)
 
     if (text.len == 0)
     {
-        return aio::http::BAD_REQUEST~;
+        return http::BAD_REQUEST~;
     }
 
     sz result = 0;
@@ -155,7 +155,7 @@ fn sz? parse_hex_size(String value)
         }
         else
         {
-            return aio::http::BAD_REQUEST~;
+            return http::BAD_REQUEST~;
         }
 
         result = result * 16 + digit;
@@ -170,14 +170,14 @@ fn String? response_body_copy(String response)
 
     if (header_end < 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     sz body_start = header_end + 4;
 
     if (body_start > response.len)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     String wire_body = response[
@@ -186,11 +186,11 @@ fn String? response_body_copy(String response)
 
     if (!response_is_chunked(response))
     {
-        return wire_body.copy(aio::http::localmem);
+        return wire_body.copy(http::localmem);
     }
 
     DString decoded;
-    decoded.init(aio::http::localmem, wire_body.len);
+    decoded.init(http::localmem, wire_body.len);
     defer catch decoded.free();
 
     sz pos = 0;
@@ -199,7 +199,7 @@ fn String? response_body_copy(String response)
     {
         if (pos >= wire_body.len)
         {
-            return aio::http::BODY_INCOMPLETE~;
+            return http::BODY_INCOMPLETE~;
         }
 
         sz line_len =
@@ -207,7 +207,7 @@ fn String? response_body_copy(String response)
 
         if (line_len < 0)
         {
-            return aio::http::BODY_INCOMPLETE~;
+            return http::BODY_INCOMPLETE~;
         }
 
         String size_line = wire_body[pos:line_len];
@@ -218,12 +218,12 @@ fn String? response_body_copy(String response)
 
         if (chunk_size == 0)
         {
-            return decoded.copy_str(aio::http::localmem);
+            return decoded.copy_str(http::localmem);
         }
 
         if (pos + chunk_size + 2 > wire_body.len)
         {
-            return aio::http::BODY_INCOMPLETE~;
+            return http::BODY_INCOMPLETE~;
         }
 
         decoded.append(wire_body[pos:chunk_size]);
@@ -235,7 +235,7 @@ fn String? response_body_copy(String response)
             wire_body[pos + 1] != '\n'
         )
         {
-            return aio::http::BAD_REQUEST~;
+            return http::BAD_REQUEST~;
         }
 
         pos += 2;
@@ -246,18 +246,18 @@ fn String? read_response(aio::Stream* stream)
 {
     if (stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     DString buffer;
-    buffer.init(aio::http::localmem, 4096);
+    buffer.init(http::localmem, 4096);
     defer catch buffer.free();
 
     while (true)
     {
         if (buffer.len() >= MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         char[4096] tmp;
@@ -283,7 +283,7 @@ fn String? read_response(aio::Stream* stream)
 
         if (buffer.len() + n > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         buffer.append(tmp[0:n]);
@@ -291,10 +291,10 @@ fn String? read_response(aio::Stream* stream)
 
     if (buffer.len() == 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
-    return buffer.copy_str(aio::http::localmem);
+    return buffer.copy_str(http::localmem);
 }
 
 fn String? request_once(String request)
@@ -351,14 +351,14 @@ fn void cleanup_files()
     );
 }
 
-fn aio::http::Response*? ping_handler(
-    aio::http::Context* c
+fn http::Response*? ping_handler(
+    http::Context* c
 )
 {
     return c.text("pong")!;
 }
 
-fn void setup_app(aio::http::Application* app)
+fn void setup_app(http::Application* app)
 {
     app.init();
 
@@ -372,12 +372,12 @@ fn void setup_app(aio::http::Application* app)
 
 fn void? server_task(void* arg)
 {
-    aio::http::ApplicationServer* server =
-        (aio::http::ApplicationServer*)arg;
+    http::ApplicationServer* server =
+        (http::ApplicationServer*)arg;
 
     if (server == null)
     {
-        return aio::http::HTTP_SERVER_CLOSED~;
+        return http::SERVER_CLOSED~;
     }
 
     server.serve()!;
@@ -457,7 +457,7 @@ fn void? client_task(void* arg)
     }
 
     String response = request_once(request)!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -466,7 +466,7 @@ fn void? client_task(void* arg)
     );
 
     String body = response_body_copy(response)!;
-    defer aio::http::localmem.free(body);
+    defer http::localmem.free(body);
 
 switch (kind)
     {
@@ -558,11 +558,11 @@ fn void? main_task(void* arg)
         };
     }
 
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::ApplicationServer server;
+    http::ApplicationServer server;
     server.init(&app, HOST, PORT);
     defer server.free();
 

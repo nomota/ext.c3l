@@ -48,7 +48,7 @@ fn String? response_header(
 
     if (header_end < 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     String header_block = response[0:header_end];
@@ -79,7 +79,7 @@ fn String? response_header(
 
         String name = line[0:colon];
 
-        if (!aio::http::str_iequals(name, expected_name))
+        if (!http::str_iequals(name, expected_name))
         {
             continue;
         }
@@ -87,7 +87,7 @@ fn String? response_header(
         return line[colon + 1:line.len - colon - 1].trim();
     }
 
-    return aio::http::NOT_FOUND~;
+    return http::NOT_FOUND~;
 }
 
 fn bool response_is_chunked(String response)
@@ -102,7 +102,7 @@ fn bool response_is_chunked(String response)
         return false;
     }
 
-    return aio::http::str_iequals(
+    return http::str_iequals(
         transfer_encoding.trim(),
         "chunked"
     );
@@ -116,7 +116,7 @@ fn sz? parse_hex_size(String value)
 
     if (extension >= 0) text = text[0:extension].trim();
 
-    if (text.len == 0) return aio::http::BAD_REQUEST~;
+    if (text.len == 0) return http::BAD_REQUEST~;
 
     sz result = 0;
 
@@ -139,7 +139,7 @@ fn sz? parse_hex_size(String value)
         }
         else
         {
-            return aio::http::BAD_REQUEST~;
+            return http::BAD_REQUEST~;
         }
 
         result = result * 16 + digit;
@@ -154,14 +154,14 @@ fn String? response_body_copy(String response)
 
     if (header_end < 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     sz body_start = header_end + 4;
 
     if (body_start > response.len)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     String wire_body = response[
@@ -170,11 +170,11 @@ fn String? response_body_copy(String response)
 
     if (!response_is_chunked(response))
     {
-        return wire_body.copy(aio::http::localmem);
+        return wire_body.copy(http::localmem);
     }
 
     DString decoded;
-    decoded.init(aio::http::localmem, wire_body.len);
+    decoded.init(http::localmem, wire_body.len);
     defer catch decoded.free();
 
     sz pos = 0;
@@ -183,7 +183,7 @@ fn String? response_body_copy(String response)
     {
         if (pos >= wire_body.len)
         {
-            return aio::http::BODY_INCOMPLETE~;
+            return http::BODY_INCOMPLETE~;
         }
 
         sz line_len =
@@ -191,7 +191,7 @@ fn String? response_body_copy(String response)
 
         if (line_len < 0)
         {
-            return aio::http::BODY_INCOMPLETE~;
+            return http::BODY_INCOMPLETE~;
         }
 
         String size_line = wire_body[pos:line_len];
@@ -202,7 +202,7 @@ fn String? response_body_copy(String response)
 
         if (chunk_size == 0)
         {
-            return decoded.copy_str(aio::http::localmem);
+            return decoded.copy_str(http::localmem);
         }
 
         if (
@@ -210,7 +210,7 @@ fn String? response_body_copy(String response)
             pos + chunk_size + 2 > wire_body.len
         )
         {
-            return aio::http::BODY_INCOMPLETE~;
+            return http::BODY_INCOMPLETE~;
         }
 
         decoded.append(wire_body[pos:chunk_size]);
@@ -222,7 +222,7 @@ fn String? response_body_copy(String response)
             wire_body[pos + 1] != '\n'
         )
         {
-            return aio::http::BAD_REQUEST~;
+            return http::BAD_REQUEST~;
         }
 
         pos += 2;
@@ -242,11 +242,11 @@ fn void? ResponseReader.init(
 {
     if (stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     self.stream = stream;
-    self.buffer.init(aio::http::localmem, 4096);
+    self.buffer.init(http::localmem, 4096);
 }
 
 fn void ResponseReader.free(&self)
@@ -259,14 +259,14 @@ fn String? ResponseReader.read_response(&self)
 {
     if (self.stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     while (true)
     {
         if (self.buffer.len() > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         char[1024] tmp;
@@ -293,7 +293,7 @@ fn String? ResponseReader.read_response(&self)
 
         if (self.buffer.len() + n > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         self.buffer.append(tmp[0:n]);
@@ -301,10 +301,10 @@ fn String? ResponseReader.read_response(&self)
 
     if (self.buffer.len() == 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
-    return self.buffer.str_view().copy(aio::http::localmem);
+    return self.buffer.str_view().copy(http::localmem);
 }
 
 fn String body_part(String response)
@@ -355,7 +355,7 @@ fn void cleanup_files()
     );
 }
 
-fn void setup_app(aio::http::Application* app)
+fn void setup_app(http::Application* app)
 {
     app.init();
 
@@ -367,8 +367,8 @@ fn void setup_app(aio::http::Application* app)
 
 fn void? server_task(void* arg)
 {
-    aio::http::ApplicationServer* server =
-        (aio::http::ApplicationServer*)arg;
+    http::ApplicationServer* server =
+        (http::ApplicationServer*)arg;
 
     server.serve()!;
 }
@@ -394,16 +394,16 @@ fn String? request_once(String request)
 
 fn void test_static_fetch_raw_ok()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::Response* res = app.fetch_raw((char[])
+    http::Response* res = app.fetch_raw((char[])
         "GET /static/hello.txt HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     )!!;
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(
         res.status == 200,
@@ -411,7 +411,7 @@ fn void test_static_fetch_raw_ok()
     );
 
     @assert(
-        res.body_kind == aio::http::BodyKind.BODY_FILE,
+        res.body_kind == http::BodyKind.BODY_FILE,
         "static fetch_raw body kind mismatch"
     );
 
@@ -440,7 +440,7 @@ fn void test_static_file_ok()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -449,7 +449,7 @@ fn void test_static_file_ok()
     );
 
     String body = response_body_copy(response)!!;
-    defer aio::http::localmem.free(body);
+    defer http::localmem.free(body);
 
     @assert(
         body == "hello static",
@@ -465,7 +465,7 @@ fn void test_static_nested_file_ok()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -474,7 +474,7 @@ fn void test_static_nested_file_ok()
     );
 
     String body = response_body_copy(response)!!;
-    defer aio::http::localmem.free(body);
+    defer http::localmem.free(body);
 
     @assert(
         body == "nested",
@@ -490,7 +490,7 @@ fn void test_static_missing_file_404()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -507,7 +507,7 @@ fn void test_static_directory_request_rejected()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 403 Forbidden\r\n") ||
@@ -524,10 +524,10 @@ fn void test_static_dotdot_rejected()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     String body = response_body_copy(response)!!;
-    defer aio::http::localmem.free(body);
+    defer http::localmem.free(body);
 
     @assert(
         !body.contains("secret"),
@@ -550,10 +550,10 @@ fn void test_static_encoded_dotdot_rejected()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     String body = response_body_copy(response)!!;
-    defer aio::http::localmem.free(body);
+    defer http::localmem.free(body);
 
     @assert(
         !body.contains("secret"),
@@ -576,10 +576,10 @@ fn void test_static_double_encoded_dotdot_rejected()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     String body = response_body_copy(response)!!;
-    defer aio::http::localmem.free(body);
+    defer http::localmem.free(body);
 
     @assert(
         !body.contains("secret"),
@@ -602,7 +602,7 @@ fn void test_static_head_no_body()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -653,11 +653,11 @@ fn void? main_task(void* arg)
 
     test_static_fetch_raw_ok();
 
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::ApplicationServer server;
+    http::ApplicationServer server;
     server.init(&app, HOST, PORT);
     defer server.free();
 

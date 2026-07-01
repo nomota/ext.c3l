@@ -15,7 +15,7 @@ import ext::debug;
 const String HOST = "127.0.0.1";
 const ushort PORT = 18098;
 
-// const sz LARGE_FILE_SIZE = 16 * 1024 * 1024 + 1;
+const sz LARGE_FILE_SIZE = 16 * 1024 * 1024 + 1;
 const sz MAX_RESPONSE_BYTES = 32 * 1024 * 1024;
 
 const ulong RESPONSE_READ_TIMEOUT_US = 5_000_000;
@@ -28,12 +28,16 @@ macro void assert_response_contains(
 {
     if (!response.contains(expected))
     {
-        io::printfn("");
-        io::printfn("Unexpected response:");
-        io::printfn("--------------------");
-        io::printfn("%s", response);
-        io::printfn("--------------------");
-        io::printfn("Expected: %s", expected);
+        warn("");
+        warn("Unexpected response:");
+        warn("--------------------");
+        if (response.len < 256) {
+            io::printfn("%s", response);
+        } else {
+            io::printfn("%s ... %d", response[0:256], response.len);
+        }
+        warn("--------------------");
+        warn("Expected: %s", expected);
     }
 
     @assert(response.contains(expected), message);
@@ -48,7 +52,7 @@ fn String? response_header(
 
     if (header_end < 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     String header_block = response[0:header_end];
@@ -83,7 +87,7 @@ fn String? response_header(
 
         String name = line[0:colon];
 
-        if (!aio::http::str_iequals(name, expected_name))
+        if (!http::str_iequals(name, expected_name))
         {
             continue;
         }
@@ -93,7 +97,7 @@ fn String? response_header(
         ].trim();
     }
 
-    return aio::http::NOT_FOUND~;
+    return http::NOT_FOUND~;
 }
 
 fn bool response_is_chunked(String response)
@@ -108,7 +112,7 @@ fn bool response_is_chunked(String response)
         return false;
     }
 
-    return aio::http::str_iequals(
+    return http::str_iequals(
         transfer_encoding.trim(),
         "chunked"
     );
@@ -127,7 +131,7 @@ fn sz? parse_hex_size(String value)
 
     if (text.len == 0)
     {
-        return aio::http::BAD_REQUEST~;
+        return http::BAD_REQUEST~;
     }
 
     sz result = 0;
@@ -151,7 +155,7 @@ fn sz? parse_hex_size(String value)
         }
         else
         {
-            return aio::http::BAD_REQUEST~;
+            return http::BAD_REQUEST~;
         }
 
         result = result * 16 + digit;
@@ -166,14 +170,14 @@ fn String? response_body_copy(String response)
 
     if (header_end < 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     sz body_start = header_end + 4;
 
     if (body_start > response.len)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     String wire_body = response[
@@ -182,11 +186,11 @@ fn String? response_body_copy(String response)
 
     if (!response_is_chunked(response))
     {
-        return wire_body.copy(aio::http::localmem);
+        return wire_body.copy(http::localmem);
     }
 
     DString decoded;
-    decoded.init(aio::http::localmem, wire_body.len);
+    decoded.init(http::localmem, wire_body.len);
     defer catch decoded.free();
 
     sz pos = 0;
@@ -195,7 +199,7 @@ fn String? response_body_copy(String response)
     {
         if (pos >= wire_body.len)
         {
-            return aio::http::BODY_INCOMPLETE~;
+            return http::BODY_INCOMPLETE~;
         }
 
         sz line_len =
@@ -203,7 +207,7 @@ fn String? response_body_copy(String response)
 
         if (line_len < 0)
         {
-            return aio::http::BODY_INCOMPLETE~;
+            return http::BODY_INCOMPLETE~;
         }
 
         String size_line = wire_body[pos:line_len];
@@ -214,12 +218,12 @@ fn String? response_body_copy(String response)
 
         if (chunk_size == 0)
         {
-            return decoded.copy_str(aio::http::localmem);
+            return decoded.copy_str(http::localmem);
         }
 
         if (pos + chunk_size + 2 > wire_body.len)
         {
-            return aio::http::BODY_INCOMPLETE~;
+            return http::BODY_INCOMPLETE~;
         }
 
         decoded.append(wire_body[pos:chunk_size]);
@@ -231,7 +235,7 @@ fn String? response_body_copy(String response)
             wire_body[pos + 1] != '\n'
         )
         {
-            return aio::http::BAD_REQUEST~;
+            return http::BAD_REQUEST~;
         }
 
         pos += 2;
@@ -242,18 +246,18 @@ fn String? read_response(aio::Stream* stream)
 {
     if (stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     DString buffer;
-    buffer.init(aio::http::localmem, 8192);
+    buffer.init(http::localmem, 8192);
     defer catch buffer.free();
 
     while (true)
     {
         if (buffer.len() >= MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         char[8192] tmp;
@@ -279,7 +283,7 @@ fn String? read_response(aio::Stream* stream)
 
         if (buffer.len() + n > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         buffer.append(tmp[0:n]);
@@ -287,10 +291,10 @@ fn String? read_response(aio::Stream* stream)
 
     if (buffer.len() == 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
-    return buffer.copy_str(aio::http::localmem);
+    return buffer.copy_str(http::localmem);
 }
 
 fn String? request_once(String request)
@@ -401,7 +405,7 @@ fn void cleanup_files()
     );
 }
 
-fn void setup_app(aio::http::Application* app)
+fn void setup_app(http::Application* app)
 {
     app.init();
 
@@ -413,12 +417,12 @@ fn void setup_app(aio::http::Application* app)
 
 fn void? server_task(void* arg)
 {
-    aio::http::ApplicationServer* server =
-        (aio::http::ApplicationServer*)arg;
+    http::ApplicationServer* server =
+        (http::ApplicationServer*)arg;
 
     if (server == null)
     {
-        return aio::http::HTTP_SERVER_CLOSED~;
+        return http::SERVER_CLOSED~;
     }
 
     server.serve()!;
@@ -432,7 +436,7 @@ fn void test_zero_byte_file()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -446,7 +450,7 @@ fn void test_zero_byte_file()
     );
 
     String body = response_body_copy(response)!!;
-    defer aio::http::localmem.free(body);
+    defer http::localmem.free(body);
 
     @assert(
         body.len == 0,
@@ -462,7 +466,7 @@ fn void test_binary_file_preserved()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -477,7 +481,7 @@ fn void test_binary_file_preserved()
     );
 
     String body = response_body_copy(response)!!;
-    defer aio::http::localmem.free(body);
+    defer http::localmem.free(body);
 
     @assert(
         body.len == 7,
@@ -501,7 +505,7 @@ fn void test_text_content_type()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -516,7 +520,7 @@ fn void test_text_content_type()
     );
 
     String body = response_body_copy(response)!!;
-    defer aio::http::localmem.free(body);
+    defer http::localmem.free(body);
 
     @assert(
         body == "plain text",
@@ -532,7 +536,7 @@ fn void test_html_content_type()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -541,7 +545,7 @@ fn void test_html_content_type()
     );
 
     String body = response_body_copy(response)!!;
-    defer aio::http::localmem.free(body);
+    defer http::localmem.free(body);
 
     @assert(
         body == "<html></html>",
@@ -557,7 +561,7 @@ fn void test_css_content_type()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -566,7 +570,7 @@ fn void test_css_content_type()
     );
 
     String body = response_body_copy(response)!!;
-    defer aio::http::localmem.free(body);
+    defer http::localmem.free(body);
 
     @assert(
         body == "body { color: black; }",
@@ -582,7 +586,7 @@ fn void test_js_content_type()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -591,7 +595,7 @@ fn void test_js_content_type()
     );
 
     String body = response_body_copy(response)!!;
-    defer aio::http::localmem.free(body);
+    defer http::localmem.free(body);
 
     @assert(
         body == "console.log(1);",
@@ -607,7 +611,7 @@ fn void test_json_content_type()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -616,7 +620,7 @@ fn void test_json_content_type()
     );
 
     String body = response_body_copy(response)!!;
-    defer aio::http::localmem.free(body);
+    defer http::localmem.free(body);
 
     @assert(
         body == "{\"ok\":true}",
@@ -632,7 +636,7 @@ fn void test_unknown_content_type()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
@@ -647,7 +651,7 @@ fn void test_unknown_content_type()
     );
 
     String body = response_body_copy(response)!!;
-    defer aio::http::localmem.free(body);
+    defer http::localmem.free(body);
 
     @assert(
         body == "unknown",
@@ -655,7 +659,7 @@ fn void test_unknown_content_type()
     );
 }
 
-fn void test_large_static_file_limit()
+fn void test_large_static_file()
 {
     String response = request_once(
         "GET /static/large.txt HTTP/1.1\r\n"
@@ -663,32 +667,56 @@ fn void test_large_static_file_limit()
         "Connection: close\r\n"
         "\r\n"
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     assert_response_contains(
         response,
-        "HTTP/1.1 413 Payload Too Large\r\n",
-        "large static limit status mismatch"
+        "HTTP/1.1 200 OK\r\n",
+        "large static status mismatch"
+    );
+
+    assert_response_contains(
+        response,
+        "Content-Type: text/plain; charset=utf-8\r\n",
+        "large static content type mismatch"
+    );
+
+    assert_response_contains(
+        response,
+        "Accept-Ranges: bytes\r\n",
+        "large static Accept-Ranges mismatch"
     );
 
     String body = response_body_copy(response)!!;
-    defer aio::http::localmem.free(body);
+    defer http::localmem.free(body);
 
     @assert(
-        body == "413 Payload Too Large",
-        "large static limit body mismatch"
+        body.len == LARGE_FILE_SIZE,
+        "large static body length mismatch"
     );
 
     @assert(
-        !body.contains("xxxxxxxx"),
-        "large static file content should not be served"
+        body[0] == 'x',
+        "large static first byte mismatch"
     );
+
+    @assert(
+        body[body.len - 1] == 'x',
+        "large static last byte mismatch"
+    );
+
+    for (sz i = 0; i < body.len; i += 1024 * 1024) {
+        @assert(
+            body[i] == 'x',
+            "large static sampled byte mismatch"
+        );
+    }
 }
 
 fn void test_too_long_static_path()
 {
     DString request;
-    request.init(aio::http::localmem, 4096);
+    request.init(http::localmem, 4096);
     defer request.free();
 
     request.append("GET /static/");
@@ -706,7 +734,7 @@ fn void test_too_long_static_path()
     String response = request_once(
         request.str_view()
     )!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 404 Not Found\r\n") ||
@@ -723,11 +751,11 @@ fn void? main_task(void* arg)
     setup_files();
     defer cleanup_files();
 
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::ApplicationServer server;
+    http::ApplicationServer server;
     server.init(&app, HOST, PORT);
     defer server.free();
 
@@ -745,7 +773,8 @@ fn void? main_task(void* arg)
     test_json_content_type();
     test_unknown_content_type();
 
-    test_large_static_file_limit();
+    test_large_static_file();    
+    
     test_too_long_static_path();
 
     server.close()!;

@@ -43,8 +43,7 @@ fn Future*? future_new()
 
 fn void Future.free(&self)
 {
-    if (!self.is_done)
-    {
+    if (!self.is_done) {
         self.cancel(CANCELLED);
     }
 
@@ -64,8 +63,7 @@ fn bool Future.cancelled(&self) @inline
 
 fn void Future.wake_all(&self) 
 {
-    while (!self.waiters.is_empty())
-    {
+    while (!self.waiters.is_empty()) {
         Waiter* waiter = self.waiters.pop_first()!!;
 
         if (waiter != null) waiter.wake();
@@ -88,8 +86,7 @@ fn void*? Future.get_result(&self)
 {
     if (!self.is_done) return INVALID_STATE~;
 
-    if (self.is_cancelled)
-    {
+    if (self.is_cancelled) {
         if (self.error != NONE) return self.error~;
         return CANCELLED~;
     }
@@ -123,8 +120,7 @@ fn void Future.cancel(&self, fault err = NONE)
     self.is_cancelled = true;
     self.is_done = true;
 
-    while (!self.waiters.is_empty())
-    {
+    while (!self.waiters.is_empty()) {
         Waiter* waiter = self.waiters.pop_first()!!;
 
         if (waiter != null) waiter.cancel(cancel_err);
@@ -133,8 +129,7 @@ fn void Future.cancel(&self, fault err = NONE)
 
 fn void*? Future.await_internal(&self, ulong timeout_us, bool use_timeout) // private
 {
-    if (self.is_done)
-    {
+    if (self.is_done) {
         return self.get_result()!;
     }
 
@@ -148,18 +143,15 @@ fn void*? Future.await_internal(&self, ulong timeout_us, bool use_timeout) // pr
 
     Timer* timer = null;
 
-    if (use_timeout)
-    {
-        if (timeout_us == 0)
-        {
+    if (use_timeout) {
+        if (timeout_us == 0) {
             self.waiters.remove_first_match(&waiter);
             return TIMEOUT~;
         }
 
         Timer*? timer_opt = task.start_timer(timeout_us);
 
-        if (catch err = timer_opt)
-        {
+        if (catch err = timer_opt) {
             self.waiters.remove_first_match(&waiter);
             return err~;
         }
@@ -169,8 +161,7 @@ fn void*? Future.await_internal(&self, ulong timeout_us, bool use_timeout) // pr
 
     task.suspend(&waiter);
 
-    if (timer != null)
-    {
+    if (timer != null) {
         timer.cancel();
     }
 

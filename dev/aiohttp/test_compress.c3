@@ -95,7 +95,7 @@ fn String? fetch_raw(
     client.write_all((char[])request)!;
 
     DString out;
-    out.init(aio::http::localmem, 4096);
+    out.init(http::localmem, 4096);
     defer catch out.free();
 
     char[4096] buf;
@@ -119,7 +119,7 @@ fn String? fetch_raw(
 
     client.close();
 
-    return out.copy_str(aio::http::localmem);
+    return out.copy_str(http::localmem);
 }
 
 
@@ -225,7 +225,7 @@ fn void? test_compress_gzip()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(raw.contains("Content-Encoding: gzip\r\n"));
@@ -234,10 +234,10 @@ fn void? test_compress_gzip()
     String compressed = body_part(raw);
 
     char[] decoded = gzip::uncompress_bytes(
-        aio::http::localmem,
+        http::localmem,
         (char[])compressed
     )!;
-    defer aio::http::localmem.free(decoded);
+    defer http::localmem.free(decoded);
 
     @assert((String)decoded == LARGE_TEXT);
 }
@@ -251,7 +251,7 @@ fn void? test_compress_deflate()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(raw.contains("Content-Encoding: deflate\r\n"));
@@ -260,10 +260,10 @@ fn void? test_compress_deflate()
     String compressed = body_part(raw);
 
     char[] decoded = deflate::decompress(
-        aio::http::localmem,
+        http::localmem,
         (char[])compressed
     )!;
-    defer aio::http::localmem.free(decoded);
+    defer http::localmem.free(decoded);
 
     @assert((String)decoded == LARGE_TEXT);
 }
@@ -277,7 +277,7 @@ fn void? test_compress_prefers_gzip()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(raw.contains("Content-Encoding: gzip\r\n"));
@@ -293,7 +293,7 @@ fn void? test_compress_prefers_deflate()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(raw.contains("Content-Encoding: deflate\r\n"));
@@ -309,7 +309,7 @@ fn void? test_compress_identity()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(!raw.contains("Content-Encoding: gzip\r\n"));
@@ -325,7 +325,7 @@ fn void? test_compress_no_accept_encoding()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(!raw.contains("Content-Encoding: gzip\r\n"));
@@ -342,7 +342,7 @@ fn void? test_compress_small_body()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(!raw.contains("Content-Encoding: gzip\r\n"));
@@ -359,7 +359,7 @@ fn void? test_compress_json()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(raw.contains("Content-Encoding: gzip\r\n"));
@@ -372,10 +372,10 @@ fn void? test_compress_json()
     String compressed = body_part(raw);
 
     char[] decoded = gzip::uncompress_bytes(
-        aio::http::localmem,
+        http::localmem,
         (char[])compressed
     )!;
-    defer aio::http::localmem.free(decoded);
+    defer http::localmem.free(decoded);
 
     @assert((String)decoded == JSON_TEXT);
 }
@@ -389,7 +389,7 @@ fn void? test_compress_binary_skipped()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(
@@ -411,7 +411,7 @@ fn void? test_compress_existing_encoding_skipped()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(raw.contains("Content-Encoding: br\r\n"));
@@ -429,7 +429,7 @@ fn void? test_compress_204_skipped()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 204));
     @assert(!raw.contains("Content-Encoding: gzip\r\n"));
@@ -446,7 +446,7 @@ fn void? test_compress_head_skipped()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(!raw.contains("Content-Encoding: gzip\r\n"));
@@ -456,8 +456,8 @@ fn void? test_compress_head_skipped()
 
 fn void? test_compress_disabled_gzip()
 {
-    aio::http::compress_enable_gzip(false);
-    defer aio::http::compress_enable_gzip(true);
+    http::enable_gzip(false);
+    defer http::enable_gzip(true);
 
     String raw = fetch_raw(
         "GET /large HTTP/1.1\r\n"
@@ -466,7 +466,7 @@ fn void? test_compress_disabled_gzip()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(!raw.contains("Content-Encoding: gzip\r\n"));
@@ -475,18 +475,18 @@ fn void? test_compress_disabled_gzip()
     String compressed = body_part(raw);
 
     char[] decoded = deflate::decompress(
-        aio::http::localmem,
+        http::localmem,
         (char[])compressed
     )!;
-    defer aio::http::localmem.free(decoded);
+    defer http::localmem.free(decoded);
 
     @assert((String)decoded == LARGE_TEXT);
 }
 
 fn void? test_compress_min_size()
 {
-    aio::http::compress_set_min_size(LARGE_TEXT.len + 1);
-    defer aio::http::compress_set_min_size(DEFAULT_MIN_SIZE);
+    http::compress_set_min_size(LARGE_TEXT.len + 1);
+    defer http::compress_set_min_size(DEFAULT_MIN_SIZE);
 
     String raw = fetch_raw(
         "GET /large HTTP/1.1\r\n"
@@ -495,7 +495,7 @@ fn void? test_compress_min_size()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(!raw.contains("Content-Encoding: gzip\r\n"));
@@ -517,7 +517,7 @@ fn void? test_compress_keepalive_pipeline()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(
         count_occurrences(raw, "HTTP/1.1 200 OK") == 2
@@ -540,7 +540,7 @@ fn void? test_compress_negotiation_edges()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(wildcard_raw);
+    defer http::localmem.free(wildcard_raw);
 
     @assert(status_is(wildcard_raw, 200));
     @assert(
@@ -559,10 +559,10 @@ fn void? test_compress_negotiation_edges()
     );
 
     char[] wildcard_decoded = gzip::uncompress_bytes(
-        aio::http::localmem,
+        http::localmem,
         (char[])wildcard_compressed
     )!;
-    defer aio::http::localmem.free(
+    defer http::localmem.free(
         wildcard_decoded
     );
 
@@ -576,7 +576,7 @@ fn void? test_compress_negotiation_edges()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(none_raw);
+    defer http::localmem.free(none_raw);
 
     @assert(status_is(none_raw, 200));
     @assert(
@@ -599,7 +599,7 @@ fn void? test_compress_negotiation_edges()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(equal_raw);
+    defer http::localmem.free(equal_raw);
 
     @assert(status_is(equal_raw, 200));
     @assert(
@@ -620,7 +620,7 @@ fn void? test_compress_negotiation_edges()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(vary_raw);
+    defer http::localmem.free(vary_raw);
 
     @assert(status_is(vary_raw, 200));
     @assert(
@@ -642,7 +642,7 @@ fn void? test_compress_negotiation_edges()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(
+    defer http::localmem.free(
         vary_existing_raw
     );
 
@@ -659,10 +659,10 @@ fn void? test_compress_negotiation_edges()
         ) == 1
     );
 
-    sz old_min_size = aio::http::compress_get_min_size();
+    sz old_min_size = http::compress_get_min_size();
 
-    aio::http::compress_set_min_size(0);
-    defer aio::http::compress_set_min_size(
+    http::compress_set_min_size(0);
+    defer http::compress_set_min_size(
         old_min_size
     );
 
@@ -673,7 +673,7 @@ fn void? test_compress_negotiation_edges()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(
+    defer http::localmem.free(
         incompressible_raw
     );
 
@@ -704,16 +704,16 @@ fn void? test_compress_negotiation_edges()
 
 fn void? test_main(void* arg)
 {
-    aio::http::compress_reset();
-    defer aio::http::compress_reset();
+    http::compress_reset();
+    defer http::compress_reset();
 
-    aio::http::compress_set_min_size(DEFAULT_MIN_SIZE);
+    http::compress_set_min_size(DEFAULT_MIN_SIZE);
 
     Application app;
     app.init();
     defer app.deinit();
 
-    app.use(&aio::http::middleware_compress);
+    app.use(&http::middleware_compress);
 
     app.get("/large", &large_text_handler)!;
     app.head("/large", &large_text_handler)!;

@@ -74,7 +74,7 @@ fn String? fetch_raw(String request, ulong read_timeout_us = 2_000_000)
     client.write_all((char[])request)!;
 
     DString out;
-    out.init(aio::http::localmem, 4096);
+    out.init(http::localmem, 4096);
     defer catch out.free();
 
     char[4096] buf;
@@ -98,7 +98,7 @@ fn String? fetch_raw(String request, ulong read_timeout_us = 2_000_000)
 
     client.close();
 
-    return out.copy_str(aio::http::localmem);
+    return out.copy_str(http::localmem);
 }
 
 fn String? fetch_raw_keepalive(String[] writes, ulong delay_ms = 0, ulong read_timeout_us = 2_000_000)
@@ -117,7 +117,7 @@ fn String? fetch_raw_keepalive(String[] writes, ulong delay_ms = 0, ulong read_t
     }
 
     DString out;
-    out.init(aio::http::localmem, 4096);
+    out.init(http::localmem, 4096);
     defer catch out.free();
 
     char[4096] buf;
@@ -141,7 +141,7 @@ fn String? fetch_raw_keepalive(String[] writes, ulong delay_ms = 0, ulong read_t
 
     client.close();
 
-    return out.copy_str(aio::http::localmem);
+    return out.copy_str(http::localmem);
 }
 
 fn Response*? hello_handler(Ctx* c)
@@ -215,7 +215,7 @@ fn void? test_keepalive_two_sequential_gets()
     };
 
     String raw = fetch_raw_keepalive(writes[..], 50)!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(count_occurrences(raw, "HTTP/1.1 200 OK") == 2);
     @assert(contains(raw, "one"));
@@ -235,7 +235,7 @@ fn void? test_pipelined_two_gets_one_write()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(count_occurrences(raw, "HTTP/1.1 200 OK") == 2);
     @assert(contains(raw, "one"));
@@ -257,7 +257,7 @@ fn void? test_content_length_post_then_get_pipeline()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(count_occurrences(raw, "HTTP/1.1 200 OK") == 2);
     @assert(contains(raw, "abcde"));
@@ -284,7 +284,7 @@ fn void? test_chunked_post_then_get_pipeline()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(count_occurrences(raw, "HTTP/1.1 200 OK") == 2);
     @assert(contains(raw, "chunked-ok"));
@@ -304,7 +304,7 @@ fn void? test_connection_close_prevents_second_response()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(count_occurrences(raw, "HTTP/1.1 200 OK") == 1);
     @assert(contains(raw, "one"));
@@ -328,7 +328,7 @@ fn void? test_malformed_chunked_closes_connection()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 400));
     @assert(count_occurrences(raw, "HTTP/1.1 ") == 1);
@@ -346,7 +346,7 @@ fn void? test_http_10_closes_by_default()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(count_occurrences(raw, "HTTP/1.1 200 OK") == 1);
     @assert(contains(raw, "one"));
@@ -365,7 +365,7 @@ fn void? test_http_10_keepalive()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(count_occurrences(raw, "HTTP/1.1 200 OK") == 2);
     @assert(contains(raw, "one"));

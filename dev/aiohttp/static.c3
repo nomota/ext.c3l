@@ -49,58 +49,6 @@ fn void clear_root()
 }
 
 
-// Path helpers
-
-fn bool is_hex(char c) @inline @local
-{
-    if (c >= '0' && c <= '9') return true;
-    if (c >= 'a' && c <= 'f') return true;
-    if (c >= 'A' && c <= 'F') return true;
-    return false;
-}
-
-fn char hex_value(char c) @local
-{
-    if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-    return 0;
-}
-
-fn String? percent_decode(String s)
-{
-    DString out;
-    out.init(localmem, s.len);
-    defer catch out.free();
-
-    char[1] one;
-
-    for (sz i = 0; i < s.len; i++) {
-        char c = s[i];
-
-        if (c != '%') {
-            one[0] = c;
-            out.append(one[..]);
-            continue;
-        }
-
-        if (i + 2 >= s.len) return STATIC_FORBIDDEN~;
-
-        char hi = s[i + 1];
-        char lo = s[i + 2];
-
-        if (!is_hex(hi) || !is_hex(lo)) return STATIC_FORBIDDEN~;
-
-        one[0] = (hex_value(hi) << 4) | hex_value(lo);
-
-        if (one[0] == 0) return STATIC_FORBIDDEN~;
-
-        out.append(one[..]);
-        i += 2;
-    }
-
-    return out.copy_str(localmem);
-}
 
 fn bool path_starts_with_parent(String path) @local
 {

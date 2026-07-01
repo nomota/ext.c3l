@@ -21,79 +21,79 @@ fn bool contains(String s, String needle)
 
 fn void test_url_decode_plain()
 {
-    String s = aio::http::url_decode("hello")!!;
-    defer aio::http::localmem.free(s);
+    String s = http::url_decode("hello")!!;
+    defer http::localmem.free(s);
 
     @assert(s == "hello", "plain url decode failed");
 }
 
 fn void test_url_decode_percent()
 {
-    String s = aio::http::url_decode("hello%20c3")!!;
-    defer aio::http::localmem.free(s);
+    String s = http::url_decode("hello%20c3")!!;
+    defer http::localmem.free(s);
 
     @assert(s == "hello c3", "percent url decode failed");
 }
 
 fn void test_url_decode_slash()
 {
-    String s = aio::http::url_decode("docs%2Ffile.txt")!!;
-    defer aio::http::localmem.free(s);
+    String s = http::url_decode("docs%2Ffile.txt")!!;
+    defer http::localmem.free(s);
 
     @assert(s == "docs/file.txt", "slash url decode failed");
 }
 
 fn void test_query_decode_plus()
 {
-    String s = aio::http::query_decode("hello+c3")!!;
-    defer aio::http::localmem.free(s);
+    String s = http::query_decode("hello+c3")!!;
+    defer http::localmem.free(s);
 
     @assert(s == "hello c3", "query plus decode failed");
 }
 
 fn void test_url_decode_plus_not_space()
 {
-    String s = aio::http::url_decode("hello+c3")!!;
-    defer aio::http::localmem.free(s);
+    String s = http::url_decode("hello+c3")!!;
+    defer http::localmem.free(s);
 
     @assert(s == "hello+c3", "url plus should not become space");
 }
 
 fn void test_invalid_percent_short()
 {
-    String? s = aio::http::url_decode("abc%");
+    String? s = http::url_decode("abc%");
 
     if (catch err = s)
     {
-        @assert(err == aio::http::INVALID_URL_ENCODING, "expected INVALID_URL_ENCODING");
+        @assert(err == http::INVALID_URL_ENCODING, "expected INVALID_URL_ENCODING");
         return;
     }
 
-    aio::http::localmem.free(s);
+    http::localmem.free(s);
     @assert(false, "invalid short percent should fail");
 }
 
 fn void test_invalid_percent_hex()
 {
-    String? s = aio::http::url_decode("abc%ZZ");
+    String? s = http::url_decode("abc%ZZ");
 
     if (catch err = s)
     {
-        @assert(err == aio::http::INVALID_URL_ENCODING, "expected INVALID_URL_ENCODING");
+        @assert(err == http::INVALID_URL_ENCODING, "expected INVALID_URL_ENCODING");
         return;
     }
 
-    aio::http::localmem.free(s);
+    http::localmem.free(s);
     @assert(false, "invalid hex percent should fail");
 }
 
 fn void test_query_parse_basic()
 {
-    aio::http::Query q;
+    http::Query q;
     q.init();
     defer q.free();
 
-    aio::http::query_parse(&q, "a=1&b=2")!!;
+    http::query_parse(&q, "a=1&b=2")!!;
 
     String a = q.get("a")!!;
     String b = q.get("b")!!;
@@ -104,11 +104,11 @@ fn void test_query_parse_basic()
 
 fn void test_query_parse_flag()
 {
-    aio::http::Query q;
+    http::Query q;
     q.init();
     defer q.free();
 
-    aio::http::query_parse(&q, "debug&x=1")!!;
+    http::query_parse(&q, "debug&x=1")!!;
 
     String debug = q.get("debug")!!;
     String x = q.get("x")!!;
@@ -119,11 +119,11 @@ fn void test_query_parse_flag()
 
 fn void test_query_parse_empty_value()
 {
-    aio::http::Query q;
+    http::Query q;
     q.init();
     defer q.free();
 
-    aio::http::query_parse(&q, "a=&b=2")!!;
+    http::query_parse(&q, "a=&b=2")!!;
 
     String a = q.get("a")!!;
     String b = q.get("b")!!;
@@ -134,11 +134,11 @@ fn void test_query_parse_empty_value()
 
 fn void test_query_parse_plus_and_percent()
 {
-    aio::http::Query q;
+    http::Query q;
     q.init();
     defer q.free();
 
-    aio::http::query_parse(&q, "name=kim+lee&file=my%20doc.txt")!!;
+    http::query_parse(&q, "name=kim+lee&file=my%20doc.txt")!!;
 
     String name = q.get("name")!!;
     String file = q.get("file")!!;
@@ -149,11 +149,11 @@ fn void test_query_parse_plus_and_percent()
 
 fn void test_query_parse_repeated()
 {
-    aio::http::Query q;
+    http::Query q;
     q.init();
     defer q.free();
 
-    aio::http::query_parse(&q, "tag=a&tag=b")!!;
+    http::query_parse(&q, "tag=a&tag=b")!!;
 
     String first = q.get("tag")!!;
 
@@ -165,10 +165,10 @@ fn void test_request_query_params()
 {
     char[] raw = (char[])"GET /search?q=c3&page=1 HTTP/1.1\r\nHost: localhost\r\n\r\n";
 
-    aio::http::Request* req = aio::http::request_parse(raw)!!;
-    defer aio::http::request_free(req);
+    http::Request* req = http::request_parse(raw)!!;
+    defer http::request_free(req);
 
-    aio::http::Query q = req.query_params()!!;
+    http::Query q = req.query_params()!!;
     defer q.free();
 
     String qv = q.get("q")!!;
@@ -182,11 +182,11 @@ fn void test_request_query_copy()
 {
     char[] raw = (char[])"GET /search?q=hello+world HTTP/1.1\r\nHost: localhost\r\n\r\n";
 
-    aio::http::Request* req = aio::http::request_parse(raw)!!;
-    defer aio::http::request_free(req);
+    http::Request* req = http::request_parse(raw)!!;
+    defer http::request_free(req);
 
     String q = req.query_copy("q")!!;
-    defer aio::http::localmem.free(q);
+    defer http::localmem.free(q);
 
     @assert(q == "hello world", "request query copy mismatch");
 }

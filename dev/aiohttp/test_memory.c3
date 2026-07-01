@@ -23,20 +23,20 @@ fn bool contains(String haystack, String needle)
     return false;
 }
 
-fn aio::http::Response*? home_handler(aio::http::Context* c)
+fn http::Response*? home_handler(http::Context* c)
 {
     return c.text("home")!!;
 }
 
-fn aio::http::Response*? replacement_handler(aio::http::Context* c)
+fn http::Response*? replacement_handler(http::Context* c)
 {
-    aio::http::Response* res = aio::http::response_text("replacement")!!;
+    http::Response* res = http::response_text("replacement")!!;
     res.header("X-Replaced", "yes")!!;
 
     return res;
 }
 
-fn aio::http::Response*? borrowed_body_handler(aio::http::Context* c)
+fn http::Response*? borrowed_body_handler(http::Context* c)
 {
     static char[] body = "borrowed";
 
@@ -46,19 +46,19 @@ fn aio::http::Response*? borrowed_body_handler(aio::http::Context* c)
     return c.res;
 }
 
-fn aio::http::Response*? empty_handler(aio::http::Context* c)
+fn http::Response*? empty_handler(http::Context* c)
 {
     return c.empty();
 }
 
-fn aio::http::Request* parse_request(char[] raw)
+fn http::Request* parse_request(char[] raw)
 {
-    return aio::http::request_parse(raw)!!;
+    return http::request_parse(raw)!!;
 }
 
 fn void test_headers_clear_reuse()
 {
-    aio::http::Headers headers;
+    http::Headers headers;
     headers.init();
     defer headers.free();
 
@@ -80,7 +80,7 @@ fn void test_headers_clear_reuse()
 
 fn void test_headers_free_empty()
 {
-    aio::http::Headers headers;
+    http::Headers headers;
     headers.init();
 
     headers.free();
@@ -88,43 +88,43 @@ fn void test_headers_free_empty()
 
 fn void test_response_free_text()
 {
-    aio::http::Response* res = aio::http::response_text("hello")!!;
+    http::Response* res = http::response_text("hello")!!;
 
     @assert(res.status == 200, "response text status mismatch");
     @assert((String)res.body == "hello", "response text body mismatch");
 
-    aio::http::response_free(res);
+    http::response_free(res);
 }
 
 fn void test_response_free_json()
 {
-    aio::http::Response* res = aio::http::response_json("{\"ok\":true}")!!;
+    http::Response* res = http::response_json("{\"ok\":true}")!!;
 
     @assert(res.headers.get("Content-Type")!! == "application/json; charset=utf-8", "json content type mismatch");
     @assert((String)res.body == "{\"ok\":true}", "json body mismatch");
 
-    aio::http::response_free(res);
+    http::response_free(res);
 }
 
 fn void test_response_borrowed_body_free()
 {
     static char[] body = "borrowed-body";
 
-    aio::http::Response* res = aio::http::response_empty(200)!!;
+    http::Response* res = http::response_empty(200)!!;
     res.set_body_borrowed(body);
 
     @assert(!res.owns_body, "borrowed response should not own body");
     @assert((String)res.body == "borrowed-body", "borrowed body mismatch");
 
-    aio::http::response_free(res);
+    http::response_free(res);
 }
 
 fn void test_response_copy_then_borrowed()
 {
     static char[] borrowed = "borrowed";
 
-    aio::http::Response* res = aio::http::response_text("owned")!!;
-    defer aio::http::response_free(res);
+    http::Response* res = http::response_text("owned")!!;
+    defer http::response_free(res);
 
     @assert(res.owns_body, "response should own initial text body");
 
@@ -138,8 +138,8 @@ fn void test_response_borrowed_then_copy()
 {
     static char[] borrowed = "borrowed";
 
-    aio::http::Response* res = aio::http::response_empty(200)!!;
-    defer aio::http::response_free(res);
+    http::Response* res = http::response_empty(200)!!;
+    defer http::response_free(res);
 
     res.set_body_borrowed(borrowed);
     res.set_body_copy((char[])"copied")!!;
@@ -155,12 +155,12 @@ fn void test_request_free_get()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
+    http::Request* req = parse_request(raw);
 
     @assert(req.method == "GET", "request method mismatch");
     @assert(req.path == "/hello", "request path mismatch");
 
-    aio::http::request_free(req);
+    http::request_free(req);
 }
 
 fn void test_request_free_with_body()
@@ -173,18 +173,18 @@ fn void test_request_free_with_body()
         "\r\n"
         "hello";
 
-    aio::http::Request* req = parse_request(raw);
+    http::Request* req = parse_request(raw);
 
     @assert(req.owns_body, "parsed request should own body");
     @assert((String)req.body == "hello", "request body mismatch");
 
-    aio::http::request_free(req);
+    http::request_free(req);
 }
 
 fn void test_request_set_body_copy_replaces_old()
 {
-    aio::http::Request* req = aio::http::request_new()!!;
-    defer aio::http::request_free(req);
+    http::Request* req = http::request_new()!!;
+    defer http::request_free(req);
 
     req.set_body_copy((char[])"first")!!;
     req.set_body_copy((char[])"second")!!;
@@ -197,8 +197,8 @@ fn void test_request_set_body_borrowed_after_copy()
 {
     static char[] borrowed = "borrowed";
 
-    aio::http::Request* req = aio::http::request_new()!!;
-    defer aio::http::request_free(req);
+    http::Request* req = http::request_new()!!;
+    defer http::request_free(req);
 
     req.set_body_copy((char[])"owned")!!;
     req.set_body_borrowed(borrowed)!!;
@@ -211,8 +211,8 @@ fn void test_request_set_body_copy_after_borrowed()
 {
     static char[] borrowed = "borrowed";
 
-    aio::http::Request* req = aio::http::request_new()!!;
-    defer aio::http::request_free(req);
+    http::Request* req = http::request_new()!!;
+    defer http::request_free(req);
 
     req.set_body_borrowed(borrowed)!!;
     req.set_body_copy((char[])"owned")!!;
@@ -223,13 +223,13 @@ fn void test_request_set_body_copy_after_borrowed()
 
 fn void test_route_match_free()
 {
-    aio::http::Router router;
+    http::Router router;
     router.init();
     defer router.free();
 
     router.get("/users/:id", &home_handler)!!;
 
-    aio::http::RouteMatch m = router.match("GET", "/users/42")!!;
+    http::RouteMatch m = router.match("GET", "/users/42")!!;
 
     @assert(m.params.get("id")!! == "42", "route match param mismatch");
 
@@ -238,7 +238,7 @@ fn void test_route_match_free()
 
 fn void test_router_clear_reuse()
 {
-    aio::http::Router router;
+    http::Router router;
     router.init();
     defer router.free();
 
@@ -251,7 +251,7 @@ fn void test_router_clear_reuse()
 
     router.get("/c", &home_handler)!!;
 
-    aio::http::RouteMatch m = router.match("GET", "/c")!!;
+    http::RouteMatch m = router.match("GET", "/c")!!;
     defer m.free();
 
     @assert(m.handler != null, "router reuse handler mismatch");
@@ -264,14 +264,14 @@ fn void test_context_free_basic()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context* c = aio::http::context_new(req)!!;
+    http::Context* c = http::context_new(req)!!;
 
     @assert(c.query("name")!! == "kim", "context query mismatch");
 
-    aio::http::context_free(c);
+    http::context_free(c);
 }
 
 fn void test_context_free_with_caches()
@@ -285,16 +285,16 @@ fn void test_context_free_with_caches()
         "\r\n"
         "name=nomota";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context* c = aio::http::context_new(req)!!;
+    http::Context* c = http::context_new(req)!!;
 
     @assert(c.query("x")!! == "1", "context query cache mismatch");
     @assert(c.cookie("sid")!! == "abc", "context cookie cache mismatch");
     @assert(c.form("name")!! == "nomota", "context form cache mismatch");
 
-    aio::http::context_free(c);
+    http::context_free(c);
 }
 
 fn void test_context_with_response_replaces_owned_response()
@@ -304,15 +304,15 @@ fn void test_context_with_response_replaces_owned_response()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context* c = aio::http::context_new(req)!!;
-    defer aio::http::context_free(c);
+    http::Context* c = http::context_new(req)!!;
+    defer http::context_free(c);
 
-    aio::http::Response* replacement = aio::http::response_text("replacement")!!;
+    http::Response* replacement = http::response_text("replacement")!!;
 
-    aio::http::Response* active = c.with_response(replacement);
+    http::Response* active = c.with_response(replacement);
 
     @assert(active == replacement, "with_response return mismatch");
     @assert(c.res == replacement, "with_response context response mismatch");
@@ -326,14 +326,14 @@ fn void test_context_with_response_null_keeps_existing()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Context* c = aio::http::context_new(req)!!;
-    defer aio::http::context_free(c);
+    http::Context* c = http::context_new(req)!!;
+    defer http::context_free(c);
 
-    aio::http::Response* old = c.res;
-    aio::http::Response* active = c.with_response(null);
+    http::Response* old = c.res;
+    http::Response* active = c.with_response(null);
 
     @assert(active == old, "with_response null return mismatch");
     @assert(c.res == old, "with_response null should keep existing response");
@@ -341,42 +341,42 @@ fn void test_context_with_response_null_keeps_existing()
 
 fn void test_application_fetch_detaches_context_response()
 {
-    aio::http::Application app;
+    http::Application app;
     app.init();
     defer app.deinit();
 
     app.get("/", &home_handler)!!;
 
-    aio::http::Response* res = app.fetch_raw((char[])
+    http::Response* res = app.fetch_raw((char[])
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     )!!;
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 200, "fetch detached response status mismatch");
     @assert((String)res.body == "home", "fetch detached response body mismatch");
 
     String wire = res.serialize()!!;
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(contains(wire, "\r\n\r\nhome"), "detached response serialize mismatch");
 }
 
 fn void test_application_fetch_replacement_response()
 {
-    aio::http::Application app;
+    http::Application app;
     app.init();
     defer app.deinit();
 
     app.get("/", &replacement_handler)!!;
 
-    aio::http::Response* res = app.fetch_raw((char[])
+    http::Response* res = app.fetch_raw((char[])
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     )!!;
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 200, "replacement response status mismatch");
     @assert((String)res.body == "replacement", "replacement response body mismatch");
@@ -385,18 +385,18 @@ fn void test_application_fetch_replacement_response()
 
 fn void test_application_fetch_borrowed_body_response()
 {
-    aio::http::Application app;
+    http::Application app;
     app.init();
     defer app.deinit();
 
     app.get("/", &borrowed_body_handler)!!;
 
-    aio::http::Response* res = app.fetch_raw((char[])
+    http::Response* res = app.fetch_raw((char[])
         "GET / HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     )!!;
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(!res.owns_body, "borrowed fetch response ownership mismatch");
     @assert((String)res.body == "borrowed", "borrowed fetch response body mismatch");
@@ -404,23 +404,23 @@ fn void test_application_fetch_borrowed_body_response()
 
 fn void test_application_clear_reuse()
 {
-    aio::http::Application app;
+    http::Application app;
     app.init();
     defer app.deinit();
 
     app.get("/old", &home_handler)!!;
-    app.use(&aio::http::middleware_powered_by);
+    app.use(&http::middleware_powered_by);
 
     app.clear();
 
     app.get("/new", &home_handler)!!;
 
-    aio::http::Response* res = app.fetch_raw((char[])
+    http::Response* res = app.fetch_raw((char[])
         "GET /new HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     )!!;
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 200, "application reuse status mismatch");
     @assert((String)res.body == "home", "application reuse body mismatch");
@@ -428,40 +428,40 @@ fn void test_application_clear_reuse()
 
 fn void test_middleware_stack_clear_reuse()
 {
-    aio::http::MiddlewareStack stack;
+    http::MiddlewareStack stack;
     stack.init();
     defer stack.free();
 
-    stack.use(&aio::http::middleware_powered_by);
-    stack.use_path("/api", &aio::http::middleware_logger)!!;
+    stack.use(&http::middleware_powered_by);
+    stack.use_path("/api", &http::middleware_logger)!!;
 
     stack.clear();
 
     @assert(stack.len() == 0, "middleware stack clear len mismatch");
 
-    stack.use(&aio::http::middleware_powered_by);
+    stack.use(&http::middleware_powered_by);
 
     @assert(stack.len() == 1, "middleware stack reuse len mismatch");
 }
 
 fn void test_cookie_build_free()
 {
-    aio::http::CookieOptions opt = aio::http::cookie_options_default();
+    http::CookieOptions opt = http::cookie_options_default();
 
-    String cookie = aio::http::cookie_build("sid", "abc", &opt)!!;
+    String cookie = http::cookie_build("sid", "abc", &opt)!!;
 
     @assert(cookie == "sid=abc; Path=/; SameSite=Lax", "cookie build mismatch");
 
-    aio::http::localmem.free(cookie);
+    http::localmem.free(cookie);
 }
 
 fn void test_url_decode_free()
 {
-    String decoded = aio::http::url_decode("hello%20world")!!;
+    String decoded = http::url_decode("hello%20world")!!;
 
     @assert(decoded == "hello world", "url decode mismatch");
 
-    aio::http::localmem.free(decoded);
+    http::localmem.free(decoded);
 }
 
 fn void test_query_params_free()
@@ -471,10 +471,10 @@ fn void test_query_params_free()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
-    aio::http::Query q = req.query_params()!!;
+    http::Query q = req.query_params()!!;
 
     @assert(q.get("q")!! == "hello world", "query params q mismatch");
     @assert(q.get("page")!! == "1", "query params page mismatch");
@@ -490,14 +490,14 @@ fn void test_request_cookie_copy_free()
         "Cookie: sid=abc\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
     String sid = req.cookie_copy("sid")!!;
 
     @assert(sid == "abc", "cookie copy mismatch");
 
-    aio::http::localmem.free(sid);
+    http::localmem.free(sid);
 }
 
 fn void test_request_form_copy_free()
@@ -510,14 +510,14 @@ fn void test_request_form_copy_free()
         "\r\n"
         "name=kim";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
     String name = req.form_copy("name")!!;
 
     @assert(name == "kim", "form copy mismatch");
 
-    aio::http::localmem.free(name);
+    http::localmem.free(name);
 }
 
 fn void test_request_text_copy_free()
@@ -530,14 +530,14 @@ fn void test_request_text_copy_free()
         "\r\n"
         "hello";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
     String text = req.text_copy()!!;
 
     @assert(text == "hello", "text copy mismatch");
 
-    aio::http::localmem.free(text);
+    http::localmem.free(text);
 }
 
 fn void test_request_bytes_copy_free()
@@ -550,15 +550,15 @@ fn void test_request_bytes_copy_free()
         "\r\n"
         "data";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
     char[] data = req.bytes_copy()!!;
 
     @assert(data.len == 4, "bytes copy len mismatch");
     @assert((String)data == "data", "bytes copy mismatch");
 
-    aio::http::localmem.free(data);
+    http::localmem.free(data);
 }
 
 fn void test_empty_body_copy_faults()
@@ -568,12 +568,12 @@ fn void test_empty_body_copy_faults()
         "Host: localhost\r\n"
         "\r\n";
 
-    aio::http::Request* req = parse_request(raw);
-    defer aio::http::request_free(req);
+    http::Request* req = parse_request(raw);
+    defer http::request_free(req);
 
     if (catch err = req.bytes_copy())
     {
-        @assert(err == aio::http::EMPTY_BODY, "empty bytes_copy fault mismatch");
+        @assert(err == http::EMPTY_BODY, "empty bytes_copy fault mismatch");
     }
     else
     {
@@ -582,7 +582,7 @@ fn void test_empty_body_copy_faults()
 
     if (catch err = req.text_copy())
     {
-        @assert(err == aio::http::EMPTY_BODY, "empty text_copy fault mismatch");
+        @assert(err == http::EMPTY_BODY, "empty text_copy fault mismatch");
         return;
     }
 

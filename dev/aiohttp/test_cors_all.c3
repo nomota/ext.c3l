@@ -78,7 +78,7 @@ fn String? fetch_raw(String request, ulong read_timeout_us = 2_000_000)
     client.write_all((char[])request)!;
 
     DString out;
-    out.init(aio::http::localmem, 4096);
+    out.init(http::localmem, 4096);
     defer catch out.free();
 
     char[4096] buf;
@@ -102,7 +102,7 @@ fn String? fetch_raw(String request, ulong read_timeout_us = 2_000_000)
 
     client.close();
 
-    return out.copy_str(aio::http::localmem);
+    return out.copy_str(http::localmem);
 }
 
 // Handlers
@@ -154,7 +154,7 @@ fn void? test_cors_normal_request_default()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(has_header(raw, "Access-Control-Allow-Origin: *\r\n"));
@@ -173,7 +173,7 @@ fn void? test_cors_preflight_default()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 204));
     @assert(has_header(raw, "Access-Control-Allow-Origin: *\r\n"));
@@ -191,7 +191,7 @@ fn void? test_cors_no_origin_default_omits_headers()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(!contains(raw, "Access-Control-Allow-Origin: "));
@@ -200,8 +200,8 @@ fn void? test_cors_no_origin_default_omits_headers()
 
 fn void? test_cors_always_send()
 {
-    aio::http::cors_always_send(true);
-    defer aio::http::cors_always_send(false);
+    http::cors_always_send(true);
+    defer http::cors_always_send(false);
 
     String raw = fetch_raw(
         "GET /hello HTTP/1.1\r\n"
@@ -209,7 +209,7 @@ fn void? test_cors_always_send()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(has_header(raw, "Access-Control-Allow-Origin: *\r\n"));
@@ -217,9 +217,9 @@ fn void? test_cors_always_send()
 
 fn void? test_cors_credentials_echo_origin()
 {
-    aio::http::cors_allow_origin("*");
-    aio::http::cors_allow_credentials(true);
-    defer aio::http::cors_allow_credentials(false);
+    http::cors_allow_origin("*");
+    http::cors_allow_credentials(true);
+    defer http::cors_allow_credentials(false);
 
     String raw = fetch_raw(
         "GET /hello HTTP/1.1\r\n"
@@ -228,7 +228,7 @@ fn void? test_cors_credentials_echo_origin()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(has_header(raw, "Access-Control-Allow-Origin: https://cred.example\r\n"));
@@ -238,8 +238,8 @@ fn void? test_cors_credentials_echo_origin()
 
 fn void? test_cors_allow_origin_list_allowed()
 {
-    aio::http::cors_allow_origin("https://a.example, https://b.example");
-    defer aio::http::cors_allow_origin("*");
+    http::cors_allow_origin("https://a.example, https://b.example");
+    defer http::cors_allow_origin("*");
 
     String raw = fetch_raw(
         "GET /hello HTTP/1.1\r\n"
@@ -248,7 +248,7 @@ fn void? test_cors_allow_origin_list_allowed()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(has_header(raw, "Access-Control-Allow-Origin: https://b.example\r\n"));
@@ -257,8 +257,8 @@ fn void? test_cors_allow_origin_list_allowed()
 
 fn void? test_cors_allow_origin_list_rejected()
 {
-    aio::http::cors_allow_origin("https://a.example, https://b.example");
-    defer aio::http::cors_allow_origin("*");
+    http::cors_allow_origin("https://a.example, https://b.example");
+    defer http::cors_allow_origin("*");
 
     String raw = fetch_raw(
         "GET /hello HTTP/1.1\r\n"
@@ -267,7 +267,7 @@ fn void? test_cors_allow_origin_list_rejected()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(!contains(raw, "Access-Control-Allow-Origin: "));
@@ -276,8 +276,8 @@ fn void? test_cors_allow_origin_list_rejected()
 
 fn void? test_cors_echo_request_headers()
 {
-    aio::http::cors_echo_request_headers();
-    defer aio::http::cors_allow_headers("Content-Type, Authorization");
+    http::cors_echo_request_headers();
+    defer http::cors_allow_headers("Content-Type, Authorization");
 
     String raw = fetch_raw(
         "OPTIONS /hello HTTP/1.1\r\n"
@@ -288,7 +288,7 @@ fn void? test_cors_echo_request_headers()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 204));
     @assert(has_header(raw, "Access-Control-Allow-Headers: X-Token, X-Trace\r\n"));
@@ -296,8 +296,8 @@ fn void? test_cors_echo_request_headers()
 
 fn void? test_cors_echo_request_method()
 {
-    aio::http::cors_echo_request_method();
-    defer aio::http::cors_allow_methods("GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    http::cors_echo_request_method();
+    defer http::cors_allow_methods("GET, POST, PUT, PATCH, DELETE, OPTIONS");
 
     String raw = fetch_raw(
         "OPTIONS /hello HTTP/1.1\r\n"
@@ -308,7 +308,7 @@ fn void? test_cors_echo_request_method()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 204));
     @assert(has_header(raw, "Access-Control-Allow-Methods: PATCH\r\n"));
@@ -316,8 +316,8 @@ fn void? test_cors_echo_request_method()
 
 fn void? test_cors_expose_headers()
 {
-    aio::http::cors_expose_headers("X-Request-Id");
-    defer aio::http::cors_expose_headers("");
+    http::cors_expose_headers("X-Request-Id");
+    defer http::cors_expose_headers("");
 
     String raw = fetch_raw(
         "GET /exposed HTTP/1.1\r\n"
@@ -326,7 +326,7 @@ fn void? test_cors_expose_headers()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(has_header(raw, "X-Request-Id: abc123\r\n"));
@@ -335,8 +335,8 @@ fn void? test_cors_expose_headers()
 
 fn void? test_cors_preflight_status()
 {
-    aio::http::cors_preflight_status(200);
-    defer aio::http::cors_preflight_status(204);
+    http::cors_preflight_status(200);
+    defer http::cors_preflight_status(204);
 
     String raw = fetch_raw(
         "OPTIONS /hello HTTP/1.1\r\n"
@@ -346,7 +346,7 @@ fn void? test_cors_preflight_status()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(has_header(raw, "Access-Control-Allow-Origin: *\r\n"));
@@ -367,7 +367,7 @@ fn void? test_cors_pipeline()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(count_occurrences(raw, "HTTP/1.1 200 OK") == 1);
     @assert(count_occurrences(raw, "HTTP/1.1 204 No Content") == 1);
@@ -375,24 +375,48 @@ fn void? test_cors_pipeline()
     @assert(contains(raw, "hello"));
 }
 
+fn void? wait_server_ready()
+{
+    for (sz i = 0; i < 200; i++)
+    {
+        aio::Stream*? maybe_stream =
+            aio::stream_connect(HOST, PORT);
+
+        if (catch err = maybe_stream)
+        {
+            aio::sleep(500_000)!;
+            continue;
+        }
+
+        aio::Stream* stream = maybe_stream;
+
+        stream.close();
+        stream.free();
+
+        return;
+    }
+
+    return aio::CONNECT_ERROR~;
+}
+
 fn void? test_main(void* arg)
 {
-    aio::http::cors_init_default();
-    aio::http::cors_allow_origin("*");
-    aio::http::cors_allow_methods("GET, POST, PUT, PATCH, DELETE, OPTIONS");
-    aio::http::cors_allow_headers("Content-Type, Authorization");
-    aio::http::cors_expose_headers("");
-    aio::http::cors_max_age("86400");
-    aio::http::cors_allow_credentials(false);
-    aio::http::cors_always_send(false);
-    aio::http::cors_vary(true);
-    aio::http::cors_preflight_status(204);
+    http::cors_init_default();
+    http::cors_allow_origin("*");
+    http::cors_allow_methods("GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    http::cors_allow_headers("Content-Type, Authorization");
+    http::cors_expose_headers("");
+    http::cors_max_age("86400");
+    http::cors_allow_credentials(false);
+    http::cors_always_send(false);
+    http::cors_vary(true);
+    http::cors_preflight_status(204);
 
     Application app;
     app.init();
     defer app.deinit();
 
-    app.use(&aio::http::cors);
+    app.use(&http::cors);
 
     app.get("/hello", &hello_handler)!;
     app.post("/hello", &hello_handler)!;
@@ -404,7 +428,7 @@ fn void? test_main(void* arg)
     defer server.free();
 
     aio::spawn(&server_task, &server)!;
-    aio::sleep(200)!;
+    wait_server_ready()!;
 
     test_cors_normal_request_default()!;
     test_cors_preflight_default()!;

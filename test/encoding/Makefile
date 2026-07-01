@@ -16,7 +16,7 @@ C3C = c3c compile
 EXT = ../../ext
 LIBC = $(EXT)/c/*.c3
 MEM = $(EXT)/debug/*.c3 $(EXT)/mem/*.c3
-SERIALIZER = $(EXT)/serializer/*.c3
+SERIALIZER = $(EXT)/encoding/*.c3
 
 LIBS = $(SERIALIZER) $(MEM) $(LIBC)
 SAN = --sanitize=address

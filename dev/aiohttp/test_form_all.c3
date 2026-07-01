@@ -73,7 +73,7 @@ fn String? fetch_raw(String request, ulong read_timeout_us = 2_000_000)
     client.write_all((char[])request)!;
 
     DString out;
-    out.init(aio::http::localmem, 4096);
+    out.init(http::localmem, 4096);
     defer catch out.free();
 
     char[4096] buf;
@@ -97,7 +97,7 @@ fn String? fetch_raw(String request, ulong read_timeout_us = 2_000_000)
 
     client.close();
 
-    return out.copy_str(aio::http::localmem);
+    return out.copy_str(http::localmem);
 }
 
 
@@ -309,10 +309,10 @@ fn void? test_form_basic()
         "application/x-www-form-urlencoded",
         "name=Nomota+Kim&lang=C3%20language"
     );
-    defer aio::http::localmem.free(req);
+    defer http::localmem.free(req);
 
     String raw = fetch_raw(req)!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(contains(body_part(raw), "form-basic-ok"));
@@ -325,10 +325,10 @@ fn void? test_form_content_type_with_charset()
         "application/x-www-form-urlencoded; charset=utf-8",
         "name=Nomota+Kim&lang=C3%20language"
     );
-    defer aio::http::localmem.free(req);
+    defer http::localmem.free(req);
 
     String raw = fetch_raw(req)!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(contains(body_part(raw), "form-basic-ok"));
@@ -341,10 +341,10 @@ fn void? test_form_empty_and_missing_value()
         "application/x-www-form-urlencoded",
         "empty=&missing"
     );
-    defer aio::http::localmem.free(req);
+    defer http::localmem.free(req);
 
     String raw = fetch_raw(req)!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(contains(body_part(raw), "form-empty-ok"));
@@ -357,10 +357,10 @@ fn void? test_form_duplicate_keys()
         "application/x-www-form-urlencoded",
         "tag=one&tag=two&tag=three"
     );
-    defer aio::http::localmem.free(req);
+    defer http::localmem.free(req);
 
     String raw = fetch_raw(req)!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(contains(body_part(raw), "form-duplicate-ok"));
@@ -373,10 +373,10 @@ fn void? test_form_has()
         "application/x-www-form-urlencoded",
         "a=1&b=2"
     );
-    defer aio::http::localmem.free(req);
+    defer http::localmem.free(req);
 
     String raw = fetch_raw(req)!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(contains(body_part(raw), "form-has-ok"));
@@ -389,10 +389,10 @@ fn void? test_form_unsupported_content_type()
         "text/plain",
         "a=1"
     );
-    defer aio::http::localmem.free(req);
+    defer http::localmem.free(req);
 
     String raw = fetch_raw(req)!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(contains(body_part(raw), "form-unsupported-ok"));
@@ -405,10 +405,10 @@ fn void? test_form_invalid_percent_short()
         "application/x-www-form-urlencoded",
         "a=%"
     );
-    defer aio::http::localmem.free(req);
+    defer http::localmem.free(req);
 
     String raw = fetch_raw(req)!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 400));
     @assert(contains(body_part(raw), "invalid-form-ok"));
@@ -421,10 +421,10 @@ fn void? test_form_invalid_percent_hex()
         "application/x-www-form-urlencoded",
         "a=%ZZ"
     );
-    defer aio::http::localmem.free(req);
+    defer http::localmem.free(req);
 
     String raw = fetch_raw(req)!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 400));
     @assert(contains(body_part(raw), "invalid-form-ok"));
@@ -437,10 +437,10 @@ fn void? test_form_empty_body()
         "application/x-www-form-urlencoded",
         ""
     );
-    defer aio::http::localmem.free(req);
+    defer http::localmem.free(req);
 
     String raw = fetch_raw(req)!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(status_is(raw, 200));
     @assert(contains(body_part(raw), "form-empty-body-ok"));
@@ -452,7 +452,7 @@ fn String make_post_conn(String path, String content_type, String body, String c
     String content_len = string::bformat(len_buf[..], "%d", body.len);
 
     return string::format(
-        aio::http::localmem,
+        http::localmem,
         "POST %s HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Content-Type: %s\r\n"
@@ -481,7 +481,7 @@ fn void? test_form_keepalive_pipeline()
         "name=Nomota+Kim&lang=C3%20language",
         "keep-alive"
     );
-    defer aio::http::localmem.free(req1);
+    defer http::localmem.free(req1);
 
     String req2 = make_post_conn(
         "/form-has",
@@ -489,18 +489,18 @@ fn void? test_form_keepalive_pipeline()
         "a=1&b=2",
         "close"
     );
-    defer aio::http::localmem.free(req2);
+    defer http::localmem.free(req2);
 
     String both = string::format(
-        aio::http::localmem,
+        http::localmem,
         "%s%s",
         req1,
         req2
     );
-    defer aio::http::localmem.free(both);
+    defer http::localmem.free(both);
 
     String raw = fetch_raw(both)!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
     @assert(count_occurrences(raw, "HTTP/1.1 200 OK") == 2);
     @assert(contains(raw, "form-basic-ok"));

@@ -52,7 +52,7 @@ fn sz? response_content_length(String header_block)
         }
     }
 
-    return aio::http::NOT_FOUND~;
+    return http::NOT_FOUND~;
 }
 
 fn sz? response_expected_total_len(String response)
@@ -61,7 +61,7 @@ fn sz? response_expected_total_len(String response)
 
     if (header_end < 0)
     {
-        return aio::http::BODY_INCOMPLETE~;
+        return http::BODY_INCOMPLETE~;
     }
 
     String header_block = response[0:header_end];
@@ -80,11 +80,11 @@ fn void? ResponseReader.init(&self, aio::Stream* stream) @maydiscard
 {
     if (stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     self.stream = stream;
-    self.buffer.init(aio::http::localmem, 4096);
+    self.buffer.init(http::localmem, 4096);
 }
 
 fn void ResponseReader.free(&self)
@@ -110,7 +110,7 @@ fn String? ResponseReader.read_response(&self)
 {
     if (self.stream == null)
     {
-        return aio::http::CONTEXT_NOT_READY~;
+        return http::CONTEXT_NOT_READY~;
     }
 
     while (true)
@@ -123,7 +123,7 @@ fn String? ResponseReader.read_response(&self)
         {
             if (self.buffer.len() >= total)
             {
-                String out = text[0:total].copy(aio::http::localmem);
+                String out = text[0:total].copy(http::localmem);
 
                 self.consume(total);
 
@@ -134,7 +134,7 @@ fn String? ResponseReader.read_response(&self)
         {
             if (catch err = total)
             {
-                if (err != aio::http::BODY_INCOMPLETE)
+                if (err != http::BODY_INCOMPLETE)
                 {
                     return err~;
                 }
@@ -143,7 +143,7 @@ fn String? ResponseReader.read_response(&self)
 
         if (self.buffer.len() > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
 
         char[1024] tmp;
@@ -155,15 +155,15 @@ fn String? ResponseReader.read_response(&self)
         self.buffer.append(tmp[0:n]);
     }
 
-    return aio::http::BODY_INCOMPLETE~;
+    return http::BODY_INCOMPLETE~;
 }
 
-fn aio::http::Response*? home_handler(aio::http::Context* c)
+fn http::Response*? home_handler(http::Context* c)
 {
     return c.text("home")!;
 }
 
-fn void setup_app(aio::http::Application* app)
+fn void setup_app(http::Application* app)
 {
     app.init();
 
@@ -172,8 +172,8 @@ fn void setup_app(aio::http::Application* app)
 
 fn void? server_task(void* arg)
 {
-    aio::http::ApplicationServer* server =
-        (aio::http::ApplicationServer*)arg;
+    http::ApplicationServer* server =
+        (http::ApplicationServer*)arg;
 
     server.serve()!;
 }
@@ -203,11 +203,11 @@ fn String? request_once()
 
 fn void test_close_before_serve_is_safe()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::ApplicationServer server;
+    http::ApplicationServer server;
     server.init(&app, HOST, 18087);
     defer server.free();
 
@@ -229,26 +229,26 @@ fn void test_close_before_serve_is_safe()
 
 fn void test_free_without_explicit_close_is_safe()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::ApplicationServer* server =
-        aio::http::http_server_new(&app, HOST, 18088)!!;
+    http::ApplicationServer* server =
+        http::app_server_new(&app, HOST, 18088)!!;
 
     server.close()!!;
     server.wait_closed()!!;
 
-    aio::http::http_server_free(server);
+    http::app_server_free(server);
 }
 
 fn void test_live_close_wait_closed()
 {
-    aio::http::Application app;
+    http::Application app;
     setup_app(&app);
     defer app.deinit();
 
-    aio::http::ApplicationServer server;
+    http::ApplicationServer server;
     server.init(&app, HOST, PORT);
     defer server.free();
 
@@ -257,7 +257,7 @@ fn void test_live_close_wait_closed()
     aio::sleep(SERVER_START_DELAY_US)!!;
 
     String response = request_once()!!;
-    defer aio::http::localmem.free(response);
+    defer http::localmem.free(response);
 
     @assert(
         response.contains("HTTP/1.1 200 OK\r\n"),

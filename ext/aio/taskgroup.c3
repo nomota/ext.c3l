@@ -16,8 +16,7 @@ struct TaskGroup
 
 fn void TaskGroup.init(&self, EventLoop* loop = null)
 {
-    if (loop == null)
-    {
+    if (loop == null) {
         loop = current_loop()!!;
     }
     *self = {
@@ -50,8 +49,7 @@ fn Task*? TaskGroup.spawn(&self, TaskFn entry, void* arg = null)
 
 fn void TaskGroup.cancel_all(&self)
 {
-    foreach (task: self.tasks.array_view())
-    {
+    foreach (task: self.tasks.array_view()) {
         if (task == null) continue;
 
         if (task.state == TASK_DONE) continue;
@@ -66,14 +64,12 @@ fn void? TaskGroup.join_all(&self)
 {
     fault first_err = NONE;
 
-    while (!self.tasks.is_empty())
-    {
+    while (!self.tasks.is_empty()) {
         Task* task = self.tasks.pop_first()!!;
 
         if (task == null) continue;
 
-        if (catch err = task.join())
-        {
+        if (catch err = task.join()) {
             if (first_err == NONE) first_err = err;
         }
     }
@@ -85,8 +81,7 @@ fn void? TaskGroup.cancel_and_join(&self)
 {
     self.cancel_all();
 
-    if (catch err = self.join_all())
-    {
+    if (catch err = self.join_all()) {
         if (err == CANCELLED) return;
         return err~;
     }

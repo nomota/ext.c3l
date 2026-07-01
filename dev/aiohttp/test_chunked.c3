@@ -23,12 +23,12 @@ fn bool contains(char[] haystack, char[]  needle)
     return false;
 }
 
-fn aio::http::Response*? echo_text_handler(aio::http::Context* c)
+fn http::Response*? echo_text_handler(http::Context* c)
 {
     return c.text(c.req_text())!!;
 }
 
-fn aio::http::Response*? echo_len_handler(aio::http::Context* c)
+fn http::Response*? echo_len_handler(http::Context* c)
 {
     char[64] buf;
     String s = string::bformat(buf[..], "%d", c.req_bytes().len);
@@ -46,8 +46,8 @@ fn void test_chunked_decode_basic()
         "0\r\n"
         "\r\n";
 
-    aio::http::ChunkedDecodeResult r = aio::http::chunked_decode(raw)!!;
-    defer aio::http::localmem.free(r.body);
+    http::ChunkedDecodeResult r = http::chunked_decode(raw)!!;
+    defer http::localmem.free(r.body);
 
     @assert((String)r.body == "Wikipedia", "chunked basic body mismatch");
     @assert(r.consumed == raw.len, "chunked basic consumed mismatch");
@@ -59,8 +59,8 @@ fn void test_chunked_decode_empty()
         "0\r\n"
         "\r\n";
 
-    aio::http::ChunkedDecodeResult r = aio::http::chunked_decode(raw)!!;
-    defer aio::http::body_free(r.body);
+    http::ChunkedDecodeResult r = http::chunked_decode(raw)!!;
+    defer http::bytes_free(r.body);
 
     @assert(r.body.len == 0, "chunked empty body len mismatch");
     @assert(r.consumed == raw.len, "chunked empty consumed mismatch");
@@ -74,8 +74,8 @@ fn void test_chunked_decode_single_chunk()
         "0\r\n"
         "\r\n";
 
-    aio::http::ChunkedDecodeResult r = aio::http::chunked_decode(raw)!!;
-    defer aio::http::localmem.free(r.body);
+    http::ChunkedDecodeResult r = http::chunked_decode(raw)!!;
+    defer http::localmem.free(r.body);
 
     @assert((String)r.body == "hello world", "chunked single body mismatch");
     @assert(r.consumed == raw.len, "chunked single consumed mismatch");
@@ -89,8 +89,8 @@ fn void test_chunked_decode_uppercase_hex()
         "0\r\n"
         "\r\n";
 
-    aio::http::ChunkedDecodeResult r = aio::http::chunked_decode(raw)!!;
-    defer aio::http::localmem.free(r.body);
+    http::ChunkedDecodeResult r = http::chunked_decode(raw)!!;
+    defer http::localmem.free(r.body);
 
     @assert((String)r.body == "0123456789", "chunked uppercase hex body mismatch");
     @assert(r.consumed == raw.len, "chunked uppercase hex consumed mismatch");
@@ -106,8 +106,8 @@ fn void test_chunked_decode_chunk_extensions()
         "0\r\n"
         "\r\n";
 
-    aio::http::ChunkedDecodeResult r = aio::http::chunked_decode(raw)!!;
-    defer aio::http::localmem.free(r.body);
+    http::ChunkedDecodeResult r = http::chunked_decode(raw)!!;
+    defer http::localmem.free(r.body);
 
     @assert((String)r.body == "Wikipedia", "chunked extension body mismatch");
     @assert(r.consumed == raw.len, "chunked extension consumed mismatch");
@@ -125,8 +125,8 @@ fn void test_chunked_decode_trailers()
         "Another: value\r\n"
         "\r\n";
 
-    aio::http::ChunkedDecodeResult r = aio::http::chunked_decode(raw)!!;
-    defer aio::http::localmem.free(r.body);
+    http::ChunkedDecodeResult r = http::chunked_decode(raw)!!;
+    defer http::localmem.free(r.body);
 
     @assert((String)r.body == "Wikipedia", "chunked trailer body mismatch");
     @assert(r.consumed == raw.len, "chunked trailer consumed mismatch");
@@ -142,8 +142,8 @@ fn void test_chunked_decode_extra_bytes_after_message()
         "GET /next HTTP/1.1\r\n"
         "\r\n";
 
-    aio::http::ChunkedDecodeResult r = aio::http::chunked_decode(raw)!!;
-    defer aio::http::localmem.free(r.body);
+    http::ChunkedDecodeResult r = http::chunked_decode(raw)!!;
+    defer http::localmem.free(r.body);
 
     @assert((String)r.body == "Wiki", "chunked extra body mismatch");
     @assert(r.consumed == "4\r\nWiki\r\n0\r\n\r\n".len, "chunked extra consumed mismatch");
@@ -159,8 +159,8 @@ fn void test_chunked_decode_lf_only()
         "0\n"
         "\n";
 
-    aio::http::ChunkedDecodeResult r = aio::http::chunked_decode(raw)!!;
-    defer aio::http::localmem.free(r.body);
+    http::ChunkedDecodeResult r = http::chunked_decode(raw)!!;
+    defer http::localmem.free(r.body);
 
     @assert((String)r.body == "Wikipedia", "chunked LF-only body mismatch");
     @assert(r.consumed == raw.len, "chunked LF-only consumed mismatch");
@@ -170,9 +170,9 @@ fn void test_chunked_decode_incomplete_size_line()
 {
     char[] raw = "4";
 
-    if (catch err = aio::http::chunked_decode(raw))
+    if (catch err = http::chunked_decode(raw))
     {
-        @assert(err == aio::http::CHUNKED_BODY_INCOMPLETE, "incomplete size line fault mismatch");
+        @assert(err == http::CHUNKED_BODY_INCOMPLETE, "incomplete size line fault mismatch");
         return;
     }
 
@@ -185,9 +185,9 @@ fn void test_chunked_decode_incomplete_data()
         "5\r\n"
         "abc";
 
-    if (catch err = aio::http::chunked_decode(raw))
+    if (catch err = http::chunked_decode(raw))
     {
-        @assert(err == aio::http::CHUNKED_BODY_INCOMPLETE, "incomplete data fault mismatch");
+        @assert(err == http::CHUNKED_BODY_INCOMPLETE, "incomplete data fault mismatch");
         return;
     }
 
@@ -202,9 +202,9 @@ fn void test_chunked_decode_missing_chunk_crlf()
         "0\r\n"
         "\r\n";
 
-    if (catch err = aio::http::chunked_decode(raw))
+    if (catch err = http::chunked_decode(raw))
     {
-        @assert(err == aio::http::INVALID_CHUNKED_BODY || err == aio::http::CHUNKED_BODY_INCOMPLETE, "missing chunk CRLF fault mismatch");
+        @assert(err == http::INVALID_CHUNKED_BODY || err == http::CHUNKED_BODY_INCOMPLETE, "missing chunk CRLF fault mismatch");
         return;
     }
 
@@ -219,9 +219,9 @@ fn void test_chunked_decode_bad_hex()
         "0\r\n"
         "\r\n";
 
-    if (catch err = aio::http::chunked_decode(raw))
+    if (catch err = http::chunked_decode(raw))
     {
-        @assert(err == aio::http::INVALID_CHUNKED_BODY, "bad hex fault mismatch");
+        @assert(err == http::INVALID_CHUNKED_BODY, "bad hex fault mismatch");
         return;
     }
 
@@ -236,9 +236,9 @@ fn void test_chunked_decode_empty_size()
         "0\r\n"
         "\r\n";
 
-    if (catch err = aio::http::chunked_decode(raw))
+    if (catch err = http::chunked_decode(raw))
     {
-        @assert(err == aio::http::INVALID_CHUNKED_BODY, "empty size fault mismatch");
+        @assert(err == http::INVALID_CHUNKED_BODY, "empty size fault mismatch");
         return;
     }
 
@@ -252,9 +252,9 @@ fn void test_chunked_decode_missing_final_blank_line()
         "Wiki\r\n"
         "0\r\n";
 
-    if (catch err = aio::http::chunked_decode(raw))
+    if (catch err = http::chunked_decode(raw))
     {
-        @assert(err == aio::http::CHUNKED_BODY_INCOMPLETE, "missing final blank line fault mismatch");
+        @assert(err == http::CHUNKED_BODY_INCOMPLETE, "missing final blank line fault mismatch");
         return;
     }
 
@@ -271,8 +271,8 @@ fn void test_request_is_chunked_true()
         "0\r\n"
         "\r\n";
 
-    aio::http::Request* req = aio::http::request_parse(raw)!!;
-    defer aio::http::request_free(req);
+    http::Request* req = http::request_parse(raw)!!;
+    defer http::request_free(req);
 
     @assert(req.is_chunked(), "request is_chunked true mismatch");
 }
@@ -285,8 +285,8 @@ fn void test_request_is_chunked_false()
         "Content-Length: 0\r\n"
         "\r\n";
 
-    aio::http::Request* req = aio::http::request_parse(raw)!!;
-    defer aio::http::request_free(req);
+    http::Request* req = http::request_parse(raw)!!;
+    defer http::request_free(req);
 
     @assert(!req.is_chunked(), "request is_chunked false mismatch");
 }
@@ -305,8 +305,8 @@ fn void test_request_parse_chunked_body()
         "0\r\n"
         "\r\n";
 
-    aio::http::Request* req = aio::http::request_parse(raw)!!;
-    defer aio::http::request_free(req);
+    http::Request* req = http::request_parse(raw)!!;
+    defer http::request_free(req);
 
     @assert(req.is_chunked(), "parsed chunked request flag mismatch");
     @assert(req.body.len == "Wikipedia".len, "parsed chunked body len mismatch");
@@ -328,8 +328,8 @@ fn void test_request_parse_chunked_with_trailer()
         "X-Trailer: yes\r\n"
         "\r\n";
 
-    aio::http::Request* req = aio::http::request_parse(raw)!!;
-    defer aio::http::request_free(req);
+    http::Request* req = http::request_parse(raw)!!;
+    defer http::request_free(req);
 
     @assert(req.body.len == "Wikipedia".len, "chunked trailer request body len mismatch");
     @assert((String)req.body == "Wikipedia", "chunked trailer request body mismatch");
@@ -345,9 +345,9 @@ fn void test_request_parse_chunked_incomplete_body()
         "5\r\n"
         "abc";
 
-    if (catch err = aio::http::request_parse(raw))
+    if (catch err = http::request_parse(raw))
     {
-        @assert(err == aio::http::CHUNKED_BODY_INCOMPLETE, "chunked incomplete request fault mismatch");
+        @assert(err == http::CHUNKED_BODY_INCOMPLETE, "chunked incomplete request fault mismatch");
         return;
     }
 
@@ -366,9 +366,9 @@ fn void test_request_parse_chunked_bad_body()
         "0\r\n"
         "\r\n";
 
-    if (catch err = aio::http::request_parse(raw))
+    if (catch err = http::request_parse(raw))
     {
-        @assert(err == aio::http::INVALID_CHUNKED_BODY, "chunked bad request fault mismatch");
+        @assert(err == http::INVALID_CHUNKED_BODY, "chunked bad request fault mismatch");
         return;
     }
 
@@ -377,13 +377,13 @@ fn void test_request_parse_chunked_bad_body()
 
 fn void test_application_chunked_echo()
 {
-    aio::http::Application app;
+    http::Application app;
     app.init();
     defer app.deinit();
 
     app.post("/echo", &echo_text_handler)!!;
 
-    aio::http::Response* res = app.fetch_raw((char[])
+    http::Response* res = app.fetch_raw((char[])
         "POST /echo HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Transfer-Encoding: chunked\r\n"
@@ -395,7 +395,7 @@ fn void test_application_chunked_echo()
         "0\r\n"
         "\r\n"
     )!!;
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 200, "chunked app echo status mismatch");
     @assert((String)res.body == "Wikipedia", "chunked app echo body mismatch");
@@ -403,13 +403,13 @@ fn void test_application_chunked_echo()
 
 fn void test_application_chunked_empty()
 {
-    aio::http::Application app;
+    http::Application app;
     app.init();
     defer app.deinit();
 
     app.post("/echo-len", &echo_len_handler)!!;
 
-    aio::http::Response* res = app.fetch_raw((char[])
+    http::Response* res = app.fetch_raw((char[])
         "POST /echo-len HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Transfer-Encoding: chunked\r\n"
@@ -417,7 +417,7 @@ fn void test_application_chunked_empty()
         "0\r\n"
         "\r\n"
     )!!;
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 200, "chunked empty app status mismatch");
     @assert((String)res.body == "0", "chunked empty app body mismatch");
@@ -425,13 +425,13 @@ fn void test_application_chunked_empty()
 
 fn void test_application_chunked_bad_request()
 {
-    aio::http::Application app;
+    http::Application app;
     app.init();
     defer app.deinit();
 
     app.post("/echo", &echo_text_handler)!!;
 
-    aio::http::Response* res = app.fetch_raw((char[])
+    http::Response* res = app.fetch_raw((char[])
         "POST /echo HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Transfer-Encoding: chunked\r\n"
@@ -441,7 +441,7 @@ fn void test_application_chunked_bad_request()
         "0\r\n"
         "\r\n"
     )!!;
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 400, "chunked bad app status mismatch");
     @assert((String)res.body == "400 Bad Request", "chunked bad app body mismatch");
@@ -463,7 +463,7 @@ fn void test_request_expected_total_len_chunked()
         "GET /next HTTP/1.1\r\n"
         "\r\n";
 
-    sz n = aio::http::request_expected_total_len(raw)!!;
+    sz n = http::request_expected_total_len(raw)!!;
 
     @assert(n == (
         "POST /echo HTTP/1.1\r\n"
@@ -491,7 +491,7 @@ fn void test_request_message_complete_chunked_true()
         "0\r\n"
         "\r\n";
 
-    @assert(aio::http::request_message_complete(raw), "complete chunked message mismatch");
+    @assert(http::request_message_complete(raw), "complete chunked message mismatch");
 }
 
 fn void test_request_message_complete_chunked_false()
@@ -504,7 +504,7 @@ fn void test_request_message_complete_chunked_false()
         "4\r\n"
         "Wi";
 
-    @assert(!aio::http::request_message_complete(raw), "incomplete chunked message mismatch");
+    @assert(!http::request_message_complete(raw), "incomplete chunked message mismatch");
 }
 
 fn void test_request_expected_total_len_chunked_with_trailer()
@@ -522,7 +522,7 @@ fn void test_request_expected_total_len_chunked_with_trailer()
         "GET /next HTTP/1.1\r\n"
         "\r\n";
 
-    sz n = aio::http::request_expected_total_len(raw)!!;
+    sz n = http::request_expected_total_len(raw)!!;
 
     @assert(n == (
         "POST /echo HTTP/1.1\r\n"
@@ -555,7 +555,7 @@ fn void test_request_expected_total_len_chunked_pipeline()
         "Connection: close\r\n"
         "\r\n";
 
-    sz n = aio::http::request_expected_total_len(raw)!!;
+    sz n = http::request_expected_total_len(raw)!!;
 
     @assert(n == (
         "POST /echo HTTP/1.1\r\n"

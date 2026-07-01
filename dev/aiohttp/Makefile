@@ -10,10 +10,10 @@ FIBER = $(EXT)/fiber/*.c3
 WEPOLL = $(EXT)/wepoll/*.c3
 MIO = $(EXT)/mio/*.c3
 AIO = $(EXT)/aio/*.c3
-SERIALIZER = $(EXT)/serializer/*.c3
-AIOHTTP = headers.c3 response.c3 request.c3 url.c3 params.c3 router.c3 context.c3 cookies.c3 form.c3 body.c3 middleware.c3 cors.c3 application.c3 server.c3 static.c3 chunked.c3 multipart.c3 errhandler.c3 request_id.c3 body_limit.c3 recover.c3 timeout.c3 compress.c3 range.c3
+ENCODING = $(EXT)/encoding/*.c3
+AIOHTTP = helpers.c3 headers.c3 response.c3 request.c3 url.c3 params.c3 router.c3 context.c3 cookies.c3 form.c3 body.c3 middleware.c3 cors.c3 application.c3 server.c3 static.c3 chunked.c3 multipart.c3 errhandler.c3 request_id.c3 body_limit.c3 recover.c3 timeout.c3 compress.c3 range.c3 trusted_proxy.c3 ws_handshake.c3 ws_frame.c3 ws_connection.c3 websocket.c3 client.c3
 
-LIBS = $(AIO) $(MIO) $(WEPOLL) $(FIBER) $(IO) $(MEM) $(LIBC) $(SERIALIZER) $(AIOHTTP)
+LIBS = $(AIO) $(MIO) $(WEPOLL) $(FIBER) $(IO) $(MEM) $(LIBC) $(ENCODING) $(AIOHTTP)
 
 TESTS = \
 	test_router \
@@ -75,7 +75,13 @@ TESTS = \
 	test_errhandler \
 	test_timeout_m \
 	test_compress \
-	test_cache_range
+	test_cache_range \
+	test_request_json \
+	test_websocket \
+	test_ws_server \
+	test_ws_protocol \
+	test_client \
+	a
 
 LIVE_TESTS = \
 	test_keepalive \
@@ -106,7 +112,11 @@ LIVE_TESTS = \
 	test_errhandler \
 	test_timeout_m \
 	test_compress \
-	test_cache_range
+	test_cache_range \
+	test_ws_server \
+	test_ws_protocol \
+	test_client
+	
 
 SAN =
 # SAN = --sanitize=address
@@ -116,6 +126,7 @@ SAN =
 all:
 	@echo make build
 	@echo make clean
+	@echo make clean-live
 	@echo make test
 
 build: $(TESTS)

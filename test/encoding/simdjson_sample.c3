@@ -3,7 +3,7 @@
 module simdjson_sample;
 
 import std::io;
-import ext::serializer::simdjson;
+import ext::encoding::simdjson;
 
 
 // =======================================

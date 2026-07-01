@@ -66,8 +66,7 @@ fn void init()
         .events = {},
     };
 
-    for (sz i = 0; i < MAX_FD_WATCH; i++)
-    {
+    for (sz i = 0; i < MAX_FD_WATCH; i++) {
         ctx.fd_table[i] = {};
     }
 
@@ -83,14 +82,12 @@ fn void deinit()
 
     ctx.events.free();
 
-    if (ctx.poller != null)
-    {
+    if (ctx.poller != null) {
         ctx.poller.free();
         ctx.poller = null;
     }
     
-    if (shared_ctx == ctx)
-    {
+    if (shared_ctx == ctx) {
         shared_ctx = null;
     }
 
@@ -100,8 +97,7 @@ fn void deinit()
 
 fn bool set_nonblocking(mio::Fd fd)
 {
-    if (catch err = mio::set_nonblock_fd(fd))
-    {
+    if (catch err = mio::set_nonblock_fd(fd)) {
         return false;
     }
 
@@ -114,8 +110,7 @@ fn Watch* find_or_create(mio::Fd fd) @local
 
     Watch* w = &ctx.fd_table[(sz)fd];
 
-    if (!w.active)
-    {
+    if (!w.active) {
         *w = {
             .fd = fd,
             .active = true,
@@ -150,17 +145,14 @@ fn bool poll_update(Watch* w, bool want_read, bool want_write)
     bool old_registered = w.poll_read_registered || w.poll_write_registered;
     bool new_registered = want_read || want_write;
 
-    if (!old_registered && !new_registered)
-    {
+    if (!old_registered && !new_registered) {
         w.poll_read_registered = false;
         w.poll_write_registered = false;
         return true;
     }
 
-    if (old_registered && !new_registered)
-    {
-        if (catch err = ctx.poller.deregister(w.fd))
-        {
+    if (old_registered && !new_registered) {
+        if (catch err = ctx.poller.deregister(w.fd)) {
             return false;
         }
 
@@ -174,17 +166,12 @@ fn bool poll_update(Watch* w, bool want_read, bool want_write)
         .write = want_write,
     };
 
-    if (!old_registered)
-    {
-        if (catch err = ctx.poller.register(w.fd, interest))
-        {
+    if (!old_registered) {
+        if (catch err = ctx.poller.register(w.fd, interest)) {
             return false;
         }
-    }
-    else
-    {
-        if (catch err = ctx.poller.reregister(w.fd, interest))
-        {
+    } else {
+        if (catch err = ctx.poller.reregister(w.fd, interest)) {
             return false;
         }
     }
@@ -199,15 +186,13 @@ fn void register_read(mio::Fd fd, Future* future)
 {
     Watch* w = find_or_create(fd);
 
-    if (w.read_fut != null)
-    {
+    if (w.read_fut != null) {
         w.read_fut.cancel();
     }
 
     w.read_fut = future;
 
-    if (!poll_update(w, true, w.write_fut != null))
-    {
+    if (!poll_update(w, true, w.write_fut != null)) {
         w.read_fut = null;
         future.cancel(aio::POLL_ERROR);
     }
@@ -217,15 +202,13 @@ fn void register_write(mio::Fd fd, Future* future)
 {
     Watch* w = find_or_create(fd);
 
-    if (w.write_fut != null)
-    {
+    if (w.write_fut != null) {
         w.write_fut.cancel();
     }
 
     w.write_fut = future;
 
-    if (!poll_update(w, w.read_fut != null, true))
-    {
+    if (!poll_update(w, w.read_fut != null, true)) {
         w.write_fut = null;
         future.cancel(aio::POLL_ERROR);
     }
@@ -236,14 +219,12 @@ fn void unregister(mio::Fd fd)
     Watch* w = find(fd);
     if (w == null) return;
 
-    if (w.read_fut)
-    {
+    if (w.read_fut) {
         w.read_fut.cancel();
         w.read_fut = null;
     }
 
-    if (w.write_fut)
-    {
+    if (w.write_fut) {
         w.write_fut.cancel();
         w.write_fut = null;
     }
@@ -267,18 +248,15 @@ fn void? wait_readable(mio::Fd fd) @maydiscard
 
     void*? res = fut.await();
 
-    if (catch err = res)
-    {
+    if (catch err = res) {
         Watch* w = find(fd);
 
-        if (w != null && w.read_fut == fut)
-        {
+        if (w != null && w.read_fut == fut) {
             w.read_fut = null;
             poll_update(w, false, w.write_fut != null);
         }
 
-        if (fut.error == aio::IO_ERROR)
-        {
+        if (fut.error == aio::IO_ERROR) {
             return aio::IO_ERROR~;
         }
 
@@ -295,18 +273,15 @@ fn void? wait_writable(mio::Fd fd) @maydiscard
 
     void*? res = fut.await();
 
-    if (catch err = res)
-    {
+    if (catch err = res) {
         Watch* w = find(fd);
 
-        if (w != null && w.write_fut == fut)
-        {
+        if (w != null && w.write_fut == fut) {
             w.write_fut = null;
             poll_update(w, w.read_fut != null, false);
         }
 
-        if (fut.error == aio::IO_ERROR)
-        {
+        if (fut.error == aio::IO_ERROR) {
             return aio::IO_ERROR~;
         }
 
@@ -319,8 +294,7 @@ fn void? wait_readable_timeout(mio::Fd fd, ulong timeout_us) @maydiscard
     Timer* timer = aio::start_timer(timeout_us)!;
     defer timer.cancel();
 
-    if (catch err = wait_readable(fd))
-    {
+    if (catch err = wait_readable(fd)) {
         return err~;
     }
 }
@@ -330,8 +304,7 @@ fn void? wait_writable_timeout(mio::Fd fd, ulong timeout_us) @maydiscard
     Timer* timer = aio::start_timer(timeout_us)!;
     defer timer.cancel();
 
-    if (catch err = wait_writable(fd))
-    {
+    if (catch err = wait_writable(fd)) {
         return err~;
     }
 }
@@ -340,8 +313,7 @@ fn void poll_wake()
 {
     IoContext* wake_ctx = ctx;
 
-    if (wake_ctx == null)
-    {
+    if (wake_ctx == null) {
         wake_ctx = shared_ctx;
     }
 
@@ -361,8 +333,7 @@ fn bool pending() @inline
 {
     if (ctx == null) return false;
 
-    for (sz i = 0; i < MAX_FD_WATCH; i++)
-    {
+    for (sz i = 0; i < MAX_FD_WATCH; i++) {
         Watch* w = &ctx.fd_table[i];
 
         if (!w.active) continue;
@@ -377,15 +348,13 @@ fn bool pending() @inline
 
 fn void complete_error(Watch* w, fault err = aio::POLL_ERROR)
 {
-    if (w.read_fut)
-    {
+    if (w.read_fut) {
         Future* f = w.read_fut;
         w.read_fut = null;
         f.cancel(err);
     }
 
-    if (w.write_fut)
-    {
+    if (w.write_fut) {
         Future* f = w.write_fut;
         w.write_fut = null;
         f.cancel(err);
@@ -426,41 +395,35 @@ fn void poll(ulong timeout_us)
     ulong ms = timeout_us / 1000;
     long timeout_ms = ms > 2_147_483_647 ? -1 : (long)ms;
 
-    if (catch err = ctx.poller.poll(&ctx.events, timeout_ms))
-    {
+    if (catch err = ctx.poller.poll(&ctx.events, timeout_ms)) {
         return;
     }
 
     poll_wakeup_handler();
 
-    for (sz i = 0; i < ctx.events.len; i++)
-    {
+    for (sz i = 0; i < ctx.events.len; i++) {
         mio::Event* event = ctx.events.get(i);
         if (event == null) continue;
 
         Watch* w = find(event.fd);
         if (w == null) continue;
 
-        if ((event.read || event.hup) && w.read_fut)
-        {
+        if ((event.read || event.hup) && w.read_fut) {
             complete_read(w);
             continue;
         }
 
-        if (event.write && w.write_fut)
-        {
+        if (event.write && w.write_fut) {
             complete_write(w);
             continue;
         }
 
-        if (event.error)
-        {
+        if (event.error) {
             complete_error(w, aio::POLL_ERROR);
             continue;
         }
 
-        if (event.hup && w.write_fut)
-        {
+        if (event.hup && w.write_fut) {
             Future* f = w.write_fut;
             w.write_fut = null;
 
@@ -493,14 +456,11 @@ fn sz? async_read(mio::Fd fd, char[] buf)
 {
     if (buf.len == 0) return 0;
 
-    while (true)
-    {
+    while (true) {
         sz? n = mio::tcp_read_fd(fd, buf);
 
-        if (catch err = n)
-        {
-            if (!would_block_fault(err))
-            {
+        if (catch err = n) {
+            if (!would_block_fault(err)) {
                 return err~;
             }
 
@@ -517,32 +477,24 @@ fn sz? async_read_timeout(mio::Fd fd, char[] buf, ulong timeout_us)
     if (fd_invalid(fd)) return errno::E_BAD_FILE_DESC~;
     if (buf.len == 0) return 0;
     ulong t0_us = aio::time_us();
-    while (true)
-    {
-//warn("-");
+    while (true) {
         sz? n = mio::tcp_read_fd(fd, buf);
-//warn("-");
-        if (catch err = n)
-        {
-//warn("%s", err);
-            if (!would_block_fault(err))
-            {
+
+        if (catch err = n) {
+            if (!would_block_fault(err)) {
                 return err~;
             }
         
             ulong elapsed = aio::time_us() - t0_us;
 
-            if (elapsed >= timeout_us)
-            {
+            if (elapsed >= timeout_us) {
                 return aio::TIMEOUT~;
             }
-//warn("%d", elapsed);
 
             wait_readable_timeout(fd, timeout_us - elapsed)!;
                         
             continue;
         }
-//warn("%d", n);
         return n;
     }
 }
@@ -561,14 +513,11 @@ fn sz? async_write(mio::Fd fd, char[] buf)
 
     sz total = 0;
 
-    while (total < buf.len)
-    {
+    while (total < buf.len) {
         sz? n = mio::tcp_write_fd(fd, buf[total .. buf.len - 1]);
 
-        if (catch err = n)
-        {
-            if (!would_block_fault(err))
-            {
+        if (catch err = n) {
+            if (!would_block_fault(err)) {
                 if (total > 0) return total;
                 return err~;
             }
@@ -593,22 +542,18 @@ fn sz? async_write_timeout(mio::Fd fd, char[] buf, ulong timeout_us)
     sz total = 0;
 
     ulong t0_us = aio::time_us();
-    while (total < buf.len)
-    {
+    while (total < buf.len) {
         sz? n = mio::tcp_write_fd(fd, buf[total .. buf.len - 1]);
 
-        if (catch err = n)
-        {
-            if (!would_block_fault(err))
-            {
+        if (catch err = n) {
+            if (!would_block_fault(err)) {
                 if (total > 0) return total;
                 return err~;
             }
             
             ulong elapsed = aio::time_us() - t0_us;
 
-            if (elapsed >= timeout_us)
-            {
+            if (elapsed >= timeout_us) {
                 return aio::TIMEOUT~;
             }
             
@@ -631,14 +576,11 @@ fn sz? async_recvfrom(mio::Fd fd, char[] buf, char[] ip_buf, sz* ip_len, ushort*
     if (port == null) return errno::E_INVALID_ARG~;
     if (buf.len == 0) return 0;
 
-    while (true)
-    {
+    while (true) {
         sz? n = mio::udp_recvfrom_fd(fd, buf, ip_buf[..], port);
 
-        if (catch err = n)
-        {
-            if (!would_block_fault(err))
-            {
+        if (catch err = n) {
+            if (!would_block_fault(err)) {
                 return err~;
             }
 
@@ -661,21 +603,17 @@ fn sz? async_recvfrom_timeout(mio::Fd fd, char[] buf, char[] ip_buf, sz* ip_len,
 
     ulong t0_us = aio::time_us();
 
-    while (true)
-    {
+    while (true) {
         sz? n = mio::udp_recvfrom_fd(fd, buf, ip_buf[..], port);
 
-        if (catch err = n)
-        {
-            if (!would_block_fault(err))
-            {
+        if (catch err = n) {
+            if (!would_block_fault(err)) {
                 return err~;
             }
 
             ulong elapsed = aio::time_us() - t0_us;
 
-            if (elapsed >= timeout_us)
-            {
+            if (elapsed >= timeout_us) {
                 return aio::TIMEOUT~;
             }
 
@@ -693,14 +631,11 @@ fn sz? async_sendto(mio::Fd fd, char[] buf, char[] ip_buf, ushort port)
     if (ip_buf.len == 0) return errno::E_INVALID_ARG~;
     if (buf.len == 0) return 0;
 
-    while (true)
-    {
+    while (true) {
         sz? n = mio::udp_sendto_fd(fd, buf, ip_buf, port);
 
-        if (catch err = n)
-        {
-            if (!would_block_fault(err))
-            {
+        if (catch err = n) {
+            if (!would_block_fault(err)) {
                 return err~;
             }
 
@@ -738,27 +673,22 @@ fn mio::Fd[2]? pipe_open()
     bool accepted = false;
     bool connected = false;
 
-    defer (catch err)
-    {
+    defer (catch err) {
         if (accepted) server.close();
     }
 
-    while (!accepted || !connected)
-    {
+    while (!accepted || !connected) {
         poll.poll(&events, 1000)!;
 
-        if (events.is_empty())
-        {
+        if (events.is_empty()) {
             return aio::IO_ERROR~;
         }
 
-        for (sz i = 0; i < events.len; i++)
-        {
+        for (sz i = 0; i < events.len; i++) {
             mio::Event* event = events.get(i);
             if (event == null) continue;
 
-            if (!accepted && event.fd == listener.fd && event.read)
-            {
+            if (!accepted && event.fd == listener.fd && event.read) {
                 ushort peer_port = 0;
 
                 server = listener.accept(ip_buf[..], &peer_port)!;
@@ -766,12 +696,10 @@ fn mio::Fd[2]? pipe_open()
                 continue;
             }
 
-            if (!connected && event.fd == client.fd && (event.write || event.error || event.hup))
-            {
+            if (!connected && event.fd == client.fd && (event.write || event.error || event.hup)) {
                 int err = client.take_error();
 
-                if (err != 0)
-                {
+                if (err != 0) {
                     return aio::IO_ERROR~;
                 }
 

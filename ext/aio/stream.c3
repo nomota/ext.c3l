@@ -23,8 +23,7 @@ fn Stream*? stream_new(Fd fd)
 {
     if (io::fd_invalid(fd)) return CLOSED~;
 
-    if (!io::set_nonblocking(fd))
-    {
+    if (!io::set_nonblocking(fd)) {
         net::socket_close(fd);
         return aio::IO_ERROR~;
     }
@@ -67,8 +66,7 @@ fn void Stream.close(&self)
 {
     if (self.closed) return;
 
-    if (!io::fd_invalid(self.fd))
-    {
+    if (!io::fd_invalid(self.fd)) {
         net::socket_close(self.fd);
         self.fd = io::fd_null();
     }
@@ -131,8 +129,7 @@ fn void? Stream.write_all(&self, char[] data) @maydiscard
 
     sz sent = 0;
 
-    while (sent < data.len)
-    {
+    while (sent < data.len) {
         char[] part = data[sent..];
 
         sz n = self.write(part)!;
@@ -150,12 +147,10 @@ fn void? Stream.write_all_timeout(&self, char[] data, ulong timeout_us)
     sz sent = 0;
     ulong start = aio::time_us();
 
-    while (sent < data.len)
-    {
+    while (sent < data.len) {
         ulong now = aio::time_us();
 
-        if (now - start >= timeout_us)
-        {
+        if (now - start >= timeout_us) {
             return aio::TIMEOUT~;
         }
 
@@ -173,8 +168,7 @@ fn void? Stream.read_exact(&self, char[] buf)
 {
     sz got = 0;
 
-    while (got < buf.len)
-    {
+    while (got < buf.len) {
         char[] part = buf[got..];
 
         sz n = self.read(part)!;
@@ -189,8 +183,7 @@ fn sz? Stream.read_until(&self, char[] buf, char delim)
 {
     sz pos = 0;
 
-    while (pos < buf.len)
-    {
+    while (pos < buf.len) {
         char[1] ch;
 
         sz n = self.read(ch[..])!;

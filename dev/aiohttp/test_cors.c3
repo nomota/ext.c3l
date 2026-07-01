@@ -10,7 +10,7 @@ import std::io;
 import ext::aio::http;
 import ext::debug;
 
-fn aio::http::Response*? home_handler(aio::http::Context* c)
+fn http::Response*? home_handler(http::Context* c)
 {
     return c.text("home")!!;
 }
@@ -22,17 +22,17 @@ fn bool contains(String haystack, String needle)
 
 fn void cors_reset_default()
 {
-    aio::http::CorsOptions opt = aio::http::cors_options_default();
-    aio::http::cors_set_options(&opt);
+    http::CorsOptions opt = http::cors_options_default();
+    http::cors_set_options(&opt);
 }
 
-fn aio::http::Response* fetch_with_cors(String raw)
+fn http::Response* fetch_with_cors(String raw)
 {
-    aio::http::Application app;
+    http::Application app;
     app.init();
     defer app.deinit();
 
-    app.use(&aio::http::cors_default);
+    app.use(&http::cors_default);
     app.get("/hello", &home_handler)!!;
 
     return app.fetch_raw((char[])raw)!!;
@@ -42,14 +42,14 @@ fn void test_cors_preflight_default()
 {
     cors_reset_default();
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "OPTIONS /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Origin: https://example.com\r\n"
         "Access-Control-Request-Method: GET\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 204, "preflight default status mismatch");
     @assert(
@@ -81,13 +81,13 @@ fn void test_cors_normal_request_default()
 {
     cors_reset_default();
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "GET /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Origin: https://example.com\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 200, "normal CORS status mismatch");
     @assert((String)res.body == "home", "normal CORS body mismatch");
@@ -104,12 +104,12 @@ fn void test_cors_no_origin_omits_headers_by_default()
 {
     cors_reset_default();
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "GET /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 200, "no-origin status mismatch");
     @assert((String)res.body == "home", "no-origin body mismatch");
@@ -141,16 +141,16 @@ fn void test_cors_no_origin_omits_headers_by_default()
 
 fn void test_cors_always_send_wildcard()
 {
-    aio::http::CorsOptions opt = aio::http::cors_options_default();
+    http::CorsOptions opt = http::cors_options_default();
     opt.always_send = true;
-    aio::http::cors_set_options(&opt);
+    http::cors_set_options(&opt);
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "GET /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 200, "always-send status mismatch");
     @assert((String)res.body == "home", "always-send body mismatch");
@@ -167,18 +167,18 @@ fn void test_cors_always_send_wildcard()
 
 fn void test_cors_credentials_echo_origin()
 {
-    aio::http::CorsOptions opt = aio::http::cors_options_default();
+    http::CorsOptions opt = http::cors_options_default();
     opt.allow_origin = "*";
     opt.allow_credentials = true;
-    aio::http::cors_set_options(&opt);
+    http::cors_set_options(&opt);
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "GET /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Origin: https://client.example\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 200, "credentials status mismatch");
     @assert(
@@ -198,17 +198,17 @@ fn void test_cors_credentials_echo_origin()
 
 fn void test_cors_custom_origin_allowed()
 {
-    aio::http::CorsOptions opt = aio::http::cors_options_default();
+    http::CorsOptions opt = http::cors_options_default();
     opt.allow_origin = "https://allowed.example";
-    aio::http::cors_set_options(&opt);
+    http::cors_set_options(&opt);
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "GET /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Origin: https://allowed.example\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 200, "custom origin status mismatch");
     @assert(
@@ -224,18 +224,18 @@ fn void test_cors_custom_origin_allowed()
 
 fn void test_cors_custom_origin_list_allowed()
 {
-    aio::http::CorsOptions opt = aio::http::cors_options_default();
+    http::CorsOptions opt = http::cors_options_default();
     opt.allow_origin =
         "https://first.example, https://second.example";
-    aio::http::cors_set_options(&opt);
+    http::cors_set_options(&opt);
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "GET /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Origin: https://second.example\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 200, "origin-list status mismatch");
     @assert(
@@ -251,17 +251,17 @@ fn void test_cors_custom_origin_list_allowed()
 
 fn void test_cors_custom_origin_rejected()
 {
-    aio::http::CorsOptions opt = aio::http::cors_options_default();
+    http::CorsOptions opt = http::cors_options_default();
     opt.allow_origin = "https://allowed.example";
-    aio::http::cors_set_options(&opt);
+    http::cors_set_options(&opt);
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "GET /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Origin: https://client.example\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 200, "rejected origin status mismatch");
     @assert((String)res.body == "home", "rejected origin body mismatch");
@@ -279,17 +279,17 @@ fn void test_cors_custom_origin_rejected()
 
 fn void test_cors_expose_headers()
 {
-    aio::http::CorsOptions opt = aio::http::cors_options_default();
+    http::CorsOptions opt = http::cors_options_default();
     opt.expose_headers = "X-Request-Id, X-Total-Count";
-    aio::http::cors_set_options(&opt);
+    http::cors_set_options(&opt);
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "GET /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Origin: https://example.com\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 200, "expose headers status mismatch");
     @assert(
@@ -301,13 +301,13 @@ fn void test_cors_expose_headers()
 
 fn void test_cors_custom_preflight_values()
 {
-    aio::http::CorsOptions opt = aio::http::cors_options_default();
+    http::CorsOptions opt = http::cors_options_default();
     opt.allow_methods = "GET, POST";
     opt.allow_headers = "X-Token, Content-Type";
     opt.max_age = "60";
-    aio::http::cors_set_options(&opt);
+    http::cors_set_options(&opt);
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "OPTIONS /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Origin: https://example.com\r\n"
@@ -315,7 +315,7 @@ fn void test_cors_custom_preflight_values()
         "Access-Control-Request-Headers: X-Token\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 204, "custom preflight status mismatch");
     @assert(
@@ -336,18 +336,18 @@ fn void test_cors_custom_preflight_values()
 
 fn void test_cors_custom_preflight_status()
 {
-    aio::http::CorsOptions opt = aio::http::cors_options_default();
+    http::CorsOptions opt = http::cors_options_default();
     opt.preflight_status = 200;
-    aio::http::cors_set_options(&opt);
+    http::cors_set_options(&opt);
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "OPTIONS /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Origin: https://example.com\r\n"
         "Access-Control-Request-Method: GET\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(
         res.status == 200,
@@ -361,11 +361,11 @@ fn void test_cors_custom_preflight_status()
 
 fn void test_cors_preflight_echo_request_headers()
 {
-    aio::http::CorsOptions opt = aio::http::cors_options_default();
+    http::CorsOptions opt = http::cors_options_default();
     opt.allow_headers = "";
-    aio::http::cors_set_options(&opt);
+    http::cors_set_options(&opt);
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "OPTIONS /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Origin: https://example.com\r\n"
@@ -373,7 +373,7 @@ fn void test_cors_preflight_echo_request_headers()
         "Access-Control-Request-Headers: X-Custom, X-Trace\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(
         res.status == 204,
@@ -388,18 +388,18 @@ fn void test_cors_preflight_echo_request_headers()
 
 fn void test_cors_preflight_echo_request_method()
 {
-    aio::http::CorsOptions opt = aio::http::cors_options_default();
+    http::CorsOptions opt = http::cors_options_default();
     opt.allow_methods = "";
-    aio::http::cors_set_options(&opt);
+    http::cors_set_options(&opt);
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "OPTIONS /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Origin: https://example.com\r\n"
         "Access-Control-Request-Method: PATCH\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(
         res.status == 204,
@@ -413,19 +413,19 @@ fn void test_cors_preflight_echo_request_method()
 
 fn void test_cors_preflight_credentials()
 {
-    aio::http::CorsOptions opt = aio::http::cors_options_default();
+    http::CorsOptions opt = http::cors_options_default();
     opt.allow_origin = "*";
     opt.allow_credentials = true;
-    aio::http::cors_set_options(&opt);
+    http::cors_set_options(&opt);
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "OPTIONS /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Origin: https://client.example\r\n"
         "Access-Control-Request-Method: POST\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 204, "preflight credentials status mismatch");
     @assert(
@@ -441,18 +441,18 @@ fn void test_cors_preflight_credentials()
 
 fn void test_cors_preflight_rejected_origin()
 {
-    aio::http::CorsOptions opt = aio::http::cors_options_default();
+    http::CorsOptions opt = http::cors_options_default();
     opt.allow_origin = "https://allowed.example";
-    aio::http::cors_set_options(&opt);
+    http::cors_set_options(&opt);
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "OPTIONS /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Origin: https://rejected.example\r\n"
         "Access-Control-Request-Method: GET\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(
         res.status == 204,
@@ -479,13 +479,13 @@ fn void test_cors_preflight_missing_request_method_falls_through()
 {
     cors_reset_default();
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "OPTIONS /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Origin: https://example.com\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(
         res.status == 405,
@@ -499,18 +499,18 @@ fn void test_cors_preflight_missing_request_method_falls_through()
 
 fn void test_cors_vary_disabled()
 {
-    aio::http::CorsOptions opt = aio::http::cors_options_default();
+    http::CorsOptions opt = http::cors_options_default();
     opt.allow_origin = "https://allowed.example";
     opt.vary = false;
-    aio::http::cors_set_options(&opt);
+    http::cors_set_options(&opt);
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "GET /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Origin: https://allowed.example\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     @assert(res.status == 200, "vary-disabled status mismatch");
     @assert(
@@ -529,17 +529,17 @@ fn void test_cors_serialized_headers()
 {
     cors_reset_default();
 
-    aio::http::Response* res = fetch_with_cors(
+    http::Response* res = fetch_with_cors(
         "OPTIONS /hello HTTP/1.1\r\n"
         "Host: localhost\r\n"
         "Origin: https://example.com\r\n"
         "Access-Control-Request-Method: GET\r\n"
         "\r\n"
     );
-    defer aio::http::response_free(res);
+    defer http::response_free(res);
 
     String wire = res.serialize()!!;
-    defer aio::http::localmem.free(wire);
+    defer http::localmem.free(wire);
 
     @assert(
         contains(wire, "HTTP/1.1 204 No Content\r\n"),

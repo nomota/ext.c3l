@@ -76,7 +76,7 @@ fn void? write_all_file(String file_path, char[] data)
 
         if (n <= 0)
         {
-            return aio::http::STATIC_READ_ERROR~;
+            return http::STATIC_READ_ERROR~;
         }
 
         total += n;
@@ -85,7 +85,7 @@ fn void? write_all_file(String file_path, char[] data)
 
 fn char[]? make_large_data()
 {
-    char* p = aio::http::localmem.malloc(LARGE_SIZE)!;
+    char* p = http::localmem.malloc(LARGE_SIZE)!;
     char[] data = p[0:LARGE_SIZE];
 
     for (sz i = 0; i < data.len; i++)
@@ -137,7 +137,7 @@ fn void? setup_files()
     )!;
 
     char[] large = make_large_data()!;
-    defer aio::http::localmem.free(large);
+    defer http::localmem.free(large);
 
     write_all_file(LARGE_FILE, large)!;
 }
@@ -153,7 +153,7 @@ fn String? fetch_raw(String request)
     client.write_all((char[])request)!;
 
     DString out;
-    out.init(aio::http::localmem, 4096);
+    out.init(http::localmem, 4096);
     defer out.free();
 
     while (true)
@@ -188,13 +188,13 @@ fn String? fetch_raw(String request)
 
         if (out.len() > MAX_RESPONSE_BYTES)
         {
-            return aio::http::REQUEST_TOO_LARGE~;
+            return http::REQUEST_TOO_LARGE~;
         }
     }
 
     client.close();
 
-    return out.copy_str(aio::http::localmem);
+    return out.copy_str(http::localmem);
 }
 
 fn void? wait_server_ready()
@@ -239,67 +239,40 @@ fn void wake_server()
 
 // Handlers
 
-fn void? test_stream_writer(
-    aio::Stream* stream,
-    void* arg
-)
+fn void? test_stream_writer(aio::Stream* stream, void* arg)
 {
     g_stream_writer_called++;
 
-    aio::http::write_chunk_string(
-        stream,
-        "hello"
-    )!;
+    http::write_chunk(stream, "hello")!;
 
-    aio::http::write_chunk_string(
-        stream,
-        " stream"
-    )!;
+    http::write_chunk(stream, " stream")!;
 }
 
-fn void? no_body_stream_writer(
-    aio::Stream* stream,
-    void* arg
-)
+fn void? no_body_stream_writer(aio::Stream* stream, void* arg)
 {
     g_no_body_stream_writer_called++;
 
-    aio::http::write_chunk_string(
-        stream,
-        "must-not-run"
-    )!;
+    http::write_chunk(stream, "must-not-run")!;
 }
 
 fn Response*? stream_handler(Ctx* c)
 {
-    return c.stream(
-        &test_stream_writer,
-        null
-    )!;
+    return c.stream(&test_stream_writer, null)!;
 }
 
 fn Response*? head_stream_handler(Ctx* c)
 {
-    return c.stream(
-        &test_stream_writer,
-        null
-    )!;
+    return c.stream(&test_stream_writer, null)!;
 }
 
 fn Response*? head_file_handler(Ctx* c)
 {
-    return c.file(
-        LARGE_FILE,
-        LARGE_SIZE
-    )!;
+    return c.file(LARGE_FILE, LARGE_SIZE)!;
 }
 
 fn Response*? no_body_stream_handler(Ctx* c)
 {
-    Response* res = c.stream(
-        &no_body_stream_writer,
-        null
-    )!;
+    Response* res = c.stream(&no_body_stream_writer, null)!;
 
     res.set_status(204)!;
 
@@ -308,10 +281,7 @@ fn Response*? no_body_stream_handler(Ctx* c)
 
 fn Response*? no_body_file_handler(Ctx* c)
 {
-    Response* res = c.file(
-        LARGE_FILE,
-        LARGE_SIZE
-    )!;
+    Response* res = c.file(LARGE_FILE, LARGE_SIZE)!;
 
     res.set_status(204)!;
 
@@ -325,75 +295,64 @@ fn void? server_task(void* arg)
     ApplicationServer* server =
         (ApplicationServer*)arg;
 
-    if (catch err = server.serve())
-    {
-        return;
-    }
+    server.serve()!;
 }
 
 // Tests
 
 fn void test_header_validation()
 {
-    Response* res = aio::http::response_new()!!;
-    defer aio::http::response_free(res);
+    Response* res = http::response_new()!!;
+    defer http::response_free(res);
 
     if (catch err = res.header("Bad Header", "ok"))
     {
-        @assert(
-            err == aio::http::INVALID_HEADER_NAME,
+        @assert(err == http::INVALID_HEADER_NAME,
             "space in header name should be rejected"
         );
     }
     else
     {
-        @assert(
-            false,
+        @assert(false,
             "invalid header name was accepted"
         );
     }
 
     if (catch err = res.header("Bad:Header", "ok"))
     {
-        @assert(
-            err == aio::http::INVALID_HEADER_NAME,
+        @assert(err == http::INVALID_HEADER_NAME,
             "colon in header name should be rejected"
         );
     }
     else
     {
-        @assert(
-            false,
+        @assert(false,
             "header name containing colon was accepted"
         );
     }
 
     if (catch err = res.header("X-Test", "bad\rvalue"))
     {
-        @assert(
-            err == aio::http::INVALID_HEADER_VALUE,
+        @assert(err == http::INVALID_HEADER_VALUE,
             "CR in header value should be rejected"
         );
     }
     else
     {
-        @assert(
-            false,
+        @assert(false,
             "header value containing CR was accepted"
         );
     }
 
     if (catch err = res.header("X-Test", "bad\nvalue"))
     {
-        @assert(
-            err == aio::http::INVALID_HEADER_VALUE,
+        @assert(err == http::INVALID_HEADER_VALUE,
             "LF in header value should be rejected"
         );
     }
     else
     {
-        @assert(
-            false,
+        @assert(false,
             "header value containing LF was accepted"
         );
     }
@@ -402,8 +361,7 @@ fn void test_header_validation()
 
     String value = res.headers.get("X-Test")!!;
 
-    @assert(
-        value == "good value",
+    @assert(value == "good value",
         "valid header value mismatch"
     );
 }
@@ -416,35 +374,25 @@ fn void? test_static_streaming()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw);
+    defer http::localmem.free(raw);
 
-    @assert(
-        status_is(raw, 200),
+    @assert(status_is(raw, 200),
         "static streaming status mismatch"
     );
 
-    @assert(
-        has_header(
-            raw,
-            "Transfer-Encoding: chunked\r\n"
-        ),
+    @assert(has_header(raw, "Transfer-Encoding: chunked\r\n"),
         "static streaming transfer encoding missing"
     );
 
-    @assert(
-        !has_header(raw, "Content-Length:"),
+    @assert(!has_header(raw, "Content-Length:"),
         "static streaming response has content length"
     );
 
-    @assert(
-        raw.contains(
-            "STATIC_STREAM_MARKER_0123456789"
-        ),
+    @assert(raw.contains("STATIC_STREAM_MARKER_0123456789"),
         "static streaming marker missing"
     );
 
-    @assert(
-        raw.contains("\r\n0\r\n\r\n"),
+    @assert(raw.contains("\r\n0\r\n\r\n"),
         "static streaming last chunk missing"
     );
 }
@@ -459,31 +407,21 @@ fn void? test_head_stream_file()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw_stream);
+    defer http::localmem.free(raw_stream);
 
-    @assert(
-        status_is(raw_stream, 200),
+    @assert(status_is(raw_stream, 200),
         "HEAD stream status mismatch"
     );
 
-    @assert(
-        has_header(
-            raw_stream,
-            "Content-Length: 0\r\n"
-        ),
+    @assert(has_header(raw_stream, "Content-Length: 0\r\n"),
         "HEAD stream content length mismatch"
     );
 
-    @assert(
-        !has_header(
-            raw_stream,
-            "Transfer-Encoding: chunked\r\n"
-        ),
+    @assert(!has_header(raw_stream, "Transfer-Encoding: chunked\r\n"),
         "HEAD stream should not be chunked"
     );
 
-    @assert(
-        body_part(raw_stream).len == 0,
+    @assert(body_part(raw_stream).len == 0,
         "HEAD stream contains a response body"
     );
 
@@ -506,23 +444,15 @@ fn void? test_head_stream_file()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw_file);
+    defer http::localmem.free(raw_file);
 
-    @assert(
-        status_is(raw_file, 200),
-        "HEAD file status mismatch"
-    );
+    @assert(status_is(raw_file, 200),
+        "HEAD file status mismatch");
 
-    @assert(
-        has_header(raw_file, expected_length),
-        "HEAD file content length mismatch"
-    );
+    @assert(has_header(raw_file, expected_length),
+        "HEAD file content length mismatch");
 
-    @assert(
-        !has_header(
-            raw_file,
-            "Transfer-Encoding: chunked\r\n"
-        ),
+    @assert(!has_header(raw_file, "Transfer-Encoding: chunked\r\n"),
         "HEAD file should not be chunked"
     );
 
@@ -542,7 +472,7 @@ fn void? test_no_body_stream_file()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw_stream);
+    defer http::localmem.free(raw_stream);
 
     @assert(
         status_is(raw_stream, 204),
@@ -581,7 +511,7 @@ fn void? test_no_body_stream_file()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(raw_file);
+    defer http::localmem.free(raw_file);
 
     @assert(
         status_is(raw_file, 204),
@@ -625,7 +555,7 @@ fn void? test_static_security()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(traversal);
+    defer http::localmem.free(traversal);
 
     @assert(
         status_is(traversal, 403),
@@ -638,7 +568,7 @@ fn void? test_static_security()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(backslash);
+    defer http::localmem.free(backslash);
 
     @assert(
         status_is(backslash, 403) ||
@@ -652,7 +582,7 @@ fn void? test_static_security()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(directory);
+    defer http::localmem.free(directory);
 
     @assert(
         status_is(directory, 404),
@@ -670,7 +600,7 @@ fn void? test_static_security()
         "Connection: close\r\n"
         "\r\n"
     )!;
-    defer aio::http::localmem.free(link);
+    defer http::localmem.free(link);
 
     @assert(
         status_is(link, 403),

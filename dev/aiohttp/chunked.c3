@@ -23,50 +23,8 @@ faultdef CHUNK_SIZE_TOO_LARGE;
 // Helpers
 // 
 
-fn bool chunk_is_hex(char c) @inline @local
-{
-    if (c >= '0' && c <= '9') return true;
-    if (c >= 'a' && c <= 'f') return true;
-    if (c >= 'A' && c <= 'F') return true;
-    return false;
-}
 
-fn sz chunk_hex_value(char c) @local
-{
-    if (c >= '0' && c <= '9') return (sz)(c - '0');
-    if (c >= 'a' && c <= 'f') return (sz)(c - 'a' + 10);
-    if (c >= 'A' && c <= 'F') return (sz)(c - 'A' + 10);
-    return 0;
-}
-
-fn sz chunk_find_crlf(char[] data, sz start) @local
-{
-    if (start < 0) return -1;
-
-    for (sz i = start; i + 1 < data.len; i++)
-    {
-        if (data[i] == '\r' && data[i + 1] == '\n')
-        {
-            return i;
-        }
-    }
-
-    return -1;
-}
-
-fn sz chunk_find_lf(char[] data, sz start) @local
-{
-    if (start < 0) return -1;
-
-    for (sz i = start; i < data.len; i++)
-    {
-        if (data[i] == '\n') return i;
-    }
-
-    return -1;
-}
-
-fn sz? chunk_parse_size_line(char[] line)
+fn sz? parse_size_line(char[] line) @local
 {
     if (line.len == 0) return INVALID_CHUNKED_BODY~;
 
@@ -81,12 +39,9 @@ fn sz? chunk_parse_size_line(char[] line)
         //   4;ext=value
         if (c == ';') break;
 
-        if (c == ' ' || c == '\t')
-        {
-            continue;
-        }
+        if (c == ' ' || c == '\t') continue;
 
-        if (!chunk_is_hex(c))
+        if (!is_hex(c))
         {
             return INVALID_CHUNKED_BODY~;
         }
@@ -98,7 +53,7 @@ fn sz? chunk_parse_size_line(char[] line)
             return CHUNK_SIZE_TOO_LARGE~;
         }
 
-        n = n * 16 + chunk_hex_value(c);
+        n = n * 16 + hex_value(c);
 
         if (n > MAX_BODY_BYTES)
         {
@@ -117,12 +72,12 @@ fn sz? chunked_expected_len(char[] input)
 
     while (true)
     {
-        sz line_end = chunk_find_crlf(input, pos);
+        sz line_end = find_crlf(input, pos);
         sz line_gap = 2;
 
         if (line_end < 0)
         {
-            line_end = chunk_find_lf(input, pos);
+            line_end = find_lf(input, pos);
             line_gap = 1;
         }
 
@@ -138,7 +93,7 @@ fn sz? chunked_expected_len(char[] input)
             size_line = size_line[0:size_line.len - 1];
         }
 
-        sz chunk_size = chunk_parse_size_line(size_line)!;
+        sz chunk_size = parse_size_line(size_line)!;
 
         pos = line_end + line_gap;
 
@@ -146,12 +101,12 @@ fn sz? chunked_expected_len(char[] input)
         {
             while (true)
             {
-                sz trailer_end = chunk_find_crlf(input, pos);
+                sz trailer_end = find_crlf(input, pos);
                 sz trailer_gap = 2;
 
                 if (trailer_end < 0)
                 {
-                    trailer_end = chunk_find_lf(input, pos);
+                    trailer_end = find_lf(input, pos);
                     trailer_gap = 1;
                 }
 
@@ -227,12 +182,12 @@ fn ChunkedDecodeResult? chunked_decode(char[] input)
 
     while (true)
     {
-        sz line_end = chunk_find_crlf(input, pos);
+        sz line_end = find_crlf(input, pos);
         sz line_gap = 2;
 
         if (line_end < 0)
         {
-            line_end = chunk_find_lf(input, pos);
+            line_end = find_lf(input, pos);
             line_gap = 1;
         }
 
@@ -249,7 +204,7 @@ fn ChunkedDecodeResult? chunked_decode(char[] input)
             size_line = size_line[0:size_line.len - 1];
         }
 
-        sz chunk_size = chunk_parse_size_line(size_line)!;
+        sz chunk_size = parse_size_line(size_line)!;
 
         pos = line_end + line_gap;
 
@@ -258,12 +213,12 @@ fn ChunkedDecodeResult? chunked_decode(char[] input)
             // Consume trailers until blank line.
             while (true)
             {
-                sz trailer_end = chunk_find_crlf(input, pos);
+                sz trailer_end = find_crlf(input, pos);
                 sz trailer_gap = 2;
 
                 if (trailer_end < 0)
                 {
-                    trailer_end = chunk_find_lf(input, pos);
+                    trailer_end = find_lf(input, pos);
                     trailer_gap = 1;
                 }
 
@@ -353,11 +308,11 @@ fn bool transfer_encoding_has_chunked(String value) @local
 
         if (comma < 0)
         {
-            part = trim_spaces(value[start:value.len - start]);
+            part = value[start:value.len - start].trim();
             return str_iequals(part, "chunked");
         }
 
-        part = trim_spaces(value[start:comma - start]);
+        part = value[start:comma - start].trim();
 
         if (str_iequals(part, "chunked")) return true;
 
